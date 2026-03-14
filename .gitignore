@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Config con datos sensibles (usa config.example.json como plantilla)
+config.json
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Logs y datos temporales
+*.log
+*.tmp
+.cache/
