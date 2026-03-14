@@ -1,0 +1,26 @@
+{
+  "name": "Hotel Ejemplo Mirador",
+  "city": "Barcelona",
+  "stars": 4,
+  "room_types": ["doble estándar", "doble superior", "suite junior", "habitación familiar"],
+  "base_prices": {
+    "doble estándar": 120.0,
+    "doble superior": 155.0,
+    "suite junior": 210.0,
+    "habitación familiar": 180.0
+  },
+  "competitor_names": [
+    "Hotel Arts",
+    "Gran Hotel",
+    "Catalonia",
+    "NH Barcelona"
+  ],
+  "target_occupancy": 0.80,
+  "min_price": 70.0,
+  "max_price": 450.0,
+  "anthropic_api_key": "sk-ant-PON_AQUI_TU_CLAVE",
+  "smtp_email": "tuemail@gmail.com",
+  "smtp_password": "contraseña-de-aplicacion-google",
+  "report_recipient": "director@tuhotel.com",
+  "schedule_time": "07:30"
+}
