@@ -1,0 +1,9 @@
+#!/bin/bash
+# RevMax Admin — lanzador. Al hacer doble clic abre Terminal y arranca el panel.
+PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+COMMAND_FILE="$PROJECT_ROOT/Abrir RevMax Admin.command"
+if [ -x "$COMMAND_FILE" ]; then
+  open -a Terminal "$COMMAND_FILE"
+else
+  osascript -e 'display dialog "No se encontró el script de RevMax.\nAsegúrate de que la app está dentro de la carpeta del proyecto." with title "RevMax Admin" buttons {"OK"} default button 1 with icon stop'
+fi

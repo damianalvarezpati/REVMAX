@@ -25,10 +25,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 app = FastAPI(title="RevMax Admin")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-DB_PORTAL  = "data/portal.db"
-DB_ALERTS  = "data/alerts.db"
-REPORTS_DIR = "data/reports"
-CONFIG_FILE = "config.json"
+BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+DB_PORTAL  = os.path.join(BASE_DIR, "data", "portal.db")
+DB_ALERTS  = os.path.join(BASE_DIR, "data", "alerts.db")
+REPORTS_DIR = os.path.join(BASE_DIR, "data", "reports")
+CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 
 
 # ─────────────────────────────────────────────────────────
@@ -116,7 +117,7 @@ def get_reports(hotel_id=None, limit=50):
 
     # También buscar en data/
     for fname in ["report_preview.html", "alert_latest.html", "alert_preview.html"]:
-        fpath = f"data/{fname}"
+        fpath = os.path.join(BASE_DIR, "data", fname)
         if os.path.exists(fpath):
             stat = os.stat(fpath)
             reports.append({
@@ -198,7 +199,7 @@ def api_report_html(report_id: int):
 @app.get("/api/preview/{filename}")
 def api_preview(filename: str):
     safe = filename.replace("..", "").replace("/", "")
-    path = f"data/{safe}"
+    path = os.path.join(BASE_DIR, "data", safe)
     if os.path.exists(path):
         return FileResponse(path, media_type="text/html")
     return JSONResponse({"error": "No encontrado"}, status_code=404)
@@ -237,7 +238,7 @@ async def api_add_client(request: Request):
 
 
 @app.post("/api/run-analysis")
-async def api_run_analysis(request: Request, background_tasks: BackgroundTasks):
+async def api_run_analysis(request: Request):
     data = await request.json()
     hotel_name = data.get("hotel_name", "")
     hotel_id   = data.get("hotel_id", 1)
@@ -251,11 +252,78 @@ async def api_run_analysis(request: Request, background_tasks: BackgroundTasks):
     if not hotel_name:
         return JSONResponse({"error": "Falta nombre del hotel"}, status_code=400)
 
-    background_tasks.add_task(_run_bg, hotel_name, city, api_key, hotel_id, cfg)
+    # Limpiar error anterior al iniciar nuevo análisis
+    _clear_last_analysis_error()
+
+    send_email = data.get("send_email", False)
+    # Ejecutar en segundo plano en el mismo event loop (asyncio.create_task)
+    asyncio.create_task(_run_bg(hotel_name, city, api_key, hotel_id, cfg, send_email))
     return {"ok": True, "message": f"Análisis iniciado para '{hotel_name}' (~90s)"}
 
 
-async def _run_bg(hotel_name, city, api_key, hotel_id, cfg):
+def _last_error_path():
+    return os.path.join(BASE_DIR, "data", "last_analysis_error.json")
+
+def _clear_last_analysis_error():
+    p = _last_error_path()
+    if os.path.exists(p):
+        try:
+            os.remove(p)
+        except Exception:
+            pass
+
+def _get_error_source(tb):
+    """Extrae el origen del error desde el traceback (archivo y línea de nuestro código)."""
+    try:
+        import traceback as tb_mod
+        if tb is None:
+            return "desconocido"
+        # extract_tb es compatible con 3.9 y devuelve (filename, lineno, name, line)
+        # Orden: más reciente primero (último frame de nuestra código antes de la lib)
+        for filename, lineno, _name, _line in reversed(tb_mod.extract_tb(tb)):
+            if "site-packages" in filename or "lib/python" in filename:
+                continue
+            if "agents" in filename and "agent_01" in filename:
+                return f"Agente Discovery (agents/agent_01_discovery.py, línea {lineno})"
+            if "agents" in filename and "agent_02" in filename:
+                return f"Agente Compset (agents/agent_02_compset.py, línea {lineno})"
+            if "agents" in filename and "agent_03" in filename:
+                return f"Agente Pricing (agents/agent_03_pricing.py, línea {lineno})"
+            if "agents" in filename and "agent_04" in filename:
+                return f"Agente Demand (agents/agent_04_demand.py, línea {lineno})"
+            if "agents" in filename and "agent_05" in filename:
+                return f"Agente Reputación (agents/agent_05_reputation.py, línea {lineno})"
+            if "agents" in filename and "agent_06" in filename:
+                return f"Agente Distribución (agents/agent_06_distribution.py, línea {lineno})"
+            if "agents" in filename and "agent_07" in filename:
+                return f"Agente Informe (agents/agent_07_report.py, línea {lineno})"
+            if "orchestrator" in filename:
+                return f"Orquestador (orchestrator.py, línea {lineno})"
+            if "report_mailer" in filename or ("mailer" in filename and "report" in filename):
+                return f"Email (mailer/, línea {lineno})"
+            if "scraper" in filename or "booking_scraper" in filename or "rate_shopper" in filename:
+                return f"Scraping (scraper/, línea {lineno})"
+        return "pipeline de análisis"
+    except Exception:
+        return "desconocido"
+
+
+def _write_last_analysis_error(msg: str, source: str = "", exc_type: str = ""):
+    p = _last_error_path()
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    try:
+        data = {"error": msg, "at": datetime.now().isoformat()}
+        if source:
+            data["source"] = source
+        if exc_type:
+            data["exc_type"] = exc_type
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+async def _run_bg(hotel_name, city, api_key, hotel_id, cfg, send_email=False):
     try:
         from orchestrator import run_full_analysis
         result = await run_full_analysis(hotel_name=hotel_name, city_hint=city, api_key=api_key)
@@ -263,9 +331,9 @@ async def _run_bg(hotel_name, city, api_key, hotel_id, cfg):
 
         from mailer.report_mailer_v2 import build_email_html_v2
         html = build_email_html_v2(result, report)
-        os.makedirs("data/reports", exist_ok=True)
+        os.makedirs(REPORTS_DIR, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M")
-        html_path = f"data/reports/{hotel_name.replace(' ','_')}_{ts}.html"
+        html_path = os.path.join(REPORTS_DIR, f"{hotel_name.replace(' ','_')}_{ts}.html")
         with open(html_path, "w", encoding="utf-8") as f:
             f.write(html)
         # Guardar en portal DB si existe
@@ -279,19 +347,51 @@ async def _run_bg(hotel_name, city, api_key, hotel_id, cfg):
             )
             conn.commit(); conn.close()
 
-        # Enviar email si está configurado
+        # Enviar email solo si el usuario eligió "Generar y enviar" y hay config
         smtp_email    = cfg.get("smtp_email","")
         smtp_password = cfg.get("smtp_password","")
         recipient     = cfg.get("report_recipient", smtp_email)
-        if smtp_email and smtp_password and recipient:
-            from mailer.report_mailer_v2 import send_email
-            send_email(html, report.get("email_subject", f"RevMax · {hotel_name}"),
-                       recipient, smtp_email, smtp_password)
+        if send_email and smtp_email and smtp_password and recipient:
+            from mailer.report_mailer_v2 import send_email as do_send_email
+            do_send_email(html, report.get("email_subject", f"RevMax · {hotel_name}"),
+                          recipient, smtp_email, smtp_password)
 
     except Exception as e:
         import traceback
-        with open("data/admin_errors.log","a") as f:
-            f.write(f"\n{datetime.now().isoformat()} ERROR {hotel_name}:\n{traceback.format_exc()}\n")
+        try:
+            tb = e.__traceback__
+            err_log = os.path.join(BASE_DIR, "data", "admin_errors.log")
+            os.makedirs(os.path.dirname(err_log), exist_ok=True)
+            with open(err_log, "a", encoding="utf-8") as f:
+                f.write(f"\n{datetime.now().isoformat()} ERROR {hotel_name}:\n{traceback.format_exc()}\n")
+            source = _get_error_source(tb)
+            exc_type = type(e).__name__
+            err_msg = str(e)
+            if "credit balance is too low" in err_msg.lower() or "credits" in err_msg.lower():
+                err_msg = "Saldo de créditos insuficiente en Anthropic. Añade créditos en console.anthropic.com → Plans & Billing y usa la misma API key que tienes en Config."
+                source = "API de Anthropic (cuenta / créditos)"
+            elif "invalid_request_error" in err_msg or "BadRequestError" in exc_type:
+                err_msg = (err_msg[:300] + "…") if len(err_msg) > 300 else err_msg
+                if not source or source == "pipeline de análisis":
+                    source = "API de Anthropic"
+            elif "AuthenticationError" in exc_type or "authentication" in err_msg.lower():
+                source = "API de Anthropic (API key inválida o expirada)"
+            _write_last_analysis_error(err_msg, source=source, exc_type=exc_type)
+        except Exception:
+            _write_last_analysis_error(str(e), source="al guardar el error", exc_type=type(e).__name__)
+
+
+@app.get("/api/last-analysis-error")
+def api_last_analysis_error():
+    """Devuelve el último error del análisis en segundo plano (para mostrarlo en el panel)."""
+    p = _last_error_path()
+    if not os.path.exists(p):
+        return {"error": None}
+    try:
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"error": None}
 
 
 @app.post("/api/update-plan")
@@ -445,7 +545,7 @@ iframe{width:100%;border:none;}
     <div class="ni" onclick="nav('reports')" id="nav-reports"><span class="ico">◎</span>Informes</div>
     <div class="ni" onclick="nav('alerts')" id="nav-alerts"><span class="ico">◌</span>Alertas
       <span class="badge" id="ab" style="display:none">0</span></div>
-    <div class="ni" onclick="nav('run')" id="nav-run"><span class="ico">▷</span>Lanzar análisis</div>
+    <div class="ni" onclick="nav('run')" id="nav-run"><span class="ico">▷</span>Pruebas / Envío manual</div>
     <div class="ni" onclick="nav('config')" id="nav-config"><span class="ico">◇</span>Config</div>
   </div>
   <div class="side-foot" id="last-refresh">—</div>
@@ -457,6 +557,14 @@ iframe{width:100%;border:none;}
 <div id="pg-dash">
   <div class="ph"><div><div class="pt">Dashboard</div><div class="ps" id="dash-ts">—</div></div>
     <button class="btn bs" onclick="loadAll()">↺ Refrescar</button></div>
+  <div class="card" style="margin-bottom:14px;background:linear-gradient(135deg, var(--blb) 0%, rgba(30,80,120,.15) 100%);border:1px solid rgba(30,120,180,.3);">
+    <div class="ct">Pruebas y envío manual</div>
+    <p style="color:var(--tx2);font-size:13px;margin:0 0 12px 0;">Los informes a clientes se generan y envían solos (programación diaria). Aquí puedes <strong>probar</strong> el sistema o mandar un <strong>informe extra</strong> cuando quieras.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn bp" onclick="nav('run'); document.getElementById('run-mode').value='preview';" style="flex:1;min-width:160px;">◇ Probar (solo preview)</button>
+      <button class="btn bp" onclick="nav('run'); document.getElementById('run-mode').value='send';" style="flex:1;min-width:160px;">✉ Enviar informe ahora</button>
+    </div>
+  </div>
   <div class="mrow" id="mrow"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
     <div class="card"><div class="ct">Últimos informes</div>
@@ -505,8 +613,8 @@ iframe{width:100%;border:none;}
 
 <!-- LANZAR ANÁLISIS -->
 <div id="pg-run" style="display:none">
-  <div class="ph"><div><div class="pt">Lanzar análisis</div>
-    <div class="ps">Ejecuta el pipeline completo para un hotel</div></div></div>
+  <div class="ph"><div><div class="pt">Pruebas y envío manual</div>
+    <div class="ps">Los informes diarios son automáticos. Aquí puedes ejecutar un análisis de prueba (solo preview) o mandar un informe extra por email cuando quieras.</div></div></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
     <div class="card">
       <div class="ct">Configuración del análisis</div>
@@ -514,16 +622,16 @@ iframe{width:100%;border:none;}
         <input class="fi" id="run-hotel" placeholder="ej: Hotel Arts Barcelona"></div>
       <div class="fg"><label class="fl">Ciudad</label>
         <input class="fi" id="run-city" placeholder="ej: Barcelona"></div>
-      <div class="fg"><label class="fl">Email destinatario (opcional)</label>
+      <div class="fg"><label class="fl">Email destinatario (opcional, para enviar)</label>
         <input class="fi" id="run-email" placeholder="director@hotel.com" type="email"></div>
       <div class="fg"><label class="fl">Modo</label>
         <select class="fi" id="run-mode">
-          <option value="preview">Solo preview (no enviar email)</option>
-          <option value="send">Generar y enviar email</option>
+          <option value="preview">Solo generar informe (preview, no envía email)</option>
+          <option value="send">Generar informe y enviar por email</option>
         </select></div>
       <button class="btn bp" style="width:100%;justify-content:center;margin-top:4px;"
         id="run-btn" onclick="runAnalysis()">
-        <span id="run-btn-txt">▷ Ejecutar análisis</span>
+        <span id="run-btn-txt">▷ Generar informe</span>
       </button>
       <div id="run-status" style="display:none;margin-top:14px;background:var(--blb);
            color:var(--bl);border-radius:8px;padding:12px;font-size:13px;"></div>
@@ -838,28 +946,48 @@ async function runAnalysis(){
 
   if(!r.ok){
     toast(r.error||'Error','err');
-    btn.disabled=false; btxt.textContent='▷ Ejecutar análisis';
+    btn.disabled=false; btxt.textContent='▷ Generar informe';
     status.style.display='none'; return;
   }
 
-  // Poll cada 8s para detectar cuando termina
+  // Poll cada 4s: comprobar si terminó (preview) o si hubo error
   let polls=0;
   const poll=setInterval(async()=>{
     polls++;
-    if(polls>18){
+    if(polls>45){
       clearInterval(poll);
-      btn.disabled=false; btxt.textContent='▷ Ejecutar análisis';
-      status.textContent='Análisis completado. Recarga los informes.';
-      toast('Análisis completado','ok');
+      btn.disabled=false; btxt.textContent='▷ Generar informe';
+      status.textContent='Tardó más de lo esperado. Revisa la pestaña Config y el log data/admin_errors.log';
+      status.style.background='var(--blb);color:var(--bl);';
       await loadAll();
       return;
+    }
+    // ¿Hubo error?
+    const errR=await fetch('/api/last-analysis-error').catch(()=>null);
+    if(errR&&errR.ok){
+      const errData=await errR.json();
+      if(errData&&errData.error){
+        clearInterval(poll);
+        btn.disabled=false; btxt.textContent='▷ Generar informe';
+        status.style.display='block';
+        status.style.background='#3d2020'; status.style.color='#f0a0a0';
+        status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
+        status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
+        let txt='Error: '+errData.error;
+        if(errData.source) txt+='\n\nOrigen: '+errData.source;
+        if(errData.exc_type) txt+='\nTipo: '+errData.exc_type;
+        status.textContent=txt;
+        toast('Análisis falló','err');
+        return;
+      }
     }
     // Verificar si apareció el preview
     const previewR=await fetch('/api/preview/report_preview.html',{method:'HEAD'}).catch(()=>null);
     if(previewR&&previewR.ok){
       clearInterval(poll);
-      btn.disabled=false; btxt.textContent='▷ Ejecutar análisis';
+      btn.disabled=false; btxt.textContent='▷ Generar informe';
       status.style.display='none';
+      status.style.background=''; status.style.color='';
       toast('¡Análisis completado!','ok');
       document.getElementById('preview-area').innerHTML=
         `<div class="iframe-wrap"><iframe src="/api/preview/report_preview.html"
@@ -867,7 +995,7 @@ async function runAnalysis(){
          </iframe></div>`;
       await loadAll();
     }
-  },8000);
+  },4000);
 }
 
 async function viewReport(id,subject){
