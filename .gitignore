@@ -12,7 +12,7 @@ env/
 dist/
 build/
 
-# Config con datos sensibles (usa config.example.json como plantilla)
+# Config con datos sensibles
 config.json
 
 # IDE / OS
