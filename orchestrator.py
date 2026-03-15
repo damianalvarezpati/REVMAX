@@ -41,6 +41,12 @@ from action_planner import (
 )
 from notification_logic import build_notification_bundle
 from intelligence_memory import build_memory_bundle
+from opportunity_engine import (
+    build_opportunities,
+    build_opportunity_summary,
+    count_high_opportunities,
+    get_opportunity_types,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -595,7 +601,12 @@ async def run_full_analysis(
     briefing["attention_trend"] = memory_bundle["attention_trend"]
     briefing["previous_snapshot_found"] = memory_bundle["previous_snapshot_found"]
     briefing["action_shift"] = memory_bundle.get("action_shift")
-    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(recommended_actions)} · Notif: {len(briefing['top_notifications'])} · Memoria: {'prev' if memory_bundle['previous_snapshot_found'] else 'primera'}")
+    opportunities = build_opportunities(briefing)
+    briefing["opportunities"] = opportunities
+    briefing["opportunity_summary"] = build_opportunity_summary(opportunities)
+    briefing["high_opportunity_count"] = count_high_opportunities(opportunities)
+    briefing["opportunity_types"] = get_opportunity_types(opportunities)
+    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(recommended_actions)} · Notif: {len(briefing['top_notifications'])} · Memoria: {'prev' if memory_bundle['previous_snapshot_found'] else 'primera'} · Oportunidades: {len(opportunities)}")
 
     full_analysis = {
         "hotel_name": hotel_name,
@@ -712,6 +723,11 @@ async def run_fast_demo(
     briefing["attention_trend"] = memory_bundle["attention_trend"]
     briefing["previous_snapshot_found"] = memory_bundle["previous_snapshot_found"]
     briefing["action_shift"] = memory_bundle.get("action_shift")
+    opportunities = build_opportunities(briefing)
+    briefing["opportunities"] = opportunities
+    briefing["opportunity_summary"] = build_opportunity_summary(opportunities)
+    briefing["high_opportunity_count"] = count_high_opportunities(opportunities)
+    briefing["opportunity_types"] = get_opportunity_types(opportunities)
     full_analysis = {
         "hotel_name": hotel_name,
         "analysis_date": datetime.now().strftime("%Y-%m-%d"),

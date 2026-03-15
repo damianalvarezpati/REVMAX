@@ -195,7 +195,6 @@ def _build_report_prompt(full_analysis: dict) -> str:
 
     # Conflictos y decisión consolidada
     conflicts = briefing.get("conflicts", [])
-    opportunities = briefing.get("opportunities", [])
     alerts = briefing.get("alerts", [])
     system_confidence = briefing.get("system_confidence", 0.7)
     consolidated_action = briefing.get("consolidated_price_action", price_action)
@@ -241,6 +240,10 @@ def _build_report_prompt(full_analysis: dict) -> str:
     attention_trend = briefing.get("attention_trend", "stable")
     previous_snapshot_found = briefing.get("previous_snapshot_found", False)
     action_shift = briefing.get("action_shift")
+    opportunities = briefing.get("opportunities", [])
+    opportunity_summary = briefing.get("opportunity_summary", "")
+    high_opportunity_count = briefing.get("high_opportunity_count", 0)
+    opportunity_types = briefing.get("opportunity_types", [])
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -317,8 +320,12 @@ ESTRATEGIA DERIVADA (nómbrala en el informe y conecta con las acciones):
 CONFLICTOS ENTRE AGENTES:
 {conflicts_text}
 
-OPORTUNIDADES DETECTADAS:
-{chr(10).join(f'  - {o}' for o in opportunities) if opportunities else '  Ninguna adicional.'}
+OPORTUNIDADES IDENTIFICADAS POR REVMAX (generadas por código; no inventar oportunidades fuera de esta lista; diferenciar oportunidad de alerta o acción):
+  opportunity_summary: {opportunity_summary or 'Ninguna.'}
+  high_opportunity_count: {high_opportunity_count}
+  opportunity_types: {opportunity_types}
+  Lista de oportunidades (si hay high, deben aparecer en report_text; conectar con acciones y estrategia):
+{chr(10).join(f'  [{o.get("opportunity_level","?").upper()}] {o.get("type","?")}: {o.get("title","?")} | summary: {o.get("summary","")} | rationale: {o.get("rationale","")} | source_items: {", ".join(o.get("source_items",[]))} | potential_value: {o.get("potential_value","")} | recommended_posture: {o.get("recommended_posture","")}' for o in opportunities) if opportunities else '  (vacío)'}
 
 ALERTAS DETECTADAS POR REVMAX (generadas por código; si hay high o critical deben aparecer en el informe):
   alert_summary: {alert_summary or 'Ninguna.'}
@@ -373,6 +380,7 @@ REGLAS OBLIGATORIAS:
 - SEÑALES DE MERCADO: Usa las market_signals para reforzar el "por qué" de la decisión consolidada. Si hay señales raise fuertes (market_raise_signal_count: {market_raise_signal_count}), conéctalas con la estrategia y las acciones en report_text. Si hay señales caution o lower (market_caution_signal_count: {market_caution_signal_count}, market_lower_signal_count: {market_lower_signal_count}), refleja prudencia en el tono. No inventes señales que no estén en la lista detectada por código.
 - NOTIFICACIONES: Si hay top_notifications con prioridad urgent o high, deben influir en el tono ejecutivo del report (énfasis en lo que requiere atención inmediata o inclusión clara en el informe). No inventes notificaciones fuera de las generadas por código. Usa title, summary y rationale de cada notificación; conecta con actions y alerts en el texto.
 - MEMORIA: Si hay repeated_alerts, menciónalo como persistencia del problema. Si hay resolved_alerts, menciónalo como mejora. Si strategy_changed, explícalo en una frase. Si attention_trend es worsening, el tono debe reflejar empeoramiento; si improving, reflejar mejora. No inventes memoria fuera de la generada por código (memory_summary, repeated_alerts, new_alerts, resolved_alerts, strategy_changed, attention_trend).
+- OPORTUNIDADES: Si hay oportunidades de nivel high (high_opportunity_count: {high_opportunity_count}), deben aparecer en report_text. Conecta oportunidades con acciones y estrategia. No inventes oportunidades fuera de las generadas por código. Diferencia claramente oportunidad (posibilidad de captura o mejora) de alerta (riesgo) o de acción (qué hacer).
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 
