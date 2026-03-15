@@ -244,6 +244,13 @@ def _build_report_prompt(full_analysis: dict) -> str:
     opportunity_summary = briefing.get("opportunity_summary", "")
     high_opportunity_count = briefing.get("high_opportunity_count", 0)
     opportunity_types = briefing.get("opportunity_types", [])
+    executive_summary_seed = briefing.get("executive_summary_seed", [])
+    executive_priority_order = briefing.get("executive_priority_order", [])
+    executive_section_hints = briefing.get("executive_section_hints", {})
+    executive_top_risks = briefing.get("executive_top_risks", [])
+    executive_top_actions = briefing.get("executive_top_actions", [])
+    executive_top_opportunities = briefing.get("executive_top_opportunities", [])
+    executive_include_memory = briefing.get("executive_include_memory", False)
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -263,6 +270,16 @@ def _build_report_prompt(full_analysis: dict) -> str:
 HOTEL: {hotel_name}
 FECHA: {date} ({datetime.now().strftime('%A')})
 CONFIDENCE DEL SISTEMA: {system_confidence}
+
+═══ BRIEFING EJECUTIVO (estructura obligatoria del informe; derivado por código) ═══
+ORDEN DE SECCIONES (respeta este orden en report_text): {executive_priority_order}
+RESUMEN EJECUTIVO SEMILLA (usa estas 4 líneas como base del resumen inicial; no las copies literalmente, redáctalas en tono ejecutivo):
+{chr(10).join(f'  {i+1}. {s}' for i, s in enumerate(executive_summary_seed)) if executive_summary_seed else '  (vacío)'}
+TOP RIESGOS (máximo 2-3; solo estos en la sección Critical Risks): {json.dumps(executive_top_risks, ensure_ascii=False)}
+TOP ACCIONES (máximo 3; solo estas en Recommended Actions): {json.dumps([{{"type": a.get("type"), "priority": a.get("priority"), "title": a.get("title")}} for a in executive_top_actions], ensure_ascii=False)}
+TOP OPORTUNIDADES (máximo 2-3; solo estas en Opportunities): {json.dumps([{{"type": o.get("type"), "level": o.get("opportunity_level"), "title": o.get("title")}} for o in executive_top_opportunities], ensure_ascii=False)}
+INCLUIR MEMORIA RECIENTE: {executive_include_memory} (si False, no incluyas sección Recent Memory en report_text)
+PISTAS POR SECCIÓN: {json.dumps(executive_section_hints, ensure_ascii=False)}
 
 ═══ RESUMEN DE AGENTES ════════════════════════════════
 
@@ -369,6 +386,7 @@ MEMORIA RECIENTE DE REVMAX (comparación con la corrida anterior; no inventar me
 ═══ INSTRUCCIONES PARA EL INFORME ════════════════════
 
 REGLAS OBLIGATORIAS:
+- ESTRUCTURA EJECUTIVA: El report_text DEBE seguir el orden de executive_priority_order: 1) Executive Summary (abrir con resumen basado en executive_summary_seed: qué pasa, qué necesita atención, oportunidad principal, postura recomendada). 2) Current Strategic Posture (estrategia en una frase). 3) Critical Risks & Alerts (solo executive_top_risks; máximo 2-3). 4) Recommended Actions (solo executive_top_actions; máximo 3). 5) Opportunities (solo executive_top_opportunities; máximo 2-3). 6) Market Context (demanda y señales; breve). 7) Recent Memory (solo si executive_include_memory es True; una frase; omitir si False). No mezcles secciones ni repitas el mismo mensaje en varias. Tono ejecutivo: claro, profesional, orientado a decisión. Máximo 400 palabras. Sin jerga técnica interna ni redundancia.
 - overall_status: USA el valor derived_overall_status ({derived_overall_status or 'stable'}) como overall_status del informe. No inventes "strong" si el código marcó "alert" ni "alert" si el código marcó "stable". Solo matiza si hay un dato muy claro que lo justifique.
 - ACCIONES RECOMENDADAS: Las priority_actions deben BASARSE EXCLUSIVAMENTE en la lista "ACCIONES RECOMENDADAS POR REVMAX" anterior (recommended_actions). No inventes ninguna acción que no esté en esa lista. Orden: primero las urgent, luego high, luego el resto. Mantén priority, horizon y rationale de cada acción; conéctalas con strategy, alerts y market_signals en el texto. Máximo 3 priority_actions en el JSON (usa las 3 primeras de la lista o todas si son menos).
 - Coherencia con consolidated_price_action y consolidation_rationale. Respetar action_constraints en el texto (ej. no recomendar subir precio si la restricción dice "Resolver paridad primero").
@@ -389,7 +407,7 @@ Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
   "overall_status": "strong|stable|needs_attention|alert",
   "status_summary": "1 frase que resume la situación de hoy (debe reflejar la decisión consolidada)",
 
-  "report_text": "el cuerpo completo del informe en texto plano con párrafos separados por \\n\\n. Estructura: ESTADO HOY (con por qué) → POSICIÓN VS COMPETENCIA → DEMANDA → REPUTACIÓN Y VISIBILIDAD → LAS 3 ACCIONES DE HOY (con razón trazable) → ALERTA DE LA SEMANA. Máximo 400 palabras. Directo, con números. Cada conclusión debe tener causa visible.",
+  "report_text": "cuerpo del informe en texto plano, párrafos separados por \\n\\n. ESTRUCTURA OBLIGATORIA (en este orden): 1) RESUMEN EJECUTIVO (4 líneas basadas en executive_summary_seed). 2) POSTURA ESTRATÉGICA (estrategy_label en una frase). 3) RIESGOS Y ALERTAS CRÍTICAS (solo executive_top_risks). 4) ACCIONES RECOMENDADAS (solo executive_top_actions). 5) OPORTUNIDADES (solo executive_top_opportunities). 6) CONTEXTO DE MERCADO (breve). 7) MEMORIA RECIENTE (solo si executive_include_memory=True). Máximo 400 palabras. Tono ejecutivo, sin repetir el mismo mensaje en varias secciones.",
 
   "priority_actions": [
     {{

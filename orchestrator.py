@@ -47,6 +47,7 @@ from opportunity_engine import (
     count_high_opportunities,
     get_opportunity_types,
 )
+from executive_output import build_executive_briefing
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -606,6 +607,8 @@ async def run_full_analysis(
     briefing["opportunity_summary"] = build_opportunity_summary(opportunities)
     briefing["high_opportunity_count"] = count_high_opportunities(opportunities)
     briefing["opportunity_types"] = get_opportunity_types(opportunities)
+    exec_briefing = build_executive_briefing(briefing)
+    briefing.update(exec_briefing)
     print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(recommended_actions)} · Notif: {len(briefing['top_notifications'])} · Memoria: {'prev' if memory_bundle['previous_snapshot_found'] else 'primera'} · Oportunidades: {len(opportunities)}")
 
     full_analysis = {
@@ -728,6 +731,8 @@ async def run_fast_demo(
     briefing["opportunity_summary"] = build_opportunity_summary(opportunities)
     briefing["high_opportunity_count"] = count_high_opportunities(opportunities)
     briefing["opportunity_types"] = get_opportunity_types(opportunities)
+    exec_briefing = build_executive_briefing(briefing)
+    briefing.update(exec_briefing)
     full_analysis = {
         "hotel_name": hotel_name,
         "analysis_date": datetime.now().strftime("%Y-%m-%d"),
