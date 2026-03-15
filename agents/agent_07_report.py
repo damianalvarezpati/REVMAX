@@ -253,6 +253,8 @@ def _build_report_prompt(full_analysis: dict) -> str:
     executive_include_memory = briefing.get("executive_include_memory", False)
     impact_summary = briefing.get("impact_summary", "")
     top_value_opportunity = briefing.get("top_value_opportunity")
+    impact_opportunities = briefing.get("impact_opportunities", [])
+    impact_actions = briefing.get("impact_actions", [])
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -339,14 +341,18 @@ ESTRATEGIA DERIVADA (nómbrala en el informe y conecta con las acciones):
 CONFLICTOS ENTRE AGENTES:
 {conflicts_text}
 
-OPORTUNIDADES IDENTIFICADAS POR REVMAX (generadas por código; no inventar oportunidades fuera de esta lista; diferenciar oportunidad de alerta o acción):
+OPORTUNIDADES IDENTIFICADAS POR REVMAX (generadas por Opportunity Engine; no inventar oportunidades fuera de esta lista):
   opportunity_summary: {opportunity_summary or 'Ninguna.'}
   high_opportunity_count: {high_opportunity_count}
   opportunity_types: {opportunity_types}
+  Lista de oportunidades (estructura; para impacto usar impact_opportunities más abajo):
+{chr(10).join(f'  [{o.get("opportunity_level","?").upper()}] {o.get("type","?")}: {o.get("title","?")} | summary: {o.get("summary","")}' for o in opportunities) if opportunities else '  (vacío)'}
+
+IMPACTO POR OPORTUNIDAD (Impact Engine; usar SOLO esta lista para impact_estimate, impact_confidence, impact_reason en el informe; no inventar):
   impact_summary: {impact_summary or 'N/A'}
   top_value_opportunity: {json.dumps(top_value_opportunity, ensure_ascii=False) if top_value_opportunity else 'N/A'}
-  Lista de oportunidades (cada una puede tener impact_estimate, impact_confidence, impact_reason; citar solo estos, no inventar):
-{chr(10).join(f'  [{o.get("opportunity_level","?").upper()}] {o.get("type","?")}: {o.get("title","?")} | summary: {o.get("summary","")} | impact_estimate: {o.get("impact_estimate","impact uncertain")} | impact_confidence: {o.get("impact_confidence","low")} | impact_reason: {o.get("impact_reason","")}' for o in opportunities) if opportunities else '  (vacío)'}
+  impact_opportunities (citar solo estos impactos en el report_text):
+{chr(10).join(f'  [{o.get("opportunity_level","?").upper()}] {o.get("type","?")}: {o.get("title","?")} | summary: {o.get("summary","")} | impact_estimate: {o.get("impact_estimate","impact uncertain")} | impact_confidence: {o.get("impact_confidence","low")} | impact_reason: {o.get("impact_reason","")}' for o in impact_opportunities) if impact_opportunities else '  (vacío)'}
 
 ALERTAS DETECTADAS POR REVMAX (generadas por código; si hay high o critical deben aparecer en el informe):
   alert_summary: {alert_summary or 'Ninguna.'}
@@ -363,12 +369,16 @@ SEÑALES DE MERCADO DETECTADAS POR REVMAX (usan para reforzar el "por qué"; no 
   Lista de señales:
 {chr(10).join(f'  [{s.get("strength","?")}] {s.get("type","?")} → {s.get("directional_effect","?")} ({s.get("source","?")}): {s.get("message","?")}' for s in market_signals) if market_signals else '  Ninguna.'}
 
-ACCIONES RECOMENDADAS POR REVMAX (generadas por código; las priority_actions deben basarse SOLO en esta lista; no inventar ninguna acción fuera de ella):
+ACCIONES RECOMENDADAS POR REVMAX (generadas por Decision Engine; las priority_actions deben basarse SOLO en esta lista; no inventar ninguna acción fuera de ella):
   recommended_action_summary: {recommended_action_summary or 'Ninguna.'}
   urgent_action_count: {urgent_action_count}
   high_priority_action_count: {high_priority_action_count}
-  Lista de acciones (cada una puede tener action_impact_estimate, action_impact_confidence; citar solo estos, no inventar):
-{chr(10).join(f'  [{a.get("priority","?").upper()}] {a.get("type","?")} ({a.get("horizon","?")}): {a.get("title","?")} | rationale: {a.get("rationale","")} | action_impact_estimate: {a.get("action_impact_estimate","impact uncertain")} | action_impact_confidence: {a.get("action_impact_confidence","low")}' for a in recommended_actions) if recommended_actions else '  (vacío)'}
+  Lista de acciones (estructura; para impacto usar impact_actions más abajo):
+{chr(10).join(f'  [{a.get("priority","?").upper()}] {a.get("type","?")} ({a.get("horizon","?")}): {a.get("title","?")} | rationale: {a.get("rationale","")}' for a in recommended_actions) if recommended_actions else '  (vacío)'}
+
+IMPACTO POR ACCIÓN (Impact Engine; usar SOLO esta lista para action_impact_estimate, action_impact_confidence en el informe; no inventar):
+  impact_actions (citar solo estos impactos en el report_text):
+{chr(10).join(f'  [{a.get("priority","?").upper()}] {a.get("type","?")}: {a.get("title","?")} | action_impact_estimate: {a.get("action_impact_estimate","impact uncertain")} | action_impact_confidence: {a.get("action_impact_confidence","low")}' for a in impact_actions) if impact_actions else '  (vacío)'}
 
 NOTIFICACIONES PRIORIZADAS POR REVMAX (generadas por código; no inventar notificaciones fuera de esta lista; usar title, summary y rationale):
   notification_summary: {notification_summary or 'Ninguna.'}
@@ -403,7 +413,7 @@ REGLAS OBLIGATORIAS:
 - NOTIFICACIONES: Si hay top_notifications con prioridad urgent o high, deben influir en el tono ejecutivo del report (énfasis en lo que requiere atención inmediata o inclusión clara en el informe). No inventes notificaciones fuera de las generadas por código. Usa title, summary y rationale de cada notificación; conecta con actions y alerts en el texto.
 - MEMORIA: Si hay repeated_alerts, menciónalo como persistencia del problema. Si hay resolved_alerts, menciónalo como mejora. Si strategy_changed, explícalo en una frase. Si attention_trend es worsening, el tono debe reflejar empeoramiento; si improving, reflejar mejora. No inventes memoria fuera de la generada por código (memory_summary, repeated_alerts, new_alerts, resolved_alerts, strategy_changed, attention_trend).
 - OPORTUNIDADES: Si hay oportunidades de nivel high (high_opportunity_count: {high_opportunity_count}), deben aparecer en report_text. Conecta oportunidades con acciones y estrategia. No inventes oportunidades fuera de las generadas por código. Diferencia claramente oportunidad (posibilidad de captura o mejora) de alerta (riesgo) o de acción (qué hacer).
-- IMPACTO: Para oportunidades y acciones usa SOLO los impact_estimate, impact_confidence, impact_reason y action_impact_estimate, action_impact_confidence generados por código. No inventes cifras ni rangos. Si no hay estimación clara, indica "impact uncertain". Ejemplo: "Opportunity to capture additional ADR. Estimated impact: ADR upside potential +5–9%. Confidence: medium."
+- IMPACTO: Usa SOLO impact_opportunities e impact_actions (listas anteriores) para mostrar impacto. No inventes cifras ni rangos. Si no hay estimación clara para una oportunidad o acción, indica "Estimated impact: impact uncertain." Ejemplo: "Opportunity to capture additional ADR. Estimated impact: ADR upside potential +5–9%. Confidence: medium." Mantén tono ejecutivo y no repitas el mismo texto entre secciones.
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 

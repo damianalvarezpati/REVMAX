@@ -130,27 +130,27 @@ def _estimate_action_impact(action: dict, ctx: dict) -> dict:
     return out
 
 
-def _build_impact_summary(opportunity_impacts: list, action_impacts: list) -> str:
+def _build_impact_summary(impact_opportunities: list, impact_actions: list) -> str:
     """Una frase resumen del impacto estimado."""
-    if not opportunity_impacts and not action_impacts:
+    if not impact_opportunities and not impact_actions:
         return "No impact estimates generated for this run."
     parts = []
-    high_opps = [o for o in opportunity_impacts if o.get("opportunity_level") == "high"]
+    high_opps = [o for o in impact_opportunities if o.get("opportunity_level") == "high"]
     if high_opps:
         parts.append(f"{len(high_opps)} high-value opportunity(ies) with impact estimates.")
-    if action_impacts:
-        parts.append(f"{len(action_impacts)} action(s) with impact estimates.")
+    if impact_actions:
+        parts.append(f"{len(impact_actions)} action(s) with impact estimates.")
     return " ".join(parts) if parts else "Impact estimates attached to opportunities and actions."
 
 
-def _pick_top_value_opportunity(opportunity_impacts: list) -> Optional[dict]:
+def _pick_top_value_opportunity(impact_opportunities: list) -> Optional[dict]:
     """Devuelve la oportunidad de mayor valor percibido (high level primero, luego por confidence)."""
-    if not opportunity_impacts:
+    if not impact_opportunities:
         return None
     conf_order = {"high": 3, "medium": 2, "low": 1}
     level_order = {"high": 3, "medium": 2, "low": 1}
     sorted_opps = sorted(
-        opportunity_impacts,
+        impact_opportunities,
         key=lambda o: (
             -level_order.get(o.get("opportunity_level"), 0),
             -conf_order.get(o.get("impact_confidence"), 0),
@@ -162,22 +162,23 @@ def _pick_top_value_opportunity(opportunity_impacts: list) -> Optional[dict]:
 def build_impact_estimates(briefing: dict) -> dict:
     """
     Analiza opportunities, recommended_actions, market_signals, demanda, GRI, ranking y estrategia
-    del briefing; devuelve opportunity_impacts (oportunidades con impact_*), action_impacts
-    (acciones con action_impact_*), impact_summary y top_value_opportunity.
+    del briefing. No modifica briefing["opportunities"] ni briefing["recommended_actions"].
+    Devuelve impact_opportunities (oportunidades enriquecidas con impact_*), impact_actions
+    (acciones enriquecidas con action_impact_*), impact_summary y top_value_opportunity.
     """
     ctx = _get_context(briefing)
     opportunities = briefing.get("opportunities", [])
     recommended_actions = briefing.get("recommended_actions", [])
 
-    opportunity_impacts = [_estimate_opportunity_impact(o, ctx) for o in opportunities]
-    action_impacts = [_estimate_action_impact(a, ctx) for a in recommended_actions]
+    impact_opportunities = [_estimate_opportunity_impact(o, ctx) for o in opportunities]
+    impact_actions = [_estimate_action_impact(a, ctx) for a in recommended_actions]
 
-    impact_summary = _build_impact_summary(opportunity_impacts, action_impacts)
-    top_value_opportunity = _pick_top_value_opportunity(opportunity_impacts)
+    impact_summary = _build_impact_summary(impact_opportunities, impact_actions)
+    top_value_opportunity = _pick_top_value_opportunity(impact_opportunities)
 
     return {
-        "opportunity_impacts": opportunity_impacts,
-        "action_impacts": action_impacts,
+        "impact_opportunities": impact_opportunities,
+        "impact_actions": impact_actions,
         "impact_summary": impact_summary,
         "top_value_opportunity": top_value_opportunity,
     }

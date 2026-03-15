@@ -617,10 +617,7 @@ async def run_full_analysis(
     briefing["your_rank"] = (pricing.get("market_context") or {}).get("your_position_rank")
     briefing["total_compset"] = (pricing.get("market_context") or {}).get("total_compset", 10)
     impact_results = build_impact_estimates(briefing)
-    briefing["opportunities"] = impact_results["opportunity_impacts"]
-    briefing["recommended_actions"] = impact_results["action_impacts"]
-    briefing["impact_summary"] = impact_results["impact_summary"]
-    briefing["top_value_opportunity"] = impact_results["top_value_opportunity"]
+    briefing.update(impact_results)
     exec_briefing = build_executive_briefing(briefing)
     briefing.update(exec_briefing)
     print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(briefing['recommended_actions'])} · Notif: {len(briefing['top_notifications'])} · Memoria: {'prev' if memory_bundle['previous_snapshot_found'] else 'primera'} · Oportunidades: {len(briefing['opportunities'])}")
@@ -754,10 +751,7 @@ async def run_fast_demo(
     briefing["your_rank"] = (pricing.get("market_context") or {}).get("your_position_rank")
     briefing["total_compset"] = (pricing.get("market_context") or {}).get("total_compset", 10)
     impact_results = build_impact_estimates(briefing)
-    briefing["opportunities"] = impact_results["opportunity_impacts"]
-    briefing["recommended_actions"] = impact_results["action_impacts"]
-    briefing["impact_summary"] = impact_results["impact_summary"]
-    briefing["top_value_opportunity"] = impact_results["top_value_opportunity"]
+    briefing.update(impact_results)
     exec_briefing = build_executive_briefing(briefing)
     briefing.update(exec_briefing)
     full_analysis = {

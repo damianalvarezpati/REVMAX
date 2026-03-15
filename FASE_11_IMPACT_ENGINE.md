@@ -1,14 +1,10 @@
 # FASE 11 — Impact Engine
 
-## 1. PROBLEMA QUE RESUELVE IMPACT ENGINE
+## 1. PROBLEMA QUE RESUELVE IMPACT ENGINE (Y AJUSTE ARQUITECTÓNICO)
 
-RevMax ya produce **alerts**, **market_signals**, **recommended_actions**, **opportunities** y **notifications**, pero **no estimaba**:
+RevMax ya produce **alerts**, **market_signals**, **recommended_actions**, **opportunities** y **notifications**, pero **no estimaba** valor potencial de oportunidades, impacto esperado de acciones ni prioridad económica relativa. El **Impact Engine** añade una capa de **estimación heurística** (no forecasting ni ML) para priorizar decisiones.
 
-- valor potencial de una oportunidad  
-- impacto esperado de una acción  
-- prioridad económica relativa  
-
-El **Impact Engine** añade una capa de **estimación heurística** (no forecasting ni ML) para que RevMax no solo diga **qué hacer**, sino también **cuánto valor potencial** podría capturarse o protegerse, permitiendo priorizar decisiones con criterio económico.
+**Ajuste de consistencia:** El Impact Engine **no sobrescribe** `opportunities` ni `recommended_actions`. Opportunity Engine sigue siendo responsable de `opportunities`, Decision Engine de `recommended_actions`. El Impact Engine genera **estructuras explícitas**: `impact_opportunities` e `impact_actions`, de modo que la trazabilidad conceptual se mantiene y cada engine conserva su responsabilidad.
 
 ---
 
@@ -16,40 +12,38 @@ El **Impact Engine** añade una capa de **estimación heurística** (no forecast
 
 | Archivo | Acción |
 |---------|--------|
-| `impact_engine.py` | **Creado** — motor de estimación de impacto |
-| `orchestrator.py` | **Modificado** — integración del engine tras Opportunity Engine |
-| `agents/agent_07_report.py` | **Modificado** — citar impacto estimado en el informe |
-| `tests/test_impact_engine.py` | **Creado** — tests unitarios del engine |
-| `FASE_11_IMPACT_ENGINE.md` | **Creado** — esta documentación |
+| `impact_engine.py` | **Creado** — motor de estimación; devuelve `impact_opportunities`, `impact_actions`, `impact_summary`, `top_value_opportunity` |
+| `orchestrator.py` | **Modificado** — tras Impact Engine solo `briefing.update(impact_results)`; no sobrescribe `opportunities` ni `recommended_actions` |
+| `agents/agent_07_report.py` | **Modificado** — usa `impact_opportunities` e `impact_actions` para mostrar impacto en el informe |
+| `tests/test_impact_engine.py` | **Creado/actualizado** — tests del engine y de que originals no se modifican |
+| `FASE_11_IMPACT_ENGINE.md` | **Creado/actualizado** — documentación |
 
 **No tocados:** `job_schema.py`, `job_state.py`, `job_runtime.py`, `job_watchdog.py`, `job_recovery.py`, `job_observability.py`, `admin_panel.py`, `analysis_runner.py`.  
-**No rotos:** `consolidate()`, Strategy Engine, Alert Engine, Market Signals, Decision Engine / Action Planner, Notification Logic, Intelligence Memory, Opportunity Engine, Executive Output Layer, tests existentes.
+**No rotos:** `consolidate()`, Strategy Engine, Alert Engine, Market Signals, Decision Engine, Notification Logic, Intelligence Memory, Opportunity Engine, Executive Output Layer, tests existentes.
 
 ---
 
 ## 3. CAMBIOS IMPLEMENTADOS
 
 - **impact_engine.py**  
-  - `_get_context(briefing)`: extrae demanda, GRI, ranking, alertas críticas, estrategia y tipos de señales del briefing.  
-  - `_estimate_opportunity_impact(opp, ctx)`: por tipo de oportunidad (PRICE_CAPTURE, UNDERVALUATION, VISIBILITY_RECOVERY, DEMAND_RECOVERY, DEFENSIVE_STABILIZATION) asigna `impact_estimate`, `impact_confidence`, `impact_reason`.  
-  - `_estimate_action_impact(action, ctx)`: por tipo de acción (FIX_PARITY, PRICE_INCREASE, PRICE_DECREASE, HOLD_PRICE, IMPROVE_VISIBILITY, PROTECT_RATE, MONITOR_DEMAND, REVIEW_POSITIONING) asigna `action_impact_estimate`, `action_impact_confidence`.  
+  - `_get_context(briefing)`: extrae demanda, GRI, ranking, alertas críticas, estrategia y tipos de señales.  
+  - `_estimate_opportunity_impact(opp, ctx)`: asigna `impact_estimate`, `impact_confidence`, `impact_reason` por tipo de oportunidad.  
+  - `_estimate_action_impact(action, ctx)`: asigna `action_impact_estimate`, `action_impact_confidence` por tipo de acción.  
   - `_build_impact_summary(...)`, `_pick_top_value_opportunity(...)`.  
-  - `build_impact_estimates(briefing)` devuelve: `opportunity_impacts`, `action_impacts`, `impact_summary`, `top_value_opportunity`.
+  - `build_impact_estimates(briefing)` **devuelve**: `impact_opportunities`, `impact_actions`, `impact_summary`, `top_value_opportunity`. No modifica `briefing["opportunities"]` ni `briefing["recommended_actions"]`.
 
 - **orchestrator.py**  
-  - Tras Opportunity Engine se rellenan en el briefing: `demand_score`, `demand_signal`, `gri_value`, `your_rank`, `total_compset` desde `outputs` (demand, pricing, reputation).  
-  - Se llama `impact_results = build_impact_estimates(briefing)`.  
-  - Se actualiza el briefing: `opportunities` ← `opportunity_impacts`, `recommended_actions` ← `action_impacts`, y se añaden `impact_summary`, `top_value_opportunity`.  
+  - Tras Opportunity Engine se rellenan `demand_score`, `demand_signal`, `gri_value`, `your_rank`, `total_compset`.  
+  - `impact_results = build_impact_estimates(briefing)`; **solo** `briefing.update(impact_results)`. No se sobrescriben `opportunities` ni `recommended_actions`.  
   - Integración idéntica en `run_full_analysis` y `run_fast_demo`.
 
 - **agents/agent_07_report.py**  
-  - Se leen `impact_summary` y `top_value_opportunity` del briefing.  
-  - En el prompt se incluyen: `impact_summary`, `top_value_opportunity`, y en la lista de oportunidades `impact_estimate`, `impact_confidence`, `impact_reason` (fallback: "impact uncertain" / "low").  
-  - En la lista de acciones: `action_impact_estimate`, `action_impact_confidence` (fallback: "impact uncertain" / "low").  
-  - Regla IMPACTO: usar solo impactos generados por código; no inventar; si no hay estimación clara, indicar "impact uncertain".
+  - Se leen `impact_summary`, `top_value_opportunity`, `impact_opportunities`, `impact_actions`.  
+  - En el prompt: lista de oportunidades (estructura) y **impact_opportunities** (impact_estimate, impact_confidence, impact_reason); lista de acciones (estructura) y **impact_actions** (action_impact_estimate, action_impact_confidence).  
+  - Regla IMPACTO: usar solo `impact_opportunities` e `impact_actions`; no inventar; si no hay estimación clara, "Estimated impact: impact uncertain."; tono ejecutivo y no repetir texto.
 
 - **tests/test_impact_engine.py**  
-  - Tests: impact for price capture opportunity, undervaluation, visibility recovery, demand recovery, impact summary exists, no crash if briefing vacío, action impacts con estimate/confidence, top_value_opportunity cuando hay oportunidades.
+  - Tests: impact_opportunities existe, impact_actions existe, impact_summary existe, top_value_opportunity existe, oportunidades originales no se modifican, acciones originales no se modifican, no crash si briefing vacío.
 
 ---
 
@@ -190,27 +184,27 @@ def _estimate_action_impact(action: dict, ctx: dict) -> dict:
     return out
 
 
-def _build_impact_summary(opportunity_impacts: list, action_impacts: list) -> str:
+def _build_impact_summary(impact_opportunities: list, impact_actions: list) -> str:
     """Una frase resumen del impacto estimado."""
-    if not opportunity_impacts and not action_impacts:
+    if not impact_opportunities and not impact_actions:
         return "No impact estimates generated for this run."
     parts = []
-    high_opps = [o for o in opportunity_impacts if o.get("opportunity_level") == "high"]
+    high_opps = [o for o in impact_opportunities if o.get("opportunity_level") == "high"]
     if high_opps:
         parts.append(f"{len(high_opps)} high-value opportunity(ies) with impact estimates.")
-    if action_impacts:
-        parts.append(f"{len(action_impacts)} action(s) with impact estimates.")
+    if impact_actions:
+        parts.append(f"{len(impact_actions)} action(s) with impact estimates.")
     return " ".join(parts) if parts else "Impact estimates attached to opportunities and actions."
 
 
-def _pick_top_value_opportunity(opportunity_impacts: list) -> Optional[dict]:
+def _pick_top_value_opportunity(impact_opportunities: list) -> Optional[dict]:
     """Devuelve la oportunidad de mayor valor percibido (high level primero, luego por confidence)."""
-    if not opportunity_impacts:
+    if not impact_opportunities:
         return None
     conf_order = {"high": 3, "medium": 2, "low": 1}
     level_order = {"high": 3, "medium": 2, "low": 1}
     sorted_opps = sorted(
-        opportunity_impacts,
+        impact_opportunities,
         key=lambda o: (
             -level_order.get(o.get("opportunity_level"), 0),
             -conf_order.get(o.get("impact_confidence"), 0),
@@ -222,22 +216,22 @@ def _pick_top_value_opportunity(opportunity_impacts: list) -> Optional[dict]:
 def build_impact_estimates(briefing: dict) -> dict:
     """
     Analiza opportunities, recommended_actions, market_signals, demanda, GRI, ranking y estrategia
-    del briefing; devuelve opportunity_impacts (oportunidades con impact_*), action_impacts
-    (acciones con action_impact_*), impact_summary y top_value_opportunity.
+    del briefing. No modifica briefing["opportunities"] ni briefing["recommended_actions"].
+    Devuelve impact_opportunities, impact_actions, impact_summary y top_value_opportunity.
     """
     ctx = _get_context(briefing)
     opportunities = briefing.get("opportunities", [])
     recommended_actions = briefing.get("recommended_actions", [])
 
-    opportunity_impacts = [_estimate_opportunity_impact(o, ctx) for o in opportunities]
-    action_impacts = [_estimate_action_impact(a, ctx) for a in recommended_actions]
+    impact_opportunities = [_estimate_opportunity_impact(o, ctx) for o in opportunities]
+    impact_actions = [_estimate_action_impact(a, ctx) for a in recommended_actions]
 
-    impact_summary = _build_impact_summary(opportunity_impacts, action_impacts)
-    top_value_opportunity = _pick_top_value_opportunity(opportunity_impacts)
+    impact_summary = _build_impact_summary(impact_opportunities, impact_actions)
+    top_value_opportunity = _pick_top_value_opportunity(impact_opportunities)
 
     return {
-        "opportunity_impacts": opportunity_impacts,
-        "action_impacts": action_impacts,
+        "impact_opportunities": impact_opportunities,
+        "impact_actions": impact_actions,
         "impact_summary": impact_summary,
         "top_value_opportunity": top_value_opportunity,
     }
@@ -246,33 +240,24 @@ def build_impact_estimates(briefing: dict) -> dict:
 ### orchestrator.py (fragmentos relevantes)
 
 - Import: `from impact_engine import build_impact_estimates`
-- Tras Opportunity Engine y antes de `build_executive_briefing` (en `run_full_analysis` y `run_fast_demo`):
+- Tras Opportunity Engine y antes de `build_executive_briefing` (en `run_full_analysis` y `run_fast_demo`): se rellenan `demand_score`, `demand_signal`, `gri_value`, `your_rank`, `total_compset`; luego:
 
 ```python
-    demand = outputs.get("demand", {})
-    pricing = outputs.get("pricing", {})
-    reputation = outputs.get("reputation", {})
-    briefing["demand_score"] = (demand.get("demand_index") or {}).get("score", 50)
-    briefing["demand_signal"] = (demand.get("demand_index") or {}).get("signal", "medium")
-    briefing["gri_value"] = (reputation.get("gri") or {}).get("value") or 0
-    briefing["your_rank"] = (pricing.get("market_context") or {}).get("your_position_rank")
-    briefing["total_compset"] = (pricing.get("market_context") or {}).get("total_compset", 10)
     impact_results = build_impact_estimates(briefing)
-    briefing["opportunities"] = impact_results["opportunity_impacts"]
-    briefing["recommended_actions"] = impact_results["action_impacts"]
-    briefing["impact_summary"] = impact_results["impact_summary"]
-    briefing["top_value_opportunity"] = impact_results["top_value_opportunity"]
+    briefing.update(impact_results)
 ```
+
+No se sobrescriben `opportunities` ni `recommended_actions`.
 
 ### agents/agent_07_report.py (fragmentos relevantes)
 
-- Lectura del briefing: `impact_summary = briefing.get("impact_summary", "")`, `top_value_opportunity = briefing.get("top_value_opportunity")`.
-- En el prompt: sección con `impact_summary`, `top_value_opportunity`, lista de oportunidades con `impact_estimate`, `impact_confidence`, `impact_reason`, lista de acciones con `action_impact_estimate`, `action_impact_confidence`.
-- Regla: "IMPACTO: Para oportunidades y acciones usa SOLO los impact_estimate, impact_confidence, impact_reason y action_impact_estimate, action_impact_confidence generados por código. No inventes cifras ni rangos. Si no hay estimación clara, indica 'impact uncertain'. Ejemplo: 'Opportunity to capture additional ADR. Estimated impact: ADR upside potential +5–9%. Confidence: medium.'"
+- Lectura: `impact_summary`, `top_value_opportunity`, `impact_opportunities`, `impact_actions`.
+- En el prompt: lista de oportunidades (estructura) y bloque **IMPACTO POR OPORTUNIDAD** con `impact_opportunities` (type, title, summary, impact_estimate, impact_confidence, impact_reason); lista de acciones (estructura) y bloque **IMPACTO POR ACCIÓN** con `impact_actions` (type, title, action_impact_estimate, action_impact_confidence).
+- Regla: "IMPACTO: Usa SOLO impact_opportunities e impact_actions (listas anteriores) para mostrar impacto. No inventes cifras ni rangos. Si no hay estimación clara, indica 'Estimated impact: impact uncertain.' Ejemplo: 'Opportunity to capture additional ADR. Estimated impact: ADR upside potential +5–9%. Confidence: medium.' Mantén tono ejecutivo y no repitas el mismo texto entre secciones."
 
 ### tests/test_impact_engine.py
 
-Ver archivo `tests/test_impact_engine.py` en el repositorio: 8 tests (price capture, undervaluation, visibility recovery, demand recovery, impact summary exists, no crash if briefing vacío, action impacts con estimate/confidence, top_value_opportunity cuando hay oportunidades).
+Ver archivo `tests/test_impact_engine.py`: impact_opportunities existe, impact_actions existe, impact_summary existe, top_value_opportunity existe, oportunidades originales no se modifican, acciones originales no se modifican, no crash si briefing vacío.
 
 ---
 
