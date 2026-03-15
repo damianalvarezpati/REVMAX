@@ -259,6 +259,11 @@ def _build_report_prompt(full_analysis: dict) -> str:
     value_actions = briefing.get("value_actions", [])
     value_summary = briefing.get("value_summary", "")
     top_priority_item = briefing.get("top_priority_item")
+    scenario_assessment = briefing.get("scenario_assessment", [])
+    scenario_summary = briefing.get("scenario_summary", "")
+    recommended_scenario = briefing.get("recommended_scenario", "")
+    scenario_risks = briefing.get("scenario_risks", [])
+    scenario_tradeoffs = briefing.get("scenario_tradeoffs", [])
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -392,6 +397,14 @@ PRIORIZACIÓN POR VALOR Y URGENCIA (Value Prioritization Engine; usar SOLO estos
   value_actions (ordenadas por priority_score DESC; citar priority_rank, value_score, urgency_score, priority_score, action_impact_estimate):
 {chr(10).join(f'  #{a.get("priority_rank", "?")} [{a.get("type","?")}] {a.get("title","?")} | value_score: {a.get("value_score", 0)} | urgency_score: {a.get("urgency_score", 0)} | priority_score: {a.get("priority_score", 0)} | action_impact_estimate: {a.get("action_impact_estimate","")}' for a in value_actions[:5]) if value_actions else '  (vacío)'}
 
+ESCENARIOS EVALUADOS POR REVMAX (Scenario Engine; solo tres escenarios: raise, hold, lower; usar en parte ejecutiva recommended_scenario y scenario_summary; no inventar escenarios fuera de estos):
+  recommended_scenario: {recommended_scenario or 'hold'}
+  scenario_summary: {scenario_summary or 'N/A'}
+  scenario_assessment (support_score, risk_score, net_score, verdict, reason por escenario):
+{chr(10).join(f'  {a.get("scenario", "?").upper()}: support={a.get("support_score", 0)} risk={a.get("risk_score", 0)} net={a.get("net_score", 0)} verdict={a.get("verdict", "?")} — {a.get("reason", "")}' for a in scenario_assessment) if scenario_assessment else '  (vacío)'}
+  scenario_risks: {chr(10).join(f'  - {r}' for r in scenario_risks) if scenario_risks else '  Ninguno.'}
+  scenario_tradeoffs: {chr(10).join(f'  - {t}' for t in scenario_tradeoffs) if scenario_tradeoffs else '  Ninguno.'}
+
 NOTIFICACIONES PRIORIZADAS POR REVMAX (generadas por código; no inventar notificaciones fuera de esta lista; usar title, summary y rationale):
   notification_summary: {notification_summary or 'Ninguna.'}
   notification_priority_counts: {notification_priority_counts}
@@ -427,6 +440,7 @@ REGLAS OBLIGATORIAS:
 - OPORTUNIDADES: Si hay oportunidades de nivel high (high_opportunity_count: {high_opportunity_count}), deben aparecer en report_text. Conecta oportunidades con acciones y estrategia. No inventes oportunidades fuera de las generadas por código. Diferencia claramente oportunidad (posibilidad de captura o mejora) de alerta (riesgo) o de acción (qué hacer).
 - IMPACTO: Usa SOLO impact_opportunities e impact_actions (listas anteriores) para mostrar impacto. No inventes cifras ni rangos. Si no hay estimación clara para una oportunidad o acción, indica "Estimated impact: impact uncertain." Ejemplo: "Opportunity to capture additional ADR. Estimated impact: ADR upside potential +5–9%. Confidence: medium." Mantén tono ejecutivo y no repitas el mismo texto entre secciones.
 - PRIORIDAD: Usa SOLO value_opportunities y value_actions para Priority ranking, Value score y Urgency. No inventes scores. Muestra máximo 3 prioridades en el informe. Ejemplo: "Top priority opportunity: Capture additional ADR. Priority score: 8.2. Estimated impact: ADR upside +5–9%."
+- ESCENARIOS: Usa SOLO los tres escenarios evaluados por código (raise, hold, lower). El informe debe poder explicar por qué el escenario recomendado (recommended_scenario) parece más defendible. Usa scenario_summary en la parte ejecutiva. No inventes escenarios fuera de los tres. Cita support_score o risk_score solo si ayuda al mensaje, sin convertir el informe en técnico.
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 
