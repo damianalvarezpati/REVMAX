@@ -217,6 +217,9 @@ def _build_report_prompt(full_analysis: dict) -> str:
     strategy_scorecard = briefing.get("strategy_scorecard", {})
     strategy_counter_signals = briefing.get("strategy_counter_signals", [])
     strategy_confidence_reason = briefing.get("strategy_confidence_reason", "")
+    alert_summary = briefing.get("alert_summary", "")
+    alert_high_count = briefing.get("alert_high_count", 0)
+    alert_critical_count = briefing.get("alert_critical_count", 0)
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -296,8 +299,12 @@ CONFLICTOS ENTRE AGENTES:
 OPORTUNIDADES DETECTADAS:
 {chr(10).join(f'  - {o}' for o in opportunities) if opportunities else '  Ninguna adicional.'}
 
-ALERTAS:
-{chr(10).join(f'  [{a.get("level","?").upper()}] {a.get("message","?")}' for a in alerts) if alerts else '  Ninguna.'}
+ALERTAS DETECTADAS POR REVMAX (generadas por código; si hay high o critical deben aparecer en el informe):
+  alert_summary: {alert_summary or 'Ninguna.'}
+  alert_high_count: {alert_high_count}
+  alert_critical_count: {alert_critical_count}
+  Lista de alertas:
+{chr(10).join(f'  [{a.get("severity","?").upper()}] {a.get("type","?")} ({a.get("source","?")}): {a.get("message","?")}' for a in alerts) if alerts else '  Ninguna.'}
 
 ═══ INSTRUCCIONES PARA EL INFORME ════════════════════
 
@@ -309,6 +316,7 @@ REGLAS OBLIGATORIAS:
 - Máximo 3 priority_actions. Orden = semilla: paridad/conflitos primero si existen, luego acción de precio consolidada.
 - report_text debe explicar el "por qué" con decision_drivers y decision_penalties cuando sea relevante; usar consolidation_rationale o signal_sources para la acción de precio.
 - ESTRATEGIA: Nombrar la estrategia (strategy_label: {strategy_label or 'BALANCED'}), explicar por qué RevMax interpreta esa postura (strategy_rationale, strategy_drivers) y conectar con las priority_actions. Usar strategy_confidence_reason para matizar el nivel de convicción. Si hay strategy_counter_signals, reconocerlos en 1 frase (ej. "Aunque la demanda no es especialmente alta, la reputación y el pricing sostienen una postura premium") para que el informe no suene excesivamente categórico. El scorecard sirve para trazabilidad; no hace falta citarlo literalmente en el texto.
+- ALERTAS: Si hay alertas de severidad high o critical (alert_high_count: {alert_high_count}, alert_critical_count: {alert_critical_count}), debes mencionarlas en report_text en una frase clara (ej. "RevMax detecta X alerta(s) crítica(s): paridad de tarifas; resolver antes de cambiar precios"). Las priority_actions deben priorizar las alertas críticas (ej. si hay PARITY_VIOLATION, la primera acción debe ser resolver paridad). Si alert_critical_count > 0, overall_status debe ser al menos "needs_attention" o "alert"; no uses "stable" o "strong" si hay alertas críticas.
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 

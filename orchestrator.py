@@ -28,6 +28,7 @@ from strategy_engine import (
     apply_strategy_modulation,
     build_strategy_influence_on_decision,
 )
+from alerts_engine import detect_alerts, build_alert_summary, count_alert_severity
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -539,6 +540,15 @@ async def run_full_analysis(
     for c in conflicts:
         print(f"  ! [{c['severity'].upper()}] {c['description']}")
     briefing = consolidate(outputs, conflicts)
+    engine_alerts = detect_alerts(outputs, conflicts, briefing)
+    briefing["alerts"] = engine_alerts
+    briefing["alert_summary"] = build_alert_summary(engine_alerts)
+    briefing["alert_high_count"] = count_alert_severity(engine_alerts, "high")
+    briefing["alert_critical_count"] = count_alert_severity(engine_alerts, "critical")
+    if engine_alerts:
+        for a in engine_alerts:
+            if a.get("severity") in ("high", "critical"):
+                print(f"  ⚠ [{a.get('severity', '?').upper()}] {a.get('type', '?')}: {a.get('message', '')[:60]}")
     print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')}")
 
     full_analysis = {
@@ -617,6 +627,11 @@ async def run_fast_demo(
     }
     conflicts = detect_conflicts(outputs)
     briefing = consolidate(outputs, conflicts)
+    engine_alerts = detect_alerts(outputs, conflicts, briefing)
+    briefing["alerts"] = engine_alerts
+    briefing["alert_summary"] = build_alert_summary(engine_alerts)
+    briefing["alert_high_count"] = count_alert_severity(engine_alerts, "high")
+    briefing["alert_critical_count"] = count_alert_severity(engine_alerts, "critical")
     full_analysis = {
         "hotel_name": hotel_name,
         "analysis_date": datetime.now().strftime("%Y-%m-%d"),
