@@ -135,7 +135,7 @@ def test_strategy_aggressive_low_demand_low_visibility():
 
 # ─── La estrategia afecta la consolidación ──────────────────────────────────
 def test_strategy_affects_consolidation_briefing():
-    """El briefing incluye strategy_label, strategy_rationale y strategy_influence_on_decision."""
+    """El briefing incluye strategy_label, strategy_rationale, strategy_influence_on_decision y nuevos campos."""
     outputs = _base_outputs(price_action="raise", demand_signal="medium", gri_value=82, can_premium=True)
     conflicts = detect_conflicts(outputs)
     briefing = consolidate(outputs, conflicts)
@@ -146,6 +146,73 @@ def test_strategy_affects_consolidation_briefing():
     assert "strategy_risks" in briefing
     assert "strategy_confidence" in briefing
     assert "strategy_influence_on_decision" in briefing
+    assert "strategy_scorecard" in briefing
+    assert "strategy_counter_signals" in briefing
+    assert "strategy_confidence_reason" in briefing
+
+
+def test_strategy_scorecard_exists():
+    """Toda estrategia devuelve strategy_scorecard con las claves esperadas."""
+    outputs = _base_outputs(price_action="hold", demand_signal="medium")
+    conflicts = detect_conflicts(outputs)
+    strategy = derive_strategy(outputs, conflicts)
+    sc = strategy.get("strategy_scorecard", {})
+    assert isinstance(sc, dict)
+    assert "reputation_support" in sc
+    assert "demand_support" in sc
+    assert "pricing_support" in sc
+    assert "distribution_support" in sc
+    assert "conflict_pressure" in sc
+
+
+def test_strategy_counter_signals_exists():
+    """Toda estrategia devuelve strategy_counter_signals (lista)."""
+    outputs = _base_outputs(price_action="hold", demand_signal="medium")
+    conflicts = detect_conflicts(outputs)
+    strategy = derive_strategy(outputs, conflicts)
+    assert "strategy_counter_signals" in strategy
+    assert isinstance(strategy["strategy_counter_signals"], list)
+
+
+def test_strategy_confidence_reason_exists():
+    """Toda estrategia devuelve strategy_confidence_reason (frase no vacía)."""
+    outputs = _base_outputs(price_action="hold", demand_signal="medium")
+    conflicts = detect_conflicts(outputs)
+    strategy = derive_strategy(outputs, conflicts)
+    assert "strategy_confidence_reason" in strategy
+    reason = strategy["strategy_confidence_reason"]
+    assert isinstance(reason, str) and len(reason) > 0
+
+
+def test_premium_with_mixed_signals_produces_counter_signals():
+    """PREMIUM con demanda medium (no alta) o visibilidad baja debe producir counter_signals."""
+    outputs = _base_outputs(
+        price_action="raise",
+        demand_signal="medium",
+        gri_value=82,
+        can_premium=True,
+        visibility=0.4,
+        your_rank=2,
+        total=8,
+        parity_status="ok",
+    )
+    conflicts = detect_conflicts(outputs)
+    strategy = derive_strategy(outputs, conflicts)
+    assert strategy["strategy_label"] == "PREMIUM"
+    counter = strategy.get("strategy_counter_signals", [])
+    assert len(counter) >= 1
+    text = " ".join(counter).lower()
+    assert "demanda" in text or "visibilidad" in text or "premium" in text or "precio" in text
+
+
+def test_defensive_produces_coherent_confidence_reason():
+    """DEFENSIVE por paridad o conflicto produce strategy_confidence_reason coherente."""
+    outputs = _base_outputs(price_action="raise", demand_signal="low", parity_status="violation")
+    conflicts = detect_conflicts(outputs)
+    strategy = derive_strategy(outputs, conflicts)
+    assert strategy["strategy_label"] == "DEFENSIVE"
+    reason = strategy.get("strategy_confidence_reason", "")
+    assert "confianza" in reason.lower() or "alta" in reason.lower() or "señales" in reason.lower() or "misma" in reason.lower()
 
 
 def test_strategy_modulation_defensive_reduces_raise():

@@ -214,6 +214,9 @@ def _build_report_prompt(full_analysis: dict) -> str:
     strategy_risks = briefing.get("strategy_risks", [])
     strategy_confidence = briefing.get("strategy_confidence", 0)
     strategy_influence_on_decision = briefing.get("strategy_influence_on_decision", "")
+    strategy_scorecard = briefing.get("strategy_scorecard", {})
+    strategy_counter_signals = briefing.get("strategy_counter_signals", [])
+    strategy_confidence_reason = briefing.get("strategy_confidence_reason", "")
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -282,6 +285,9 @@ ESTRATEGIA DERIVADA (nómbrala en el informe y conecta con las acciones):
   strategy_drivers: {chr(10).join(f'  - {d}' for d in strategy_drivers) if strategy_drivers else '  (no detallado)'}
   strategy_risks: {chr(10).join(f'  - {r}' for r in strategy_risks) if strategy_risks else '  Ninguno.'}
   strategy_confidence: {strategy_confidence}
+  strategy_confidence_reason: {strategy_confidence_reason or 'No especificado.'}
+  strategy_scorecard (señales que apoyan la estrategia): {json.dumps(strategy_scorecard) if strategy_scorecard else '{}'}
+  strategy_counter_signals (señales en contra; reconocer límites): {chr(10).join(f'  - {c}' for c in strategy_counter_signals) if strategy_counter_signals else '  Ninguna.'}
   strategy_influence_on_decision: {strategy_influence_on_decision or 'N/A'}
 
 CONFLICTOS ENTRE AGENTES:
@@ -302,7 +308,7 @@ REGLAS OBLIGATORIAS:
 - Cada "reason" de las priority_actions debe CITAR LA FUENTE: ej. "Pricing: ARI bajo", "Demanda alta (score 72)", "Paridad: resolver antes de cambiar precios". Nada genérico como "mejorar revenue".
 - Máximo 3 priority_actions. Orden = semilla: paridad/conflitos primero si existen, luego acción de precio consolidada.
 - report_text debe explicar el "por qué" con decision_drivers y decision_penalties cuando sea relevante; usar consolidation_rationale o signal_sources para la acción de precio.
-- ESTRATEGIA: En el informe debes nombrar la estrategia derivada (strategy_label: {strategy_label or 'BALANCED'}) en 1-2 frases: por qué RevMax interpreta esa postura (usar strategy_rationale y strategy_drivers) y conectar esa estrategia con las priority_actions. Ejemplo: "RevMax interpreta una postura PREMIUM dado el GRI alto y la demanda suficiente; la primera acción prioritaria refleja la decisión de subir precio." No suene artificial; integrarlo en el flujo del informe.
+- ESTRATEGIA: Nombrar la estrategia (strategy_label: {strategy_label or 'BALANCED'}), explicar por qué RevMax interpreta esa postura (strategy_rationale, strategy_drivers) y conectar con las priority_actions. Usar strategy_confidence_reason para matizar el nivel de convicción. Si hay strategy_counter_signals, reconocerlos en 1 frase (ej. "Aunque la demanda no es especialmente alta, la reputación y el pricing sostienen una postura premium") para que el informe no suene excesivamente categórico. El scorecard sirve para trazabilidad; no hace falta citarlo literalmente en el texto.
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 

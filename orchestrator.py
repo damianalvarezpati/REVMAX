@@ -453,6 +453,9 @@ def consolidate(agent_outputs: dict, conflicts: list) -> dict:
         "strategy_risks": strategy["strategy_risks"],
         "strategy_confidence": strategy["strategy_confidence"],
         "strategy_influence_on_decision": strategy_influence_on_decision,
+        "strategy_scorecard": strategy.get("strategy_scorecard", {}),
+        "strategy_counter_signals": strategy.get("strategy_counter_signals", []),
+        "strategy_confidence_reason": strategy.get("strategy_confidence_reason", ""),
     }
 
 
