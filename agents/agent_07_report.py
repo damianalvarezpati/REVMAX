@@ -95,6 +95,11 @@ REGLAS DE ORO
    las tablas de datos si quiere más detalle.
 
 6. Terminar siempre con una frase de contexto: qué vigilar mañana.
+
+7. TRAZABILIDAD: Cada conclusión y cada priority_action.reason debe citar
+   la fuente (Pricing, Demand, Reputation, Distribution o conflicto resuelto).
+   Evitar razones genéricas. Ejemplo: "Pricing: ARI 0.94 por debajo de meta"
+   no "Conviene subir precio".
 """
 
 import json
@@ -188,12 +193,15 @@ def _build_report_prompt(full_analysis: dict) -> str:
     parity_status = distribution.get("rate_parity", {}).get("status", "ok")
     quick_wins = distribution.get("quick_wins", [])
 
-    # Conflictos detectados
+    # Conflictos y decisión consolidada
     conflicts = briefing.get("conflicts", [])
     opportunities = briefing.get("opportunities", [])
     alerts = briefing.get("alerts", [])
     system_confidence = briefing.get("system_confidence", 0.7)
     consolidated_action = briefing.get("consolidated_price_action", price_action)
+    consolidation_rationale = briefing.get("consolidation_rationale", "")
+    critical_issues = briefing.get("critical_issues", [])
+    signal_sources = briefing.get("signal_sources", [])
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -241,6 +249,12 @@ DISTRIBUTION:
   Paridad: {parity_status.upper()}
   Quick wins: {quick_wins[0].get('action','ninguno') if quick_wins else 'ninguno'}
 
+DECISIÓN CONSOLIDADA (usa esto como referencia obligatoria):
+  Acción: {consolidated_action.upper()}
+  Racional: {consolidation_rationale or 'No especificado.'}
+  Señales: {chr(10).join(f'  - {s}' for s in signal_sources) if signal_sources else '  (no detallado)'}
+  Asuntos críticos: {chr(10).join(f'  - {i}' for i in critical_issues) if critical_issues else '  Ninguno.'}
+
 CONFLICTOS ENTRE AGENTES:
 {conflicts_text}
 
@@ -252,23 +266,30 @@ ALERTAS:
 
 ═══ INSTRUCCIONES PARA EL INFORME ════════════════════
 
+REGLAS OBLIGATORIAS:
+- overall_status debe derivar de los asuntos críticos: si hay critical_issues con severidad alta → "needs_attention" o "alert"; si no hay conflictos altos y señales estables → "stable" o "strong".
+- Las priority_actions deben ser coherentes con la DECISIÓN CONSOLIDADA (consolidated_price_action) y con consolidation_rationale. La primera acción prioritaria debe reflejar la acción de precio consolidada cuando sea aplicable.
+- Cada "reason" de las priority_actions debe CITAR LA FUENTE: ej. "Pricing: ARI bajo", "Demanda alta (score 72)", "Paridad: resolver antes de cambiar precios". Nada genérico como "mejorar revenue".
+- Máximo 3 priority_actions. Ordenar por urgencia real: immediate > this_week > this_month. Si hay violación de paridad, debe ser immediate.
+- report_text debe explicar el "por qué" en 1-2 frases cuando mencione la acción de precio: usar consolidation_rationale o signal_sources para justificar.
+
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 
 {{
   "email_subject": "asunto del email <60 chars con los datos más urgentes",
   "overall_status": "strong|stable|needs_attention|alert",
-  "status_summary": "1 frase que resume la situación de hoy",
+  "status_summary": "1 frase que resume la situación de hoy (debe reflejar la decisión consolidada)",
 
-  "report_text": "el cuerpo completo del informe en texto plano con párrafos separados por \\n\\n, siguiendo la estructura: ESTADO HOY → POSICIÓN VS COMPETENCIA → DEMANDA → REPUTACIÓN Y VISIBILIDAD → LAS 3 ACCIONES DE HOY → ALERTA DE LA SEMANA. Máximo 400 palabras. Directo, con números.",
+  "report_text": "el cuerpo completo del informe en texto plano con párrafos separados por \\n\\n. Estructura: ESTADO HOY (con por qué) → POSICIÓN VS COMPETENCIA → DEMANDA → REPUTACIÓN Y VISIBILIDAD → LAS 3 ACCIONES DE HOY (con razón trazable) → ALERTA DE LA SEMANA. Máximo 400 palabras. Directo, con números. Cada conclusión debe tener causa visible.",
 
   "priority_actions": [
     {{
       "rank": 1,
       "urgency": "immediate|this_week|this_month",
-      "action": "descripción exacta de qué hacer",
+      "action": "descripción exacta y ejecutable de qué hacer (qué, cuánto, en qué habitación/canal)",
       "room_type": "tipo de habitación o 'todos' o 'general'",
-      "metric": "número concreto (precio, %, posición)",
-      "reason": "razón en 1 frase",
+      "metric": "número concreto (precio en €, %, posición)",
+      "reason": "razón en 1 frase CITANDO FUENTE (ej. Pricing: ARI 0.92 | Demanda: score 68)",
       "expected_impact": "impacto estimado en €, % o reservas"
     }}
   ],
