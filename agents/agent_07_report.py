@@ -217,6 +217,8 @@ def _parse_report_response(raw: str, full_analysis: dict) -> tuple:
         parse_error = "JSON root is not a dict or missing report_text"
     except json.JSONDecodeError as e:
         parse_error = str(e)
+    except Exception as e:
+        parse_error = f"unexpected: {e}"
 
     match = re.search(r"\{[\s\S]*\}", raw)
     if match:
@@ -225,6 +227,8 @@ def _parse_report_response(raw: str, full_analysis: dict) -> tuple:
             if isinstance(result, dict) and result.get("report_text") is not None:
                 return _normalize_report_dict(result, full_analysis), False
         except json.JSONDecodeError as e2:
+            parse_error = f"{parse_error}; regex_block: {e2}"
+        except Exception as e2:
             parse_error = f"{parse_error}; regex_block: {e2}"
 
     return _build_minimal_report_from_analysis(full_analysis), True
@@ -298,7 +302,17 @@ async def run_report_agent(
         _log_report_failure(prompt_len, response_len, "", parse_error_log)
         return _build_minimal_report_from_analysis(full_analysis)
 
-    result, used_fallback = _parse_report_response(raw, full_analysis)
+    try:
+        result, used_fallback = _parse_report_response(raw, full_analysis)
+    except Exception as e:
+        _log_report_failure(
+            prompt_len,
+            response_len,
+            raw[:_MAX_RAW_LOG_CHARS],
+            f"parse raised: {e}",
+        )
+        return _build_minimal_report_from_analysis(full_analysis)
+
     if used_fallback:
         _log_report_failure(
             prompt_len,
