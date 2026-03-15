@@ -23,6 +23,11 @@ from agents.agent_04_demand import run_demand_agent
 from agents.agent_05_reputation import run_reputation_agent
 from agents.agent_06_distribution import run_distribution_agent
 from agents.agent_07_report import run_report_agent
+from strategy_engine import (
+    derive_strategy,
+    apply_strategy_modulation,
+    build_strategy_influence_on_decision,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -386,7 +391,22 @@ def consolidate(agent_outputs: dict, conflicts: list) -> dict:
     _apply_reputation_signals(signals, reputation, w)
     _apply_distribution_signals(signals, distribution, p_action)
     has_high_conflict = _apply_conflict_penalties(signals, conflicts)
+
+    demand_signal = demand.get("demand_index", {}).get("signal", "medium")
+    strategy = derive_strategy(agent_outputs, conflicts)
+    action_before_strategy = _final_action_from_signals(signals)
+    apply_strategy_modulation(
+        signals,
+        strategy["strategy_label"],
+        demand_signal=demand_signal,
+        p_action=p_action,
+    )
     final_action = _final_action_from_signals(signals)
+    strategy_influence_on_decision = build_strategy_influence_on_decision(
+        strategy["strategy_label"],
+        action_before_strategy,
+        final_action,
+    )
 
     opportunities = _dedupe_opportunities(agent_outputs)
     alerts = _build_alerts(agent_outputs)
@@ -395,7 +415,6 @@ def consolidate(agent_outputs: dict, conflicts: list) -> dict:
     consolidation_rationale = _build_consolidation_rationale(signal_sources, final_action)
 
     parity_violation = distribution.get("rate_parity", {}).get("status") == "violation"
-    demand_signal = demand.get("demand_index", {}).get("signal", "medium")
     derived_overall_status = _derive_overall_status(
         critical_issues, parity_violation, has_high_conflict, demand_signal
     )
@@ -428,6 +447,12 @@ def consolidate(agent_outputs: dict, conflicts: list) -> dict:
         "decision_penalties": decision_penalties,
         "action_constraints": action_constraints,
         "recommended_priority_actions_seed": recommended_priority_actions_seed,
+        "strategy_label": strategy["strategy_label"],
+        "strategy_rationale": strategy["strategy_rationale"],
+        "strategy_drivers": strategy["strategy_drivers"],
+        "strategy_risks": strategy["strategy_risks"],
+        "strategy_confidence": strategy["strategy_confidence"],
+        "strategy_influence_on_decision": strategy_influence_on_decision,
     }
 
 
@@ -511,7 +536,7 @@ async def run_full_analysis(
     for c in conflicts:
         print(f"  ! [{c['severity'].upper()}] {c['description']}")
     briefing = consolidate(outputs, conflicts)
-    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')}")
+    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')}")
 
     full_analysis = {
         "hotel_name": hotel_name,
