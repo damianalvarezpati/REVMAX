@@ -264,6 +264,16 @@ def _build_report_prompt(full_analysis: dict) -> str:
     recommended_scenario = briefing.get("recommended_scenario", "")
     scenario_risks = briefing.get("scenario_risks", [])
     scenario_tradeoffs = briefing.get("scenario_tradeoffs", [])
+    change_summary = briefing.get("change_summary", "")
+    change_severity = briefing.get("change_severity", "low")
+    change_highlights = briefing.get("change_highlights", [])
+    strategy_changed = briefing.get("strategy_changed", False)
+    overall_status_changed = briefing.get("overall_status_changed", False)
+    consolidated_action_changed = briefing.get("consolidated_action_changed", False)
+    top_priority_changed = briefing.get("top_priority_changed", False)
+    recommended_scenario_changed = briefing.get("recommended_scenario_changed", False)
+    new_critical_alerts = briefing.get("new_critical_alerts", [])
+    resolved_critical_alerts = briefing.get("resolved_critical_alerts", [])
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -411,6 +421,14 @@ NOTIFICACIONES PRIORIZADAS POR REVMAX (generadas por código; no inventar notifi
   Lista de notificaciones (top_notifications; si hay urgent/high deben influir en el tono ejecutivo del informe):
 {chr(10).join(f'  [{n.get("priority","?").upper()}] {n.get("type","?")} ({n.get("delivery_intent","?")}): {n.get("title","?")} | summary: {n.get("summary","")} | rationale: {n.get("rationale","")} | source_items: {", ".join(n.get("source_items",[]))}' for n in top_notifications) if top_notifications else '  (vacío)'}
 
+CAMBIOS DETECTADOS DESDE LA CORRIDA ANTERIOR (Change Detection Engine; usar solo estos datos; no inventar cambios):
+  change_summary: {change_summary or 'N/A'}
+  change_severity: {change_severity}
+  change_highlights: {chr(10).join(f'  - {h}' for h in change_highlights) if change_highlights else '  Ninguno.'}
+  strategy_changed: {strategy_changed} | overall_status_changed: {overall_status_changed} | consolidated_action_changed: {consolidated_action_changed}
+  top_priority_changed: {top_priority_changed} | recommended_scenario_changed: {recommended_scenario_changed}
+  new_critical_alerts: {new_critical_alerts} | resolved_critical_alerts: {resolved_critical_alerts}
+
 MEMORIA RECIENTE DE REVMAX (comparación con la corrida anterior; no inventar memoria fuera de la generada por código):
   previous_snapshot_found: {previous_snapshot_found}
   memory_summary: {memory_summary or 'N/A'}
@@ -441,6 +459,7 @@ REGLAS OBLIGATORIAS:
 - IMPACTO: Usa SOLO impact_opportunities e impact_actions (listas anteriores) para mostrar impacto. No inventes cifras ni rangos. Si no hay estimación clara para una oportunidad o acción, indica "Estimated impact: impact uncertain." Ejemplo: "Opportunity to capture additional ADR. Estimated impact: ADR upside potential +5–9%. Confidence: medium." Mantén tono ejecutivo y no repitas el mismo texto entre secciones.
 - PRIORIDAD: Usa SOLO value_opportunities y value_actions para Priority ranking, Value score y Urgency. No inventes scores. Muestra máximo 3 prioridades en el informe. Ejemplo: "Top priority opportunity: Capture additional ADR. Priority score: 8.2. Estimated impact: ADR upside +5–9%."
 - ESCENARIOS: Usa SOLO los tres escenarios evaluados por código (raise, hold, lower). El informe debe poder explicar por qué el escenario recomendado (recommended_scenario) parece más defendible. Usa scenario_summary en la parte ejecutiva. No inventes escenarios fuera de los tres. Cita support_score o risk_score solo si ayuda al mensaje, sin convertir el informe en técnico.
+- CAMBIOS: Usa SOLO los datos de "CAMBIOS DETECTADOS DESDE LA CORRIDA ANTERIOR". Si no hay cambios relevantes, dilo brevemente. Si change_severity es high, los cambios deben aparecer en el resumen ejecutivo. Si strategy_changed, recommended_scenario_changed o top_priority_changed, explícalo. No inventes cambios no detectados por código.
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 

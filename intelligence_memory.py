@@ -55,9 +55,18 @@ def _snapshot_from_briefing(briefing: dict, hotel_name: str) -> dict:
     top_notifications = briefing.get("top_notifications", [])
 
     alert_types = sorted({a.get("type") for a in alerts if a.get("type")})
+    critical_alert_types = sorted({a.get("type") for a in alerts if a.get("type") and a.get("severity") == "critical"})
+    high_alert_types = sorted({a.get("type") for a in alerts if a.get("type") and a.get("severity") == "high"})
     market_signal_types = sorted({s.get("type") for s in market_signals if s.get("type")})
     recommended_action_types = sorted({a.get("type") for a in recommended_actions if a.get("type")})
     top_notification_types = sorted({n.get("type") for n in top_notifications if n.get("type")})
+    opportunity_types = sorted({o.get("type") for o in briefing.get("opportunities", []) if o.get("type")})
+
+    top_priority = briefing.get("top_priority_item")
+    top_priority_item_type = top_priority.get("type") if isinstance(top_priority, dict) else None
+    top_value_opp = briefing.get("top_value_opportunity")
+    top_value_opportunity_type = top_value_opp.get("type") if isinstance(top_value_opp, dict) else None
+    recommended_scenario = briefing.get("recommended_scenario") or "hold"
 
     return {
         "hotel_name": hotel_name,
@@ -66,11 +75,17 @@ def _snapshot_from_briefing(briefing: dict, hotel_name: str) -> dict:
         "derived_overall_status": briefing.get("derived_overall_status", "stable"),
         "consolidated_price_action": briefing.get("consolidated_price_action", "hold"),
         "alert_types": alert_types,
+        "critical_alert_types": critical_alert_types,
+        "high_alert_types": high_alert_types,
         "high_alert_count": briefing.get("alert_high_count", 0),
         "critical_alert_count": briefing.get("alert_critical_count", 0),
         "market_signal_types": market_signal_types,
         "recommended_action_types": recommended_action_types,
         "top_notification_types": top_notification_types,
+        "opportunity_types": opportunity_types,
+        "top_priority_item_type": top_priority_item_type,
+        "top_value_opportunity_type": top_value_opportunity_type,
+        "recommended_scenario": recommended_scenario,
         "short_summary": _build_short_summary(briefing),
     }
 
@@ -94,11 +109,8 @@ def save_snapshot(briefing: dict, hotel_name: str, base_path: Optional[str] = No
     return os.path.abspath(file_path)
 
 
-def load_previous_snapshot(hotel_name: str, base_path: Optional[str] = None) -> Optional[dict]:
-    """
-    Carga el snapshot más reciente del hotel (por timestamp en nombre de archivo).
-    Devuelve None si no hay ninguno.
-    """
+def _latest_snapshot_path(hotel_name: str, base_path: Optional[str] = None) -> Optional[str]:
+    """Ruta al archivo de snapshot más reciente del hotel, o None."""
     base = base_path or os.path.dirname(os.path.abspath(__file__))
     slug = _hotel_slug(hotel_name)
     dir_path = _history_dir(base, slug)
@@ -108,11 +120,38 @@ def load_previous_snapshot(hotel_name: str, base_path: Optional[str] = None) -> 
     if not candidates:
         return None
     candidates.sort(reverse=True)
-    latest = candidates[0]
-    path = os.path.join(dir_path, latest)
+    return os.path.join(dir_path, candidates[0])
+
+
+def load_previous_snapshot(hotel_name: str, base_path: Optional[str] = None) -> Optional[dict]:
+    """
+    Carga el snapshot más reciente del hotel (por timestamp en nombre de archivo).
+    Devuelve None si no hay ninguno.
+    """
+    path = _latest_snapshot_path(hotel_name, base_path)
+    if not path:
+        return None
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
+    except Exception:
+        return None
+
+
+def update_latest_snapshot(briefing: dict, hotel_name: str, base_path: Optional[str] = None) -> Optional[str]:
+    """
+    Actualiza el snapshot más reciente (p. ej. el recién guardado en esta corrida)
+    con los campos derivados tras Impact/Value/Scenario (top_priority_item, recommended_scenario, etc.).
+    Devuelve la ruta del archivo actualizado o None si no hay snapshot que actualizar.
+    """
+    path = _latest_snapshot_path(hotel_name, base_path)
+    if not path:
+        return None
+    snapshot = _snapshot_from_briefing(briefing, hotel_name)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(snapshot, f, ensure_ascii=False, indent=2)
+        return path
     except Exception:
         return None
 
@@ -238,6 +277,7 @@ def build_memory_bundle(briefing: dict, hotel_name: str, base_path: Optional[str
     return {
         "memory_snapshot_path": snapshot_path,
         "previous_snapshot_found": previous is not None,
+        "previous_snapshot": previous,
         "repeated_alerts": comparison.get("repeated_alerts", []),
         "new_alerts": comparison.get("new_alerts", []),
         "resolved_alerts": comparison.get("resolved_alerts", []),

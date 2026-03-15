@@ -40,7 +40,8 @@ from action_planner import (
     count_actions_by_priority,
 )
 from notification_logic import build_notification_bundle
-from intelligence_memory import build_memory_bundle
+from intelligence_memory import build_memory_bundle, update_latest_snapshot
+from change_detection_engine import build_change_detection
 from opportunity_engine import (
     build_opportunities,
     build_opportunity_summary,
@@ -626,6 +627,9 @@ async def run_full_analysis(
     briefing.update(scenario_results)
     exec_briefing = build_executive_briefing(briefing)
     briefing.update(exec_briefing)
+    change_results = build_change_detection(briefing, memory_bundle.get("previous_snapshot"))
+    briefing.update(change_results)
+    update_latest_snapshot(briefing, hotel_name, _ORCH_BASE_DIR)
     print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(briefing['recommended_actions'])} · Notif: {len(briefing['top_notifications'])} · Memoria: {'prev' if memory_bundle['previous_snapshot_found'] else 'primera'} · Oportunidades: {len(briefing['opportunities'])}")
 
     full_analysis = {
@@ -764,6 +768,9 @@ async def run_fast_demo(
     briefing.update(scenario_results)
     exec_briefing = build_executive_briefing(briefing)
     briefing.update(exec_briefing)
+    change_results = build_change_detection(briefing, memory_bundle.get("previous_snapshot"))
+    briefing.update(change_results)
+    update_latest_snapshot(briefing, hotel_name, _ORCH_BASE_DIR)
     full_analysis = {
         "hotel_name": hotel_name,
         "analysis_date": datetime.now().strftime("%Y-%m-%d"),
