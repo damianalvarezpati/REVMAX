@@ -29,6 +29,11 @@ from strategy_engine import (
     build_strategy_influence_on_decision,
 )
 from alerts_engine import detect_alerts, build_alert_summary, count_alert_severity
+from market_signals import (
+    detect_market_signals,
+    build_market_signal_summary,
+    count_market_signals_by_effect,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -549,6 +554,12 @@ async def run_full_analysis(
         for a in engine_alerts:
             if a.get("severity") in ("high", "critical"):
                 print(f"  ⚠ [{a.get('severity', '?').upper()}] {a.get('type', '?')}: {a.get('message', '')[:60]}")
+    market_signals = detect_market_signals(outputs, conflicts, briefing)
+    briefing["market_signals"] = market_signals
+    briefing["market_signal_summary"] = build_market_signal_summary(market_signals)
+    briefing["market_raise_signal_count"] = count_market_signals_by_effect(market_signals, "raise")
+    briefing["market_lower_signal_count"] = count_market_signals_by_effect(market_signals, "lower")
+    briefing["market_caution_signal_count"] = count_market_signals_by_effect(market_signals, "caution")
     print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')}")
 
     full_analysis = {
@@ -632,6 +643,12 @@ async def run_fast_demo(
     briefing["alert_summary"] = build_alert_summary(engine_alerts)
     briefing["alert_high_count"] = count_alert_severity(engine_alerts, "high")
     briefing["alert_critical_count"] = count_alert_severity(engine_alerts, "critical")
+    market_signals = detect_market_signals(outputs, conflicts, briefing)
+    briefing["market_signals"] = market_signals
+    briefing["market_signal_summary"] = build_market_signal_summary(market_signals)
+    briefing["market_raise_signal_count"] = count_market_signals_by_effect(market_signals, "raise")
+    briefing["market_lower_signal_count"] = count_market_signals_by_effect(market_signals, "lower")
+    briefing["market_caution_signal_count"] = count_market_signals_by_effect(market_signals, "caution")
     full_analysis = {
         "hotel_name": hotel_name,
         "analysis_date": datetime.now().strftime("%Y-%m-%d"),

@@ -220,6 +220,11 @@ def _build_report_prompt(full_analysis: dict) -> str:
     alert_summary = briefing.get("alert_summary", "")
     alert_high_count = briefing.get("alert_high_count", 0)
     alert_critical_count = briefing.get("alert_critical_count", 0)
+    market_signals = briefing.get("market_signals", [])
+    market_signal_summary = briefing.get("market_signal_summary", "")
+    market_raise_signal_count = briefing.get("market_raise_signal_count", 0)
+    market_lower_signal_count = briefing.get("market_lower_signal_count", 0)
+    market_caution_signal_count = briefing.get("market_caution_signal_count", 0)
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -306,6 +311,14 @@ ALERTAS DETECTADAS POR REVMAX (generadas por código; si hay high o critical deb
   Lista de alertas:
 {chr(10).join(f'  [{a.get("severity","?").upper()}] {a.get("type","?")} ({a.get("source","?")}): {a.get("message","?")}' for a in alerts) if alerts else '  Ninguna.'}
 
+SEÑALES DE MERCADO DETECTADAS POR REVMAX (usan para reforzar el "por qué"; no inventar señales fuera de esta lista):
+  market_signal_summary: {market_signal_summary or 'Ninguna.'}
+  market_raise_signal_count: {market_raise_signal_count}
+  market_lower_signal_count: {market_lower_signal_count}
+  market_caution_signal_count: {market_caution_signal_count}
+  Lista de señales:
+{chr(10).join(f'  [{s.get("strength","?")}] {s.get("type","?")} → {s.get("directional_effect","?")} ({s.get("source","?")}): {s.get("message","?")}' for s in market_signals) if market_signals else '  Ninguna.'}
+
 ═══ INSTRUCCIONES PARA EL INFORME ════════════════════
 
 REGLAS OBLIGATORIAS:
@@ -317,6 +330,7 @@ REGLAS OBLIGATORIAS:
 - report_text debe explicar el "por qué" con decision_drivers y decision_penalties cuando sea relevante; usar consolidation_rationale o signal_sources para la acción de precio.
 - ESTRATEGIA: Nombrar la estrategia (strategy_label: {strategy_label or 'BALANCED'}), explicar por qué RevMax interpreta esa postura (strategy_rationale, strategy_drivers) y conectar con las priority_actions. Usar strategy_confidence_reason para matizar el nivel de convicción. Si hay strategy_counter_signals, reconocerlos en 1 frase (ej. "Aunque la demanda no es especialmente alta, la reputación y el pricing sostienen una postura premium") para que el informe no suene excesivamente categórico. El scorecard sirve para trazabilidad; no hace falta citarlo literalmente en el texto.
 - ALERTAS: Si hay alertas de severidad high o critical (alert_high_count: {alert_high_count}, alert_critical_count: {alert_critical_count}), debes mencionarlas en report_text en una frase clara (ej. "RevMax detecta X alerta(s) crítica(s): paridad de tarifas; resolver antes de cambiar precios"). Las priority_actions deben priorizar las alertas críticas (ej. si hay PARITY_VIOLATION, la primera acción debe ser resolver paridad). Si alert_critical_count > 0, overall_status debe ser al menos "needs_attention" o "alert"; no uses "stable" o "strong" si hay alertas críticas.
+- SEÑALES DE MERCADO: Usa las market_signals para reforzar el "por qué" de la decisión consolidada. Si hay señales raise fuertes (market_raise_signal_count: {market_raise_signal_count}), conéctalas con la estrategia y las acciones en report_text. Si hay señales caution o lower (market_caution_signal_count: {market_caution_signal_count}, market_lower_signal_count: {market_lower_signal_count}), refleja prudencia en el tono. No inventes señales que no estén en la lista detectada por código.
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 
