@@ -93,6 +93,36 @@ def read_job_progress(base_dir: str, job_id: str) -> Optional[List[Dict[str, Any
         return None
 
 
+# Misma definición de pasos que orchestrator.PROGRESS_STEP_LABELS para fallback en api_job_status
+_FALLBACK_STEP_LABELS = [
+    (1, "discovery", "Identificando hotel"),
+    (2, "compset", "Detectando comp set"),
+    (3, "pricing", "Revisando precios y disponibilidad"),
+    (4, "demand", "Analizando demanda"),
+    (5, "reputation", "Analizando reputación"),
+    (6, "distribution", "Revisando distribución y paridad"),
+    (7, "consolidate", "Calculando estrategia, alertas y oportunidades"),
+    (8, "consolidate", "Priorizando acciones y escenarios"),
+    (9, "report", "Generando informe final"),
+]
+_STAGE_ORDER = {"starting": 0, "discovery": 1, "compset": 2, "parallel": 3, "pricing": 3, "demand": 3, "reputation": 3, "distribution": 3, "consolidate": 4, "report": 5, "rendering": 6, "persisting": 7, "notifying": 8, "done": 9, "error": -1, "created": -1}
+
+
+def build_fallback_progress_steps(stage: str, status: str, progress_pct: int = 0) -> List[Dict[str, Any]]:
+    """Construye 9 pasos cuando no hay progress escrito; usado por api_job_status."""
+    order = _STAGE_ORDER.get(stage, -1)
+    steps = []
+    for step_id, stage_key, label in _FALLBACK_STEP_LABELS:
+        step_order = _STAGE_ORDER.get(stage_key, -1)
+        s = {"id": step_id, "label": label, "status": "pending"}
+        if stage_key == stage or (stage in ("starting", "created") and step_id == 1):
+            s["status"] = "error" if status == "failed" else "active"
+        elif step_order >= 0 and order >= 0 and step_order < order:
+            s["status"] = "done"
+        steps.append(s)
+    return steps
+
+
 async def _heartbeat_loop(base_dir: str, job_id: str) -> None:
     """
     Loop que actualiza updated_at del job cada HEARTBEAT_INTERVAL_SECONDS.
@@ -344,6 +374,15 @@ async def run_analysis_job(
         started_at=now_iso,
     )
 
+    # Escribir pasos iniciales de inmediato para que la UI tenga siempre 9 pasos desde el primer poll
+    try:
+        from orchestrator import _build_progress_steps
+        initial_steps = _build_progress_steps("starting", 5, [], False)
+        write_job_progress(base_dir, job_id, initial_steps)
+        print(f"[RevMax] job_id={job_id} initial progress_steps written: {len(initial_steps)} steps", flush=True)
+    except Exception as e:
+        print(f"[RevMax] job_id={job_id} failed to write initial steps: {e}", flush=True)
+
     progress_cb = _make_progress_callback(base_dir, job_id)
     heartbeat_task: Optional[asyncio.Task] = None
 
@@ -458,6 +497,22 @@ async def run_analysis_job(
     except Exception as e:
         err_msg = _normalize_error_message(e)
         mark_job_failed(base_dir, job_id, err_msg)
+        print(f"[RevMax] job_id={job_id} analysis failed: {err_msg}", flush=True)
+        # Marcar el paso actual como error para que la UI muestre en qué paso falló
+        try:
+            job = job_state.get_job(base_dir, job_id)
+            if job:
+                stage = job.get("stage") or "starting"
+                from orchestrator import _build_progress_steps
+                steps = _build_progress_steps(stage, job.get("progress_pct") or 0, [], False)
+                for s in steps:
+                    if s.get("status") == "active":
+                        s["status"] = "error"
+                        break
+                write_job_progress(base_dir, job_id, steps)
+                print(f"[RevMax] job_id={job_id} progress_steps updated with error at stage={stage}", flush=True)
+        except Exception:
+            pass
         if on_legacy_error:
             on_legacy_error(err_msg, get_error_source(e), type(e).__name__)
         raise

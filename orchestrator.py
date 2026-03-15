@@ -854,7 +854,7 @@ async def run_fast_demo(
     hotel_name: str,
     city_hint: str = "",
     api_key: str = "",
-    progress_callback: Optional[Callable[[str, int], None]] = None,
+    progress_callback: Optional[Callable[..., None]] = None,
 ) -> dict:
     """
     Demo rápido (~15-25s): stubs de todos los agentes + solo el agente de informe.
@@ -862,8 +862,10 @@ async def run_fast_demo(
     if progress_callback is None:
         progress_callback = _noop_progress
     start = time.time()
-    progress_callback("starting", 5)
-    progress_callback("report", 15)
+    steps = _build_progress_steps("starting", 5, [], False)
+    progress_callback("starting", 5, steps)
+    steps = _build_progress_steps("report", 15, [], False)
+    progress_callback("report", 15, steps)
     outputs = {
         "discovery": {
             "hotel_name": hotel_name,
@@ -968,9 +970,12 @@ async def run_fast_demo(
         "agent_outputs": outputs,
         "briefing": briefing,
     }
-    progress_callback("consolidate", 50)
-    progress_callback("report", 60)
-    progress_callback("report", 70)
+    steps = _build_progress_steps("consolidate", 50, [], False)
+    progress_callback("consolidate", 50, steps)
+    steps = _build_progress_steps("report", 60, [], False)
+    progress_callback("report", 60, steps)
+    steps = _build_progress_steps("report", 70, [], False)
+    progress_callback("report", 70, steps)
     try:
         report = await run_report_agent(full_analysis, api_key)
     except Exception as e:
@@ -984,7 +989,10 @@ async def run_fast_demo(
         report["report_error"] = _report_error
     full_analysis["report"] = report
     full_analysis["elapsed_seconds"] = round(time.time() - start, 1)
-    progress_callback("report", 85)
+    steps = _build_progress_steps("report", 100, [], False)
+    for s in steps:
+        s["status"] = "done" if s.get("status") == "active" else s.get("status", "done")
+    progress_callback("report", 85, steps)
     return full_analysis
 
 

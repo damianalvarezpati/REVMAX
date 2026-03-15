@@ -300,12 +300,13 @@ async def api_run_analysis(request: Request):
     task = asyncio.create_task(_run_bg(job_id, hotel_name, city, api_key, hotel_id, cfg, send_email, fast_demo))
     await job_runtime.register(job_id, task)
     msg = "Demo rápido iniciado (~20 s)" if fast_demo else f"Análisis iniciado para '{hotel_name}' (1–2 min)"
+    print(f"[RevMax] run-analysis launched job_id={job_id} hotel={hotel_name!r} fast_demo={fast_demo}", flush=True)
     return {"ok": True, "job_id": job_id, "message": msg}
 
 
 @app.get("/api/job-status/{job_id}")
 def api_job_status(job_id: str):
-    """Devuelve el estado persistente del job y meta (timing, calidad, evidencias, pasos). 404 si no existe."""
+    """Devuelve el estado persistente del job y meta (timing, calidad, evidencias, pasos). 404 si no existe. Siempre incluye progress_steps (9 pasos)."""
     job = job_state.get_job(BASE_DIR, job_id)
     if job is None:
         return JSONResponse({"error": "Job no encontrado", "job_id": job_id}, status_code=404)
@@ -315,9 +316,14 @@ def api_job_status(job_id: str):
         progress_steps = meta.get("progress_steps")
     if progress_steps is None:
         progress_steps = analysis_runner.read_job_progress(BASE_DIR, job_id)
+    if not progress_steps or len(progress_steps) != 9:
+        progress_steps = analysis_runner.build_fallback_progress_steps(
+            job.get("stage") or "starting",
+            job.get("status") or "pending",
+            job.get("progress_pct") or 0,
+        )
     out = dict(job)
-    if progress_steps is not None:
-        out["progress_steps"] = progress_steps
+    out["progress_steps"] = progress_steps
     if meta:
         out["analysis_timing"] = meta.get("analysis_timing")
         out["analysis_quality"] = meta.get("analysis_quality")
@@ -1243,6 +1249,7 @@ async function runAnalysis(){
   }
 
   const jobId=r.job_id||null;
+  if(typeof console!=='undefined'&&console.log) console.log('[RevMax] run-analysis response: ok=',r.ok,' job_id=',jobId);
   toast(fastDemo ? 'Demo iniciado (~20 s)' : 'Análisis iniciado (1–2 min)','ok');
   const progressBlock=document.getElementById('run-progress-block');
   const progressIdle=document.getElementById('run-progress-idle');
@@ -1262,10 +1269,14 @@ async function runAnalysis(){
       return;
     }
     if(jobId){
-      const jR=await fetch('/api/job-status/'+jobId).catch(()=>null);
+      const url='/api/job-status/'+jobId;
+      if(polls===1&&typeof console!=='undefined'&&console.log) console.log('[RevMax] polling endpoint:',url);
+      const jR=await fetch(url).catch(function(e){ if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] job-status fetch failed',e); return null; });
       if(jR&&jR.ok){
         const job=await jR.json();
-        if(job.progress_steps&&job.progress_steps.length) renderProgressSteps(job.progress_steps);
+        const steps=job.progress_steps;
+        if(typeof console!=='undefined'&&console.log&&polls<=3) console.log('[RevMax] job-status poll #'+polls+' steps=',steps?steps.length:0,' stage=',job.stage,' status=',job.status);
+        renderProgressSteps(job.progress_steps||[]);
         if(job.stage) status.textContent=(STAGE_MESSAGES[job.stage]||job.stage)+(job.progress_pct!=null?' · '+job.progress_pct+'%':'');
         const durEl=document.getElementById('run-duration');
         if(job.analysis_timing&&job.analysis_timing.total_seconds!=null&&durEl) durEl.textContent='Duración: '+Math.round(job.analysis_timing.total_seconds)+' s';
@@ -1285,6 +1296,8 @@ async function runAnalysis(){
           status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
           status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
           status.textContent='Error: '+(job.error_message||'Unknown');
+          if(steps&&steps.length) renderProgressSteps(steps);
+          if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] analysis failed',job.error_message);
           toast('Análisis falló','err');
           return;
         }
@@ -1298,6 +1311,7 @@ async function runAnalysis(){
           status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
           status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
           status.textContent='Job colgado: '+(job.error_message||'Sin actualización en el tiempo límite.');
+          if(steps&&steps.length) renderProgressSteps(steps);
           toast('Análisis colgado','err');
           return;
         }
@@ -1314,26 +1328,30 @@ async function runAnalysis(){
         }
         return;
       }
-    }
-    const stR=await fetch('/api/analysis-status').catch(()=>null);
-    if(!stR||!stR.ok) return;
-    const st=await stR.json();
-    if(st.status==='success'){
-      clearInterval(poll);
-      showPreviewAndDone(btn,btxt,status,null,null);
+      if(jR&&!jR.ok&&typeof console!=='undefined'&&console.warn) console.warn('[RevMax] job-status non-ok',jR.status,jobId);
       return;
     }
-    if(st.status==='error'){
-      clearInterval(poll);
-      btn.disabled=false; btxt.textContent='Generar análisis';
-      if(progressBlock) progressBlock.style.display='none';
-      if(progressIdle) progressIdle.style.display='block';
-      status.style.display='block';
-      status.style.background='var(--red-bg)'; status.style.color='var(--red)';
-      status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
-      status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
-      status.textContent='Error: '+(st.error||'Unknown')+(st.source?'\n\nOrigen: '+st.source:'')+(st.exc_type?'\nTipo: '+st.exc_type:'');
-      toast('Análisis falló','err');
+    if(!jobId){
+      const stR=await fetch('/api/analysis-status').catch(()=>null);
+      if(!stR||!stR.ok) return;
+      const st=await stR.json();
+      if(st.status==='success'){
+        clearInterval(poll);
+        showPreviewAndDone(btn,btxt,status,null,null);
+        return;
+      }
+      if(st.status==='error'){
+        clearInterval(poll);
+        btn.disabled=false; btxt.textContent='Generar análisis';
+        if(progressBlock) progressBlock.style.display='none';
+        if(progressIdle) progressIdle.style.display='block';
+        status.style.display='block';
+        status.style.background='var(--red-bg)'; status.style.color='var(--red)';
+        status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
+        status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
+        status.textContent='Error: '+(st.error||'Unknown')+(st.source?'\n\nOrigen: '+st.source:'')+(st.exc_type?'\nTipo: '+st.exc_type:'');
+        toast('Análisis falló','err');
+      }
     }
   },2000);
 }
