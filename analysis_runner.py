@@ -48,8 +48,9 @@ def write_job_meta(
     analysis_quality: Dict[str, Any],
     evidence_found: Dict[str, Any],
     progress_steps: Optional[List[Dict[str, Any]]] = None,
+    result_summary: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Escribe meta del análisis al completar (timing, calidad, evidencias, pasos finales)."""
+    """Escribe meta del análisis al completar (timing, calidad, evidencias, pasos, resumen decisión)."""
     path = _job_meta_path(base_dir, job_id)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
@@ -58,6 +59,7 @@ def write_job_meta(
             "analysis_quality": analysis_quality,
             "evidence_found": evidence_found,
             "progress_steps": progress_steps or [],
+            "result_summary": result_summary or {},
             "completed_at": datetime.utcnow().isoformat() + "Z",
         }
         with open(path, "w", encoding="utf-8") as f:
@@ -414,6 +416,27 @@ async def run_analysis_job(
         )
 
         if not fast_demo and result.get("analysis_timing") is not None:
+            briefing = result.get("briefing", {})
+            report = result.get("report", {})
+            conf = briefing.get("system_confidence")
+            if conf is not None and isinstance(conf, (int, float)):
+                confidence_pct = int(round(conf * 100))
+            else:
+                confidence_pct = 70
+            consolidated = (briefing.get("consolidated_price_action") or report.get("overall_status") or "hold").lower()
+            if consolidated not in ("raise", "hold", "lower", "promo"):
+                consolidated = "hold"
+            exec_summary = (
+                (report.get("status_summary") or "")
+                or (briefing.get("consolidation_rationale") or "")
+                or (report.get("report_text") or "")[:300]
+            )
+            result_summary = {
+                "consolidated_action": consolidated,
+                "confidence_pct": confidence_pct,
+                "executive_summary": exec_summary.strip() or "No summary available.",
+                "analysis_date": result.get("analysis_date", datetime.now().strftime("%Y-%m-%d")),
+            }
             write_job_meta(
                 base_dir,
                 job_id,
@@ -421,6 +444,7 @@ async def run_analysis_job(
                 result.get("analysis_quality", {}),
                 result.get("evidence_found", {}),
                 result.get("progress_steps"),
+                result_summary=result_summary,
             )
 
         if on_legacy_success:
