@@ -202,6 +202,12 @@ def _build_report_prompt(full_analysis: dict) -> str:
     consolidation_rationale = briefing.get("consolidation_rationale", "")
     critical_issues = briefing.get("critical_issues", [])
     signal_sources = briefing.get("signal_sources", [])
+    derived_overall_status = briefing.get("derived_overall_status", "")
+    recommended_priority_actions_seed = briefing.get("recommended_priority_actions_seed", [])
+    decision_drivers = briefing.get("decision_drivers", [])
+    decision_penalties = briefing.get("decision_penalties", [])
+    severity_summary = briefing.get("severity_summary", {})
+    action_constraints = briefing.get("action_constraints", [])
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -255,6 +261,15 @@ DECISIÓN CONSOLIDADA (usa esto como referencia obligatoria):
   Señales: {chr(10).join(f'  - {s}' for s in signal_sources) if signal_sources else '  (no detallado)'}
   Asuntos críticos: {chr(10).join(f'  - {i}' for i in critical_issues) if critical_issues else '  Ninguno.'}
 
+ESTADO Y PRIORIDAD DERIVADOS POR CÓDIGO (respeta estos valores; no inventes un tono distinto):
+  derived_overall_status: {derived_overall_status or 'stable'}
+  decision_drivers: {chr(10).join(f'  - {d}' for d in decision_drivers) if decision_drivers else '  (no detallado)'}
+  decision_penalties: {chr(10).join(f'  - {p}' for p in decision_penalties) if decision_penalties else '  Ninguna.'}
+  severity_summary: {json.dumps(severity_summary) if severity_summary else '{}'}
+  action_constraints: {chr(10).join(f'  - {c}' for c in action_constraints) if action_constraints else '  Ninguna.'}
+  recommended_priority_actions_seed (base obligatoria para priority_actions; expande con detalle, no contradigas urgencia ni orden):
+{chr(10).join(f'  - [{s.get("urgency","?")}] {s.get("reason_source","?")}: {s.get("action_hint","")}' for s in recommended_priority_actions_seed) if recommended_priority_actions_seed else '  (vacío)'}
+
 CONFLICTOS ENTRE AGENTES:
 {conflicts_text}
 
@@ -267,11 +282,12 @@ ALERTAS:
 ═══ INSTRUCCIONES PARA EL INFORME ════════════════════
 
 REGLAS OBLIGATORIAS:
-- overall_status debe derivar de los asuntos críticos: si hay critical_issues con severidad alta → "needs_attention" o "alert"; si no hay conflictos altos y señales estables → "stable" o "strong".
-- Las priority_actions deben ser coherentes con la DECISIÓN CONSOLIDADA (consolidated_price_action) y con consolidation_rationale. La primera acción prioritaria debe reflejar la acción de precio consolidada cuando sea aplicable.
+- overall_status: USA el valor derived_overall_status ({derived_overall_status or 'stable'}) como overall_status del informe. No inventes "strong" si el código marcó "alert" ni "alert" si el código marcó "stable". Solo matiza si hay un dato muy claro que lo justifique.
+- Las priority_actions deben BASARSE en recommended_priority_actions_seed: mismo orden de urgencia (immediate → this_week → this_month) y mismas fuentes (paridad, conflicto, consolidación). Expande cada ítem con action/room_type/metric/reason/expected_impact concretos, pero no contradigas la urgencia ni el mensaje de la semilla.
+- Coherencia con consolidated_price_action y consolidation_rationale. Respetar action_constraints en el texto (ej. no recomendar subir precio si la restricción dice "Resolver paridad primero").
 - Cada "reason" de las priority_actions debe CITAR LA FUENTE: ej. "Pricing: ARI bajo", "Demanda alta (score 72)", "Paridad: resolver antes de cambiar precios". Nada genérico como "mejorar revenue".
-- Máximo 3 priority_actions. Ordenar por urgencia real: immediate > this_week > this_month. Si hay violación de paridad, debe ser immediate.
-- report_text debe explicar el "por qué" en 1-2 frases cuando mencione la acción de precio: usar consolidation_rationale o signal_sources para justificar.
+- Máximo 3 priority_actions. Orden = semilla: paridad/conflitos primero si existen, luego acción de precio consolidada.
+- report_text debe explicar el "por qué" con decision_drivers y decision_penalties cuando sea relevante; usar consolidation_rationale o signal_sources para la acción de precio.
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 

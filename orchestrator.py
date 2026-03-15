@@ -3,6 +3,7 @@ RevMax — Orquestador Principal v2
 ====================================
 Pipeline completo con los 7 agentes reales.
 Agentes 3–6 corren en paralelo con asyncio.gather().
+Consolidación: pesos centralizados en CONSOLIDATION_WEIGHTS; lógica en helpers.
 """
 
 import asyncio
@@ -22,6 +23,25 @@ from agents.agent_04_demand import run_demand_agent
 from agents.agent_05_reputation import run_reputation_agent
 from agents.agent_06_distribution import run_distribution_agent
 from agents.agent_07_report import run_report_agent
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pesos y factores de consolidación. Centralizados para mantenimiento.
+# Modificar aquí para ajustar sensibilidad sin tocar la lógica.
+# ─────────────────────────────────────────────────────────────────────────────
+CONSOLIDATION_WEIGHTS = {
+    "reputation_premium_raise_factor": 0.4,
+    "reputation_overprice_lower_factor": 0.3,
+    "parity_hold_boost": 0.8,
+    "parity_raise_lower_multiplier": 0.3,
+    "visibility_low_raise_multiplier": 0.6,
+    "visibility_low_hold_boost": 0.2,
+    "high_conflict_raise_multiplier": 0.5,
+    "high_conflict_hold_boost": 0.4,
+    "gri_min_for_premium": 78,
+    "opportunity_max_count": 5,
+    "opportunity_normalize_len": 80,
+}
 
 
 def detect_conflicts(agent_outputs: dict) -> list[dict]:
@@ -82,23 +102,29 @@ def _normalize_opportunity_text(s: str) -> str:
     """Normaliza texto para deduplicar oportunidades."""
     if not s or not isinstance(s, str):
         return ""
-    return " ".join(s.lower().split())[:80]
+    n = CONSOLIDATION_WEIGHTS.get("opportunity_normalize_len", 80)
+    return " ".join(s.lower().split())[:n]
 
 
-def consolidate(agent_outputs: dict, conflicts: list) -> dict:
+def _get_confidence_weights(agent_outputs: dict) -> dict:
+    """Extrae los confidence_score de cada agente (con defaults)."""
     pricing = agent_outputs.get("pricing", {})
     demand = agent_outputs.get("demand", {})
     reputation = agent_outputs.get("reputation", {})
     distribution = agent_outputs.get("distribution", {})
-
-    w = {
-        "compset":      agent_outputs.get("compset", {}).get("confidence_score", 0.7),
-        "pricing":      pricing.get("confidence_score", 0.7),
-        "demand":       demand.get("confidence_score", 0.65),
-        "reputation":   reputation.get("confidence_score", 0.75),
+    return {
+        "compset": agent_outputs.get("compset", {}).get("confidence_score", 0.7),
+        "pricing": pricing.get("confidence_score", 0.7),
+        "demand": demand.get("confidence_score", 0.65),
+        "reputation": reputation.get("confidence_score", 0.75),
         "distribution": distribution.get("confidence_score", 0.65),
     }
 
+
+def _apply_base_signals(agent_outputs: dict, w: dict) -> dict:
+    """Aplica señales base de Pricing y Demand a un dict de señales (raise/hold/lower/promo)."""
+    pricing = agent_outputs.get("pricing", {})
+    demand = agent_outputs.get("demand", {})
     signals = {"raise": 0.0, "hold": 0.0, "lower": 0.0, "promo": 0.0}
     p_action = pricing.get("recommendation", {}).get("action", "hold")
     d_action = demand.get("price_implication", "hold")
@@ -106,38 +132,74 @@ def consolidate(agent_outputs: dict, conflicts: list) -> dict:
         signals[p_action] += w["pricing"]
     if d_action in signals:
         signals[d_action] += w["demand"]
+    return signals
 
+
+def _apply_reputation_signals(signals: dict, reputation: dict, w: dict) -> None:
+    """Modifica signals in-place según reputación (GRI premium, percepción de precio)."""
+    if not reputation:
+        return
     gri = reputation.get("gri", {})
     gri_val = gri.get("value") or 0
     can_premium = gri.get("can_command_premium", False)
     premium_pct = gri.get("suggested_premium_pct") or 0
     price_perception = (reputation.get("sentiment_analysis") or {}).get("price_perception", "")
-    if can_premium and premium_pct > 0 and isinstance(gri_val, (int, float)) and gri_val >= 78:
-        signals["raise"] += w["reputation"] * 0.4
+    min_gri = CONSOLIDATION_WEIGHTS.get("gri_min_for_premium", 78)
+    if can_premium and premium_pct > 0 and isinstance(gri_val, (int, float)) and gri_val >= min_gri:
+        factor = CONSOLIDATION_WEIGHTS.get("reputation_premium_raise_factor", 0.4)
+        signals["raise"] += w["reputation"] * factor
     if price_perception and isinstance(price_perception, str) and "caro" in price_perception.lower():
-        signals["lower"] += w["reputation"] * 0.3
+        factor = CONSOLIDATION_WEIGHTS.get("reputation_overprice_lower_factor", 0.3)
+        signals["lower"] += w["reputation"] * factor
 
+
+def _apply_distribution_signals(signals: dict, distribution: dict, p_action: str) -> None:
+    """Modifica signals in-place según distribución (paridad, visibilidad)."""
+    if not distribution:
+        return
     parity_status = distribution.get("rate_parity", {}).get("status", "ok")
     visibility = distribution.get("visibility_score", 1.0) or 1.0
     if parity_status == "violation":
-        signals["raise"] *= 0.3
-        signals["lower"] *= 0.3
-        signals["hold"] += 0.8
+        mult = CONSOLIDATION_WEIGHTS.get("parity_raise_lower_multiplier", 0.3)
+        boost = CONSOLIDATION_WEIGHTS.get("parity_hold_boost", 0.8)
+        signals["raise"] *= mult
+        signals["lower"] *= mult
+        signals["hold"] += boost
     if isinstance(visibility, (int, float)) and visibility < 0.5 and p_action == "raise":
-        signals["raise"] *= 0.6
-        signals["hold"] += 0.2
+        mult = CONSOLIDATION_WEIGHTS.get("visibility_low_raise_multiplier", 0.6)
+        boost = CONSOLIDATION_WEIGHTS.get("visibility_low_hold_boost", 0.2)
+        signals["raise"] *= mult
+        signals["hold"] += boost
 
-    has_high_conflict = any(c.get("severity") == "high" for c in conflicts)
-    if has_high_conflict:
-        signals["raise"] *= 0.5
-        signals["hold"] += 0.4
 
-    final_action = max(signals, key=signals.get)
-    if signals[final_action] <= 0:
-        final_action = "hold"
+def _apply_conflict_penalties(signals: dict, conflicts: list) -> bool:
+    """Aplica penalizaciones por conflictos de alta severidad. Devuelve True si hubo alguno."""
+    has_high = any(c.get("severity") == "high" for c in conflicts)
+    if not has_high:
+        return False
+    mult = CONSOLIDATION_WEIGHTS.get("high_conflict_raise_multiplier", 0.5)
+    boost = CONSOLIDATION_WEIGHTS.get("high_conflict_hold_boost", 0.4)
+    signals["raise"] *= mult
+    signals["hold"] += boost
+    return True
 
-    seen_opp = set()
-    opportunities = []
+
+def _final_action_from_signals(signals: dict) -> str:
+    """Obtiene la acción final (raise/hold/lower/promo); fallback a hold si empate o cero."""
+    action = max(signals, key=signals.get)
+    if signals[action] <= 0:
+        return "hold"
+    return action
+
+
+def _dedupe_opportunities(agent_outputs: dict) -> list:
+    """Extrae y deduplica oportunidades de pricing, demand y distribution."""
+    pricing = agent_outputs.get("pricing", {})
+    demand = agent_outputs.get("demand", {})
+    distribution = agent_outputs.get("distribution", {})
+    seen = set()
+    out = []
+    max_n = CONSOLIDATION_WEIGHTS.get("opportunity_max_count", 5)
     for src in [pricing.get("yield_opportunities", []),
                 demand.get("opportunities", []),
                 distribution.get("quick_wins", [])]:
@@ -146,15 +208,19 @@ def consolidate(agent_outputs: dict, conflicts: list) -> dict:
             if not desc:
                 continue
             key = _normalize_opportunity_text(desc)
-            if key and key not in seen_opp:
-                seen_opp.add(key)
-                opportunities.append(desc if isinstance(desc, str) else str(desc))
-            if len(opportunities) >= 5:
-                break
-        if len(opportunities) >= 5:
-            break
-    opportunities = opportunities[:5]
+            if key and key not in seen:
+                seen.add(key)
+                out.append(desc if isinstance(desc, str) else str(desc))
+            if len(out) >= max_n:
+                return out[:max_n]
+    return out[:max_n]
 
+
+def _build_alerts(agent_outputs: dict) -> list:
+    """Construye lista de alertas desde pricing, distribution y reputation."""
+    pricing = agent_outputs.get("pricing", {})
+    distribution = agent_outputs.get("distribution", {})
+    reputation = agent_outputs.get("reputation", {})
     alerts = []
     for alert in pricing.get("pricing_alerts", []):
         if alert.get("level") == "high":
@@ -167,23 +233,183 @@ def consolidate(agent_outputs: dict, conflicts: list) -> dict:
     if neg:
         alerts.append({"level": "medium", "source": "reputation",
                        "message": f"Temas negativos recurrentes: {', '.join(neg[:3])}"})
-    alerts = [a for a in alerts if a.get("message")]
+    return [a for a in alerts if a.get("message")]
 
-    critical_issues = []
+
+def _build_critical_issues(conflicts: list, alerts: list) -> list:
+    """Lista de descripciones de conflictos high y alertas high."""
+    out = []
     for c in conflicts:
         if c.get("severity") == "high":
-            critical_issues.append(c.get("description", c.get("type", "Conflicto crítico")))
+            out.append(c.get("description", c.get("type", "Conflicto crítico")))
     for a in alerts:
         if a.get("level") == "high":
-            critical_issues.append(a.get("message", "Alerta alta"))
+            out.append(a.get("message", "Alerta alta"))
+    return out
 
-    signal_sources = [
+
+def _build_signal_sources(p_action: str, d_action: str, w: dict, has_high_conflict: bool) -> list:
+    """Lista de frases que explican el origen de las señales."""
+    out = [
         f"Pricing: {p_action} (conf {w['pricing']})",
         f"Demand: {d_action} (conf {w['demand']})",
     ]
     if has_high_conflict:
-        signal_sources.append("Conflictos de alta severidad aplicados → prioridad a hold.")
-    consolidation_rationale = " ".join(signal_sources) + f" → Decisión: {final_action.upper()}."
+        out.append("Conflictos de alta severidad aplicados → prioridad a hold.")
+    return out
+
+
+def _build_consolidation_rationale(signal_sources: list, final_action: str) -> str:
+    """Una sola frase con las fuentes y la decisión."""
+    return " ".join(signal_sources) + f" → Decisión: {final_action.upper()}."
+
+
+def _derive_overall_status(
+    critical_issues: list,
+    parity_violation: bool,
+    has_high_conflict: bool,
+    demand_signal: str,
+) -> str:
+    """
+    Deriva overall_status de forma determinista para que el report no invente.
+    Valores: alert | needs_attention | stable | strong
+    """
+    if critical_issues or parity_violation or has_high_conflict:
+        if parity_violation or (has_high_conflict and demand_signal in ("low", "very_low")):
+            return "alert"
+        return "needs_attention"
+    if demand_signal in ("high", "very_high"):
+        return "strong"
+    return "stable"
+
+
+def _build_severity_summary(conflicts: list, alerts: list) -> dict:
+    """Resumen de severidades para trazabilidad."""
+    high_conflicts = sum(1 for c in conflicts if c.get("severity") == "high")
+    medium_conflicts = sum(1 for c in conflicts if c.get("severity") == "medium")
+    high_alerts = sum(1 for a in alerts if a.get("level") == "high")
+    medium_alerts = sum(1 for a in alerts if a.get("level") == "medium")
+    return {
+        "high_conflicts": high_conflicts,
+        "medium_conflicts": medium_conflicts,
+        "high_alerts": high_alerts,
+        "medium_alerts": medium_alerts,
+        "has_critical": high_conflicts > 0 or high_alerts > 0,
+    }
+
+
+def _build_decision_drivers(p_action: str, d_action: str, w: dict) -> list:
+    """Frases cortas que impulsaron la decisión (sin penalizaciones)."""
+    return [
+        f"Pricing recomienda {p_action} (confianza {w['pricing']})",
+        f"Demand implica {d_action} (confianza {w['demand']})",
+    ]
+
+
+def _build_decision_penalties(
+    conflicts: list,
+    parity_violation: bool,
+    visibility_low: bool,
+    p_action: str,
+) -> list:
+    """Frases que describen penalizaciones o restricciones aplicadas."""
+    out = []
+    if parity_violation:
+        out.append("Paridad violada: prioridad a hold hasta resolver.")
+    if visibility_low and p_action == "raise":
+        out.append("Visibilidad baja: reduce peso de subida de precio.")
+    for c in conflicts:
+        if c.get("severity") == "high":
+            out.append(c.get("resolution_hint", c.get("description", "")))
+    return out
+
+
+def _build_action_constraints(parity_violation: bool, critical_issues: list) -> list:
+    """Restricciones que debe respetar la primera acción (ej. no subir si paridad)."""
+    out = []
+    if parity_violation:
+        out.append("Resolver paridad antes de cualquier cambio de precio.")
+    if critical_issues:
+        out.append("La acción debe ser coherente con la resolución de conflictos detectados.")
+    return out
+
+
+def _build_recommended_priority_actions_seed(
+    consolidated_action: str,
+    parity_violation: bool,
+    critical_issues: list,
+    alerts: list,
+) -> list:
+    """
+    Semilla determinista de acciones prioritarias para el report.
+    El LLM debe usarla como base y expandir con detalle; no inventar urgencias opuestas.
+    Cada item: { "urgency": "immediate"|"this_week"|"this_month", "reason_source": str, "action_hint": str }
+    """
+    seed = []
+    if parity_violation:
+        seed.append({
+            "urgency": "immediate",
+            "reason_source": "distribution",
+            "action_hint": "Resolver violación de paridad de tarifas entre canales.",
+        })
+    for _ in critical_issues:
+        if not any(s.get("reason_source") == "conflict" for s in seed):
+            seed.append({
+                "urgency": "immediate" if parity_violation else "this_week",
+                "reason_source": "conflict",
+                "action_hint": "Seguir la decisión consolidada (conflictos resueltos).",
+            })
+            break
+    seed.append({
+        "urgency": "this_week",
+        "reason_source": "consolidation",
+        "action_hint": f"Acción de precio consolidada: {consolidated_action.upper()}.",
+    })
+    return seed[:3]
+
+
+def consolidate(agent_outputs: dict, conflicts: list) -> dict:
+    """
+    Orquesta la consolidación: señales base → reputación → distribución → conflictos
+    → decisión final, oportunidades, alertas, rationale, derived_overall_status y seed de acciones.
+    """
+    pricing = agent_outputs.get("pricing", {})
+    demand = agent_outputs.get("demand", {})
+    reputation = agent_outputs.get("reputation", {})
+    distribution = agent_outputs.get("distribution", {})
+
+    w = _get_confidence_weights(agent_outputs)
+    signals = _apply_base_signals(agent_outputs, w)
+    p_action = pricing.get("recommendation", {}).get("action", "hold")
+    d_action = demand.get("price_implication", "hold")
+
+    _apply_reputation_signals(signals, reputation, w)
+    _apply_distribution_signals(signals, distribution, p_action)
+    has_high_conflict = _apply_conflict_penalties(signals, conflicts)
+    final_action = _final_action_from_signals(signals)
+
+    opportunities = _dedupe_opportunities(agent_outputs)
+    alerts = _build_alerts(agent_outputs)
+    critical_issues = _build_critical_issues(conflicts, alerts)
+    signal_sources = _build_signal_sources(p_action, d_action, w, has_high_conflict)
+    consolidation_rationale = _build_consolidation_rationale(signal_sources, final_action)
+
+    parity_violation = distribution.get("rate_parity", {}).get("status") == "violation"
+    demand_signal = demand.get("demand_index", {}).get("signal", "medium")
+    derived_overall_status = _derive_overall_status(
+        critical_issues, parity_violation, has_high_conflict, demand_signal
+    )
+    severity_summary = _build_severity_summary(conflicts, alerts)
+    decision_drivers = _build_decision_drivers(p_action, d_action, w)
+    visibility = distribution.get("visibility_score", 1.0) or 1.0
+    visibility_low = isinstance(visibility, (int, float)) and visibility < 0.5
+    decision_penalties = _build_decision_penalties(
+        conflicts, parity_violation, visibility_low, p_action
+    )
+    action_constraints = _build_action_constraints(parity_violation, critical_issues)
+    recommended_priority_actions_seed = _build_recommended_priority_actions_seed(
+        final_action, parity_violation, critical_issues, alerts
+    )
 
     return {
         "consolidated_price_action": final_action,
@@ -196,6 +422,12 @@ def consolidate(agent_outputs: dict, conflicts: list) -> dict:
         "consolidation_rationale": consolidation_rationale,
         "critical_issues": critical_issues,
         "signal_sources": signal_sources,
+        "derived_overall_status": derived_overall_status,
+        "severity_summary": severity_summary,
+        "decision_drivers": decision_drivers,
+        "decision_penalties": decision_penalties,
+        "action_constraints": action_constraints,
+        "recommended_priority_actions_seed": recommended_priority_actions_seed,
     }
 
 
@@ -250,7 +482,7 @@ async def run_full_analysis(
     )
     _save("compset", outputs["compset"])
 
-    # Fase 3 — Paralelo (progreso por agente: pricing 42, demand 44, reputation 46, distribution 50)
+    # Fase 3 — Paralelo
     print("\n▶ Fase 3/5 — Paralelo [Pricing · Demand · Reputation · Distribution]")
     progress_callback("parallel", 40)
     demand_stub = {"demand_index": {"signal": "medium", "score": 55}, "events_detected": []}
@@ -279,7 +511,7 @@ async def run_full_analysis(
     for c in conflicts:
         print(f"  ! [{c['severity'].upper()}] {c['description']}")
     briefing = consolidate(outputs, conflicts)
-    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Confidence: {briefing['system_confidence']}")
+    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')}")
 
     full_analysis = {
         "hotel_name": hotel_name,
@@ -317,7 +549,6 @@ async def run_fast_demo(
 ) -> dict:
     """
     Demo rápido (~15-25s): stubs de todos los agentes + solo el agente de informe.
-    Útil para probar la UI y el email sin esperar el pipeline completo.
     """
     if progress_callback is None:
         progress_callback = _noop_progress
