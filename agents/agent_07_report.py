@@ -255,6 +255,10 @@ def _build_report_prompt(full_analysis: dict) -> str:
     top_value_opportunity = briefing.get("top_value_opportunity")
     impact_opportunities = briefing.get("impact_opportunities", [])
     impact_actions = briefing.get("impact_actions", [])
+    value_opportunities = briefing.get("value_opportunities", [])
+    value_actions = briefing.get("value_actions", [])
+    value_summary = briefing.get("value_summary", "")
+    top_priority_item = briefing.get("top_priority_item")
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -380,6 +384,14 @@ IMPACTO POR ACCIÓN (Impact Engine; usar SOLO esta lista para action_impact_esti
   impact_actions (citar solo estos impactos en el report_text):
 {chr(10).join(f'  [{a.get("priority","?").upper()}] {a.get("type","?")}: {a.get("title","?")} | action_impact_estimate: {a.get("action_impact_estimate","impact uncertain")} | action_impact_confidence: {a.get("action_impact_confidence","low")}' for a in impact_actions) if impact_actions else '  (vacío)'}
 
+PRIORIZACIÓN POR VALOR Y URGENCIA (Value Prioritization Engine; usar SOLO estos datos para priority ranking, value_score y urgency en el informe; no inventar scores; mostrar máximo 3 prioridades):
+  value_summary: {value_summary or 'N/A'}
+  top_priority_item: {json.dumps(top_priority_item, ensure_ascii=False) if top_priority_item else 'N/A'}
+  value_opportunities (ordenadas por priority_score DESC; citar priority_rank, value_score, urgency_score, priority_score, impact_estimate):
+{chr(10).join(f'  #{o.get("priority_rank", "?")} [{o.get("type","?")}] {o.get("title","?")} | value_score: {o.get("value_score", 0)} | urgency_score: {o.get("urgency_score", 0)} | priority_score: {o.get("priority_score", 0)} | impact_estimate: {o.get("impact_estimate","")}' for o in value_opportunities[:5]) if value_opportunities else '  (vacío)'}
+  value_actions (ordenadas por priority_score DESC; citar priority_rank, value_score, urgency_score, priority_score, action_impact_estimate):
+{chr(10).join(f'  #{a.get("priority_rank", "?")} [{a.get("type","?")}] {a.get("title","?")} | value_score: {a.get("value_score", 0)} | urgency_score: {a.get("urgency_score", 0)} | priority_score: {a.get("priority_score", 0)} | action_impact_estimate: {a.get("action_impact_estimate","")}' for a in value_actions[:5]) if value_actions else '  (vacío)'}
+
 NOTIFICACIONES PRIORIZADAS POR REVMAX (generadas por código; no inventar notificaciones fuera de esta lista; usar title, summary y rationale):
   notification_summary: {notification_summary or 'Ninguna.'}
   notification_priority_counts: {notification_priority_counts}
@@ -414,6 +426,7 @@ REGLAS OBLIGATORIAS:
 - MEMORIA: Si hay repeated_alerts, menciónalo como persistencia del problema. Si hay resolved_alerts, menciónalo como mejora. Si strategy_changed, explícalo en una frase. Si attention_trend es worsening, el tono debe reflejar empeoramiento; si improving, reflejar mejora. No inventes memoria fuera de la generada por código (memory_summary, repeated_alerts, new_alerts, resolved_alerts, strategy_changed, attention_trend).
 - OPORTUNIDADES: Si hay oportunidades de nivel high (high_opportunity_count: {high_opportunity_count}), deben aparecer en report_text. Conecta oportunidades con acciones y estrategia. No inventes oportunidades fuera de las generadas por código. Diferencia claramente oportunidad (posibilidad de captura o mejora) de alerta (riesgo) o de acción (qué hacer).
 - IMPACTO: Usa SOLO impact_opportunities e impact_actions (listas anteriores) para mostrar impacto. No inventes cifras ni rangos. Si no hay estimación clara para una oportunidad o acción, indica "Estimated impact: impact uncertain." Ejemplo: "Opportunity to capture additional ADR. Estimated impact: ADR upside potential +5–9%. Confidence: medium." Mantén tono ejecutivo y no repitas el mismo texto entre secciones.
+- PRIORIDAD: Usa SOLO value_opportunities y value_actions para Priority ranking, Value score y Urgency. No inventes scores. Muestra máximo 3 prioridades en el informe. Ejemplo: "Top priority opportunity: Capture additional ADR. Priority score: 8.2. Estimated impact: ADR upside +5–9%."
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 
