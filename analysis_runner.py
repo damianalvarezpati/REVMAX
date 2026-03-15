@@ -6,8 +6,9 @@ Heartbeat actualiza updated_at durante la ejecución; se cancela al terminar o a
 
 import asyncio
 import json
+import os
 from datetime import datetime
-from typing import Callable, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import job_state
 from error_utils import get_error_source
@@ -15,6 +16,79 @@ from report_artifacts import write_preview, write_result_report
 
 PIPELINE_TIMEOUT_SECONDS = 600
 HEARTBEAT_INTERVAL_SECONDS = 20
+
+
+def _jobs_dir(base_dir: str) -> str:
+    return os.path.join(base_dir, "data", "jobs")
+
+
+def _job_meta_path(base_dir: str, job_id: str) -> str:
+    return os.path.join(_jobs_dir(base_dir), f"{job_id}_meta.json")
+
+
+def _job_progress_path(base_dir: str, job_id: str) -> str:
+    return os.path.join(_jobs_dir(base_dir), f"{job_id}_progress.json")
+
+
+def write_job_progress(base_dir: str, job_id: str, steps: List[Dict[str, Any]]) -> None:
+    """Escribe pasos de progreso para la UI (sin tocar job_state)."""
+    path = _job_progress_path(base_dir, job_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"steps": steps, "updated_at": datetime.utcnow().isoformat() + "Z"}, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def write_job_meta(
+    base_dir: str,
+    job_id: str,
+    analysis_timing: Dict[str, float],
+    analysis_quality: Dict[str, Any],
+    evidence_found: Dict[str, Any],
+    progress_steps: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    """Escribe meta del análisis al completar (timing, calidad, evidencias, pasos finales)."""
+    path = _job_meta_path(base_dir, job_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    try:
+        data = {
+            "analysis_timing": analysis_timing,
+            "analysis_quality": analysis_quality,
+            "evidence_found": evidence_found,
+            "progress_steps": progress_steps or [],
+            "completed_at": datetime.utcnow().isoformat() + "Z",
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def read_job_meta(base_dir: str, job_id: str) -> Optional[Dict[str, Any]]:
+    """Lee meta del análisis si existe."""
+    path = _job_meta_path(base_dir, job_id)
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def read_job_progress(base_dir: str, job_id: str) -> Optional[List[Dict[str, Any]]]:
+    """Lee pasos de progreso si existen."""
+    path = _job_progress_path(base_dir, job_id)
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+            return data.get("steps")
+    except Exception:
+        return None
 
 
 async def _heartbeat_loop(base_dir: str, job_id: str) -> None:
@@ -27,9 +101,14 @@ async def _heartbeat_loop(base_dir: str, job_id: str) -> None:
         job_state.touch_job(base_dir, job_id)
 
 
-def _make_progress_callback(base_dir: str, job_id: str) -> Callable[[str, int], None]:
-    def cb(stage: str, progress_pct: int) -> None:
+def _make_progress_callback(base_dir: str, job_id: str) -> Callable[..., None]:
+    """Callback que actualiza job_state y opcionalmente escribe progress_steps en _progress.json."""
+
+    def cb(stage: str, progress_pct: int, steps: Optional[List[Dict[str, Any]]] = None) -> None:
         job_state.update_job(base_dir, job_id, stage=stage, progress_pct=progress_pct)
+        if steps is not None:
+            write_job_progress(base_dir, job_id, steps)
+
     return cb
 
 
@@ -38,7 +117,7 @@ async def run_pipeline(
     city: str,
     api_key: str,
     fast_demo: bool,
-    progress_callback: Callable[[str, int], None],
+    progress_callback: Callable[..., None],
 ) -> dict:
     """
     Ejecuta el pipeline de análisis (completo o demo).
@@ -333,6 +412,16 @@ async def run_analysis_job(
             completed_at=completed_at,
             warning_message=warning_message,
         )
+
+        if not fast_demo and result.get("analysis_timing") is not None:
+            write_job_meta(
+                base_dir,
+                job_id,
+                result.get("analysis_timing", {}),
+                result.get("analysis_quality", {}),
+                result.get("evidence_found", {}),
+                result.get("progress_steps"),
+            )
 
         if on_legacy_success:
             on_legacy_success()

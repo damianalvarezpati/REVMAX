@@ -221,14 +221,21 @@ def api_preview(filename: str, request: Request):
 
 @app.get("/api/preview/job/{job_id}")
 def api_preview_job(job_id: str):
-    """Sirve el preview del informe por job_id (data/previews/<job_id>.html)."""
+    """Sirve el preview del informe por job_id (data/previews/<job_id>.html). Si no existe, devuelve HTML legible para que el iframe muestre algo."""
     safe_id = job_id.replace("..", "").replace("/", "").strip()
     if not safe_id or len(safe_id) > 64:
         return JSONResponse({"error": "job_id inválido"}, status_code=400)
     path = os.path.join(BASE_DIR, "data", "previews", f"{safe_id}.html")
     if os.path.exists(path) and os.path.isfile(path):
         return FileResponse(path, media_type="text/html")
-    return JSONResponse({"error": "Preview no encontrado", "job_id": safe_id}, status_code=404)
+    # Si no hay archivo, devolver 200 con HTML para que el iframe muestre mensaje (no 404 en blanco)
+    fallback_html = (
+        "<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'><title>RevMax</title></head><body style='margin:24px;font-family:sans-serif;'>"
+        "<p style='color:#712B13;'>Preview no encontrado.</p>"
+        "<p>Job: " + safe_id + ". El informe puede estar generándose o hubo un error al guardar.</p>"
+        "</body></html>"
+    )
+    return Response(content=fallback_html, media_type="text/html")
 
 @app.post("/api/add-client")
 async def api_add_client(request: Request):
@@ -298,11 +305,24 @@ async def api_run_analysis(request: Request):
 
 @app.get("/api/job-status/{job_id}")
 def api_job_status(job_id: str):
-    """Devuelve el estado persistente del job. 404 si no existe."""
+    """Devuelve el estado persistente del job y meta (timing, calidad, evidencias, pasos). 404 si no existe."""
     job = job_state.get_job(BASE_DIR, job_id)
     if job is None:
         return JSONResponse({"error": "Job no encontrado", "job_id": job_id}, status_code=404)
-    return job
+    meta = analysis_runner.read_job_meta(BASE_DIR, job_id)
+    progress_steps = None
+    if meta:
+        progress_steps = meta.get("progress_steps")
+    if progress_steps is None:
+        progress_steps = analysis_runner.read_job_progress(BASE_DIR, job_id)
+    out = dict(job)
+    if progress_steps is not None:
+        out["progress_steps"] = progress_steps
+    if meta:
+        out["analysis_timing"] = meta.get("analysis_timing")
+        out["analysis_quality"] = meta.get("analysis_quality")
+        out["evidence_found"] = meta.get("evidence_found")
+    return out
 
 
 @app.get("/api/jobs")
@@ -726,15 +746,21 @@ iframe{width:100%;border:none;}
           <option value="send">Generar informe y enviar por email</option>
         </select></div>
       <div class="fg" style="display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" id="run-fast-demo" style="width:18px;height:18px;">
-        <label class="fl" for="run-fast-demo" style="margin:0;">Demo rápido (~20 s) — sin scraping ni 7 agentes, solo genera el informe para probar</label>
+        <input type="checkbox" id="run-fast-demo" style="width:18px;height:18px;" onchange="toggleDemoWarning()">
+        <label class="fl" for="run-fast-demo" style="margin:0;">DEMO RÁPIDA / INFORME DE PRUEBA — sin scraping ni análisis completo (~20 s)</label>
+      </div>
+      <div id="run-demo-warning" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--ab);border:1px solid var(--a);border-radius:8px;font-size:12px;color:var(--tx);">
+        Este modo no usa scraping ni los 7 agentes. Solo genera un informe de prueba. Para análisis real, desmarca la casilla.
       </div>
       <button class="btn bp" style="width:100%;justify-content:center;margin-top:4px;"
         id="run-btn" onclick="runAnalysis()">
         <span id="run-btn-txt">▷ Generar informe</span>
       </button>
+      <div id="run-progress-steps" style="display:none;margin-top:12px;background:var(--s2);border-radius:8px;padding:12px;font-size:12px;"></div>
       <div id="run-status" style="display:none;margin-top:14px;background:var(--blb);
            color:var(--bl);border-radius:8px;padding:12px;font-size:13px;"></div>
+      <div id="run-evidence" style="display:none;margin-top:14px;"></div>
+      <div id="run-quality" style="display:none;margin-top:14px;"></div>
     </div>
     <div class="card">
       <div class="ct">Vista previa del email</div>
@@ -842,6 +868,7 @@ function nav(page){
   if(page==='reports') renderReports();
   if(page==='alerts')  renderAlerts();
   if(page==='config')  renderConfig();
+  if(page==='run') toggleDemoWarning();
 }
 
 async function loadAll(){
@@ -1035,6 +1062,86 @@ function showPreviewAndDone(btn,btxt,status,jobId){
   loadAll();
 }
 
+// Mensajes por fase (progreso real)
+const STAGE_MESSAGES={
+  created:'Preparando...',
+  starting:'Iniciando análisis...',
+  discovery:'Identificando hotel...',
+  compset:'Detectando comp set...',
+  parallel:'Revisando precios y disponibilidad...',
+  pricing:'Revisando precios y disponibilidad...',
+  demand:'Analizando demanda...',
+  reputation:'Analizando reputación...',
+  distribution:'Revisando distribución y paridad...',
+  consolidate:'Calculando estrategia, alertas y oportunidades...',
+  report:'Generando informe final...',
+  rendering:'Generando vista previa del informe...',
+  persisting:'Guardando informe...',
+  notifying:'Enviando email...',
+  done:'Completado.',
+  error:'Error.'
+};
+
+function toggleDemoWarning(){
+  const w=document.getElementById('run-demo-warning');
+  const c=document.getElementById('run-fast-demo');
+  w.style.display=c&&c.checked?'block':'none';
+}
+
+function renderProgressSteps(steps){
+  const el=document.getElementById('run-progress-steps');
+  if(!el) return;
+  if(!steps||!steps.length){ el.style.display='none'; return; }
+  el.style.display='block';
+  const statusIcon=s=>{
+    if(s==='done') return '<span style="color:var(--g)">✓</span>';
+    if(s==='active') return '<span class="spin" style="display:inline-block;width:10px;height:10px;border:2px solid var(--bl);border-top-color:transparent;border-radius:50%;"></span>';
+    if(s==='warning') return '<span style="color:var(--a)">⚠</span>';
+    if(s==='error') return '<span style="color:var(--r)">✗</span>';
+    return '<span style="color:var(--tx3)">○</span>';
+  };
+  el.innerHTML='<div style="font-weight:600;margin-bottom:8px;color:var(--tx2)">Progreso del análisis</div>'+
+    steps.map(s=>'<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;">'+
+      '<span style="width:18px;text-align:center">'+statusIcon(s.status)+'</span>'+
+      '<span style="'+(s.status==='active'?'font-weight:600;color:var(--bl)':'color:var(--tx)')+'">'+s.label+'</span>'+
+      '</div>').join('');
+}
+
+function renderEvidence(ev){
+  const el=document.getElementById('run-evidence');
+  if(!el) return;
+  if(!ev){ el.style.display='none'; return; }
+  el.style.display='block';
+  const row=(label,val)=>'<tr><td style="color:var(--tx2);width:140px">'+label+'</td><td>'+val+'</td></tr>';
+  el.innerHTML='<div class="card" style="margin-top:0"><div class="ct">Qué ha encontrado RevMax</div>'+
+    '<table class="tbl" style="font-size:12px"><tbody>'+
+    row('Hotel', ev.hotel_detected||'No encontrado')+
+    row('Ciudad', ev.city||'No encontrado')+
+    row('Precio propio', ev.own_price||'No encontrado')+
+    row('Media compset', ev.compset_avg||'No encontrado')+
+    row('Posición precio', ev.price_position||'No encontrado')+
+    row('GRI / Reputación', ev.gri||'No encontrado')+
+    row('Visibilidad', ev.visibility||'No encontrado')+
+    row('Paridad', ev.parity_status||'No encontrado')+
+    row('Demand score', ev.demand_score||'No encontrado')+
+    row('Top 3 competidores', (ev.top_3_competitors||[]).join(', ')||'No encontrados')+
+    row('Análisis', ev.is_degraded?'Degradado (algunos datos por fallback)':'Completo')+
+    '</tbody></table></div>';
+}
+
+function renderQuality(q){
+  const el=document.getElementById('run-quality');
+  if(!el) return;
+  if(!q){ el.style.display='none'; return; }
+  el.style.display='block';
+  const labelClass=q.label==='excellent'?'bdone':q.label==='good'?'bdone':q.label==='degraded'?'bmed':'bhigh';
+  el.innerHTML='<div class="card" style="margin-top:0"><div class="ct">Salud del análisis</div>'+
+    '<p style="margin:0 0 8px 0"><span class="'+labelClass+'">'+q.label.toUpperCase()+'</span> '+
+    'Score: '+q.score+' · Agentes OK: '+q.agents_ok+'/'+q.agents_total+
+    (q.fallback_count>0 ? ' · Fallbacks: '+q.fallback_count : '')+'</p>'+
+    '<p style="margin:0;font-size:12px;color:var(--tx2)">'+q.summary+'</p></div>';
+}
+
 async function runAnalysis(){
   const hotel=document.getElementById('run-hotel').value.trim();
   const city=document.getElementById('run-city').value.trim();
@@ -1050,7 +1157,7 @@ async function runAnalysis(){
   const status=document.getElementById('run-status');
   status.style.display='block';
   status.style.background='var(--blb);color:var(--bl);';
-  status.textContent=fastDemo ? 'Demo rápido en curso (~20 s)...' : 'Análisis en curso (1–2 min). Los 7 agentes están trabajando...';
+  status.textContent=fastDemo ? 'Demo rápido: preparando...' : 'Iniciando análisis...';
 
   const r=await api('/api/run-analysis','POST',{
     hotel_name:hotel, city, hotel_id:1,
@@ -1066,6 +1173,8 @@ async function runAnalysis(){
 
   const jobId=r.job_id||null;
   toast(fastDemo ? 'Demo iniciado (~20 s)' : 'Análisis iniciado (1–2 min)','ok');
+  document.getElementById('run-evidence').style.display='none';
+  document.getElementById('run-quality').style.display='none';
 
   let polls=0;
   const poll=setInterval(async()=>{
@@ -1075,6 +1184,7 @@ async function runAnalysis(){
       btn.disabled=false; btxt.textContent='▷ Generar informe';
       status.textContent='Tardó más de lo esperado. Revisa data/admin_errors.log';
       status.style.background='var(--blb);color:var(--bl);';
+      document.getElementById('run-progress-steps').style.display='none';
       loadAll();
       return;
     }
@@ -1082,15 +1192,19 @@ async function runAnalysis(){
       const jR=await fetch('/api/job-status/'+jobId).catch(()=>null);
       if(jR&&jR.ok){
         const job=await jR.json();
-        if(job.stage) status.textContent=(job.stage||'')+(job.progress_pct!=null?' · '+job.progress_pct+'%':'');
+        if(job.progress_steps&&job.progress_steps.length) renderProgressSteps(job.progress_steps);
+        if(job.stage) status.textContent=(STAGE_MESSAGES[job.stage]||job.stage)+(job.progress_pct!=null?' · '+job.progress_pct+'%':'');
         if(job.status==='completed'){
           clearInterval(poll);
+          if(job.evidence_found) renderEvidence(job.evidence_found);
+          if(job.analysis_quality) renderQuality(job.analysis_quality);
           showPreviewAndDone(btn,btxt,status,jobId);
           return;
         }
         if(job.status==='failed'){
           clearInterval(poll);
           btn.disabled=false; btxt.textContent='▷ Generar informe';
+          document.getElementById('run-progress-steps').style.display='none';
           status.style.display='block';
           status.style.background='#3d2020'; status.style.color='#f0a0a0';
           status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
@@ -1102,6 +1216,7 @@ async function runAnalysis(){
         if(job.status==='stalled'){
           clearInterval(poll);
           btn.disabled=false; btxt.textContent='▷ Generar informe';
+          document.getElementById('run-progress-steps').style.display='none';
           status.style.display='block';
           status.style.background='#3d2020'; status.style.color='#f0a0a0';
           status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
@@ -1113,6 +1228,7 @@ async function runAnalysis(){
         if(job.status==='cancelled'){
           clearInterval(poll);
           btn.disabled=false; btxt.textContent='▷ Generar informe';
+          document.getElementById('run-progress-steps').style.display='none';
           status.style.display='block';
           status.style.background='var(--s2)'; status.style.color='var(--tx2)';
           status.textContent='Análisis cancelado.';

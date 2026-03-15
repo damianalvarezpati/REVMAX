@@ -12,9 +12,140 @@ import os
 import sys
 import time
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# Pasos de progreso visibles en la UI (9 pasos)
+PROGRESS_STEP_LABELS = [
+    (1, "discovery", "Identificando hotel"),
+    (2, "compset", "Detectando comp set"),
+    (3, "pricing", "Revisando precios y disponibilidad"),
+    (4, "demand", "Analizando demanda"),
+    (5, "reputation", "Analizando reputación"),
+    (6, "distribution", "Revisando distribución y paridad"),
+    (7, "consolidate", "Calculando estrategia, alertas y oportunidades"),
+    (8, "consolidate", "Priorizando acciones y escenarios"),
+    (9, "report", "Generando informe final"),
+]
+
+
+def _build_progress_steps(
+    current_stage: str,
+    progress_pct: int,
+    fallback_agents: List[str],
+    report_fallback: bool = False,
+) -> List[Dict[str, Any]]:
+    """Construye la lista de pasos con status: pending|active|done|error|warning."""
+    steps = []
+    for i, (step_id, stage_key, label) in enumerate(PROGRESS_STEP_LABELS):
+        status = "pending"
+        if stage_key == current_stage:
+            status = "active"
+        elif _stage_order(stage_key) < _stage_order(current_stage):
+            status = "done"
+        if stage_key in fallback_agents and status == "done":
+            status = "warning"
+        if stage_key == "report" and report_fallback and status == "done":
+            status = "warning"
+        steps.append({"id": step_id, "label": label, "status": status})
+    return steps
+
+
+def _stage_order(stage: str) -> int:
+    order = {"starting": 0, "discovery": 1, "compset": 2, "parallel": 3, "pricing": 3, "demand": 3, "reputation": 3, "distribution": 3, "consolidate": 4, "report": 5}
+    return order.get(stage, -1)
+
+
+def _is_fallback(output: Any) -> bool:
+    """Considera fallback si confidence_score es 0.3 o hay clave 'error'."""
+    if not isinstance(output, dict):
+        return True
+    if output.get("error"):
+        return True
+    conf = output.get("confidence_score")
+    return conf == 0.3 or conf == 0.30
+
+
+def _build_analysis_quality(outputs: Dict[str, Any], report: Dict[str, Any]) -> Dict[str, Any]:
+    """Construye analysis_quality: label, score, fallback_count, agents_ok, agents_fallback, agents_total, summary."""
+    agent_keys = ["discovery", "compset", "pricing", "demand", "reputation", "distribution"]
+    fallbacks = [k for k in agent_keys if _is_fallback(outputs.get(k, {}))]
+    report_fb = bool(report.get("report_error")) or "informe mínimo" in (report.get("report_text") or "").lower()[:200]
+    total = len(agent_keys) + 1
+    fallback_count = len(fallbacks) + (1 if report_fb else 0)
+    ok_count = total - fallback_count
+    if fallback_count == 0:
+        label = "excellent"
+        score = 1.0
+        summary = "Análisis completo. Todos los agentes y el informe se generaron correctamente."
+    elif fallback_count <= 1:
+        label = "good"
+        score = 0.85
+        summary = "Análisis casi completo. Un componente usó fallback; el informe sigue siendo útil."
+    elif fallback_count <= 3:
+        label = "degraded"
+        score = 0.5
+        summary = "Análisis degradado. Varios componentes usaron fallback; revisar datos o conectividad."
+    else:
+        label = "poor"
+        score = 0.2
+        summary = "Análisis parcial. Muchos fallbacks; el informe puede ser poco fiable."
+    return {
+        "label": label,
+        "score": round(score, 2),
+        "fallback_count": fallback_count,
+        "agents_ok": ok_count,
+        "agents_fallback": fallback_count,
+        "agents_total": total,
+        "summary": summary,
+    }
+
+
+def _build_evidence_found(full_analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """Extrae evidencias para el panel 'Qué ha encontrado RevMax'."""
+    outputs = full_analysis.get("agent_outputs", {})
+    discovery = outputs.get("discovery", {})
+    compset = outputs.get("compset", {})
+    compset_summary = compset.get("compset_summary", {})
+    pricing = outputs.get("pricing", {})
+    demand = outputs.get("demand", {})
+    reputation = outputs.get("reputation", {})
+    distribution = outputs.get("distribution", {})
+
+    def _v(val: Any, default: str = "No encontrado") -> str:
+        if val is None or val == "" or val == "?":
+            return default
+        return str(val)
+
+    primary = compset.get("compset", {}).get("primary", [])[:3]
+    top_competitors = [c.get("name") or c.get("hotel_name") or "—" for c in primary if isinstance(c, dict)]
+
+    adr = discovery.get("adr_double")
+    if adr is not None and not isinstance(adr, (int, float)):
+        adr = None
+
+    agent_keys = ["discovery", "compset", "pricing", "demand", "reputation", "distribution"]
+    fallback_count = sum(1 for k in agent_keys if _is_fallback(outputs.get(k, {})))
+    return {
+        "hotel_detected": _v(discovery.get("name") or full_analysis.get("hotel_name"), "No encontrado"),
+        "city": _v(discovery.get("city"), "No encontrado"),
+        "own_price": str(round(adr, 2)) + " €" if isinstance(adr, (int, float)) else _v(adr),
+        "compset_avg": _v(compset_summary.get("primary_avg_adr"), "No encontrado"),
+        "price_position": _v(
+            (
+                f"#{mc.get('your_position_rank')} / {mc.get('total_compset')}"
+                if (mc := pricing.get("market_context")) and mc.get("your_position_rank") is not None and mc.get("total_compset") is not None
+                else None
+            ),
+        ),
+        "gri": _v(reputation.get("gri", {}).get("value"), "No encontrado"),
+        "visibility": _v(distribution.get("visibility_score"), "No encontrado"),
+        "parity_status": _v((distribution.get("rate_parity") or {}).get("status"), "No encontrado"),
+        "demand_score": _v((demand.get("demand_index") or {}).get("score"), "No encontrado"),
+        "top_3_competitors": top_competitors if top_competitors else ["No encontrados"],
+        "is_degraded": fallback_count > 0,
+    }
 
 from agents.agent_01_discovery import run_discovery_agent
 from agents.agent_02_compset import run_compset_agent
@@ -497,7 +628,7 @@ def _save(name: str, data: dict):
         pass
 
 
-def _noop_progress(stage: str, progress_pct: int) -> None:
+def _noop_progress(stage: str, progress_pct: int, steps: Optional[List[Dict[str, Any]]] = None) -> None:
     pass
 
 
@@ -507,13 +638,19 @@ async def run_full_analysis(
     api_key: str = "",
     scraped_data: dict = None,
     market_candidates: dict = None,
-    progress_callback: Optional[Callable[[str, int], None]] = None,
+    progress_callback: Optional[Callable[..., None]] = None,
 ) -> dict:
     if progress_callback is None:
         progress_callback = _noop_progress
 
     start = time.time()
-    progress_callback("starting", 5)
+    analysis_timing = {}
+    fallback_agents = []
+    report_used_fallback = False
+
+    steps = _build_progress_steps("starting", 5, fallback_agents, report_used_fallback)
+    progress_callback("starting", 5, steps)
+    print(f"\n[orchestrator] Fase iniciada: starting")
     print(f"\n{'='*55}")
     print(f"  RevMax Orchestrator v2  ·  {hotel_name}")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -522,22 +659,38 @@ async def run_full_analysis(
     outputs = {}
 
     # Fase 1 — Discovery
+    t0 = time.time()
     print("▶ Fase 1/5 — Discovery")
-    progress_callback("discovery", 10)
+    steps = _build_progress_steps("discovery", 10, fallback_agents, report_used_fallback)
+    progress_callback("discovery", 10, steps)
     outputs["discovery"] = await run_discovery_agent(hotel_name, city_hint, api_key, scraped_data)
+    if _is_fallback(outputs["discovery"]):
+        fallback_agents.append("discovery")
+        print(f"  [orchestrator] Fallback usado: discovery")
     _save("discovery", outputs["discovery"])
+    analysis_timing["discovery_duration"] = round(time.time() - t0, 2)
+    print(f"  [orchestrator] Fase completada: discovery (duración {analysis_timing['discovery_duration']}s)")
 
     # Fase 2 — Compset
+    t0 = time.time()
     print("\n▶ Fase 2/5 — Compset")
-    progress_callback("compset", 25)
+    steps = _build_progress_steps("compset", 25, fallback_agents, report_used_fallback)
+    progress_callback("compset", 25, steps)
     outputs["compset"] = await run_compset_agent(
         outputs["discovery"], market_candidates or {"candidates": []}, api_key
     )
+    if _is_fallback(outputs["compset"]):
+        fallback_agents.append("compset")
+        print(f"  [orchestrator] Fallback usado: compset")
     _save("compset", outputs["compset"])
+    analysis_timing["compset_duration"] = round(time.time() - t0, 2)
+    print(f"  [orchestrator] Fase completada: compset (duración {analysis_timing['compset_duration']}s)")
 
     # Fase 3 — Paralelo
+    t0 = time.time()
     print("\n▶ Fase 3/5 — Paralelo [Pricing · Demand · Reputation · Distribution]")
-    progress_callback("parallel", 40)
+    steps = _build_progress_steps("parallel", 40, fallback_agents, report_used_fallback)
+    progress_callback("parallel", 40, steps)
     demand_stub = {"demand_index": {"signal": "medium", "score": 55}, "events_detected": []}
 
     results = await asyncio.gather(
@@ -552,14 +705,20 @@ async def run_full_analysis(
     for idx, (key, result) in enumerate(zip(keys, results)):
         outputs[key] = result if not isinstance(result, Exception) \
             else {"error": str(result), "confidence_score": 0.3}
+        if _is_fallback(outputs[key]):
+            fallback_agents.append(key)
+            print(f"  [orchestrator] Fallback usado: {key}")
         _save(key, outputs[key])
-        progress_callback(key, 40 + (idx + 1) * 2)
-
-    print(f"  ✓ Pricing  ·  ✓ Demand  ·  ✓ Reputation  ·  ✓ Distribution")
+        steps = _build_progress_steps(key, 40 + (idx + 1) * 2, fallback_agents, report_used_fallback)
+        progress_callback(key, 40 + (idx + 1) * 2, steps)
+    analysis_timing["pricing_duration"] = analysis_timing["demand_duration"] = analysis_timing["reputation_duration"] = analysis_timing["distribution_duration"] = round((time.time() - t0) / 4, 2)
+    print(f"  ✓ Pricing  ·  ✓ Demand  ·  ✓ Reputation  ·  ✓ Distribution (paralelo: {round(time.time() - t0, 1)}s)")
 
     # Fase 4 — Consolidar
+    t0 = time.time()
     print("\n▶ Fase 4/5 — Consolidando")
-    progress_callback("consolidate", 60)
+    steps = _build_progress_steps("consolidate", 60, fallback_agents, report_used_fallback)
+    progress_callback("consolidate", 60, steps)
     conflicts = detect_conflicts(outputs)
     for c in conflicts:
         print(f"  ! [{c['severity'].upper()}] {c['description']}")
@@ -631,6 +790,8 @@ async def run_full_analysis(
     change_results = build_change_detection(briefing, memory_bundle.get("previous_snapshot"))
     briefing.update(change_results)
     update_latest_snapshot(briefing, hotel_name, _ORCH_BASE_DIR)
+    analysis_timing["consolidate_duration"] = round(time.time() - t0, 2)
+    print(f"  [orchestrator] Fase completada: consolidate (duración {analysis_timing['consolidate_duration']}s)")
     print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(briefing['recommended_actions'])} · Notif: {len(briefing['top_notifications'])} · Memoria: {'prev' if memory_bundle['previous_snapshot_found'] else 'primera'} · Oportunidades: {len(briefing['opportunities'])}")
 
     full_analysis = {
@@ -641,12 +802,15 @@ async def run_full_analysis(
     }
 
     # Fase 5 — Report Writer
+    t0 = time.time()
     print("\n▶ Fase 5/5 — Report Writer")
-    progress_callback("report", 75)
+    steps = _build_progress_steps("report", 75, fallback_agents, report_used_fallback)
+    progress_callback("report", 75, steps)
     try:
         report = await run_report_agent(full_analysis, api_key)
     except Exception as e:
         _report_error = str(e)
+        report_used_fallback = True
         print(f"  [Report] Error: {_report_error}")
         from agents.agent_07_report import _build_minimal_report_from_analysis
         report = _build_minimal_report_from_analysis(full_analysis)
@@ -656,12 +820,27 @@ async def run_full_analysis(
         report["report_error"] = _report_error
     _save("report", report)
     full_analysis["report"] = report
-    progress_callback("report", 85)
+    analysis_timing["report_duration"] = round(time.time() - t0, 2)
+    print(f"  [orchestrator] Fase completada: report (duración {analysis_timing['report_duration']}s)")
 
     elapsed = round(time.time() - start, 1)
+    analysis_timing["total_duration"] = elapsed
     full_analysis["elapsed_seconds"] = elapsed
+    full_analysis["analysis_timing"] = analysis_timing
+
+    analysis_quality = _build_analysis_quality(outputs, report)
+    full_analysis["analysis_quality"] = analysis_quality
+    evidence_found = _build_evidence_found(full_analysis)
+    full_analysis["evidence_found"] = evidence_found
+
+    steps = _build_progress_steps("report", 100, fallback_agents, report_used_fallback)
+    for s in steps:
+        s["status"] = "done" if s["status"] == "active" else s["status"]
+    full_analysis["progress_steps"] = steps
+    progress_callback("report", 85, steps)
     _save("full_analysis", full_analysis)
 
+    print(f"\n[orchestrator] total_duration={elapsed}s | quality={analysis_quality.get('label')} | fallbacks={analysis_quality.get('fallback_count')}")
     print(f"\n{'='*55}")
     print(f"  ✓ Completado en {elapsed}s")
     print(f"  Estado: {report.get('overall_status','?').upper()}")
