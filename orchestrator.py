@@ -34,6 +34,11 @@ from market_signals import (
     build_market_signal_summary,
     count_market_signals_by_effect,
 )
+from action_planner import (
+    build_recommended_actions,
+    build_recommended_action_summary,
+    count_actions_by_priority,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -560,7 +565,20 @@ async def run_full_analysis(
     briefing["market_raise_signal_count"] = count_market_signals_by_effect(market_signals, "raise")
     briefing["market_lower_signal_count"] = count_market_signals_by_effect(market_signals, "lower")
     briefing["market_caution_signal_count"] = count_market_signals_by_effect(market_signals, "caution")
-    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')}")
+    recommended_actions = build_recommended_actions(outputs, conflicts, briefing)
+    briefing["recommended_actions"] = recommended_actions
+    briefing["recommended_action_summary"] = build_recommended_action_summary(recommended_actions)
+    briefing["urgent_action_count"] = count_actions_by_priority(recommended_actions, "urgent")
+    briefing["high_priority_action_count"] = count_actions_by_priority(recommended_actions, "high")
+    briefing["recommended_priority_actions_seed"] = [
+        {
+            "urgency": a.get("horizon", "this_week"),
+            "reason_source": ", ".join(a.get("source_signals", [])),
+            "action_hint": f"{a.get('title', '')} — {a.get('rationale', '')}",
+        }
+        for a in recommended_actions
+    ]
+    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(recommended_actions)}")
 
     full_analysis = {
         "hotel_name": hotel_name,
@@ -649,6 +667,19 @@ async def run_fast_demo(
     briefing["market_raise_signal_count"] = count_market_signals_by_effect(market_signals, "raise")
     briefing["market_lower_signal_count"] = count_market_signals_by_effect(market_signals, "lower")
     briefing["market_caution_signal_count"] = count_market_signals_by_effect(market_signals, "caution")
+    recommended_actions = build_recommended_actions(outputs, conflicts, briefing)
+    briefing["recommended_actions"] = recommended_actions
+    briefing["recommended_action_summary"] = build_recommended_action_summary(recommended_actions)
+    briefing["urgent_action_count"] = count_actions_by_priority(recommended_actions, "urgent")
+    briefing["high_priority_action_count"] = count_actions_by_priority(recommended_actions, "high")
+    briefing["recommended_priority_actions_seed"] = [
+        {
+            "urgency": a.get("horizon", "this_week"),
+            "reason_source": ", ".join(a.get("source_signals", [])),
+            "action_hint": f"{a.get('title', '')} — {a.get('rationale', '')}",
+        }
+        for a in recommended_actions
+    ]
     full_analysis = {
         "hotel_name": hotel_name,
         "analysis_date": datetime.now().strftime("%Y-%m-%d"),

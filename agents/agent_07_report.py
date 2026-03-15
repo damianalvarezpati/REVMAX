@@ -225,6 +225,10 @@ def _build_report_prompt(full_analysis: dict) -> str:
     market_raise_signal_count = briefing.get("market_raise_signal_count", 0)
     market_lower_signal_count = briefing.get("market_lower_signal_count", 0)
     market_caution_signal_count = briefing.get("market_caution_signal_count", 0)
+    recommended_actions = briefing.get("recommended_actions", [])
+    recommended_action_summary = briefing.get("recommended_action_summary", "")
+    urgent_action_count = briefing.get("urgent_action_count", 0)
+    high_priority_action_count = briefing.get("high_priority_action_count", 0)
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -319,11 +323,18 @@ SEÑALES DE MERCADO DETECTADAS POR REVMAX (usan para reforzar el "por qué"; no 
   Lista de señales:
 {chr(10).join(f'  [{s.get("strength","?")}] {s.get("type","?")} → {s.get("directional_effect","?")} ({s.get("source","?")}): {s.get("message","?")}' for s in market_signals) if market_signals else '  Ninguna.'}
 
+ACCIONES RECOMENDADAS POR REVMAX (generadas por código; las priority_actions deben basarse SOLO en esta lista; no inventar ninguna acción fuera de ella):
+  recommended_action_summary: {recommended_action_summary or 'Ninguna.'}
+  urgent_action_count: {urgent_action_count}
+  high_priority_action_count: {high_priority_action_count}
+  Lista de acciones (orden = prioridad; usar las 3 primeras para priority_actions o todas si son menos de 3):
+{chr(10).join(f'  [{a.get("priority","?").upper()}] {a.get("type","?")} ({a.get("horizon","?")}): {a.get("title","?")} | rationale: {a.get("rationale","")} | source_signals: {", ".join(a.get("source_signals",[]))} | expected_effect: {a.get("expected_effect","")}' for a in recommended_actions) if recommended_actions else '  (vacío)'}
+
 ═══ INSTRUCCIONES PARA EL INFORME ════════════════════
 
 REGLAS OBLIGATORIAS:
 - overall_status: USA el valor derived_overall_status ({derived_overall_status or 'stable'}) como overall_status del informe. No inventes "strong" si el código marcó "alert" ni "alert" si el código marcó "stable". Solo matiza si hay un dato muy claro que lo justifique.
-- Las priority_actions deben BASARSE en recommended_priority_actions_seed: mismo orden de urgencia (immediate → this_week → this_month) y mismas fuentes (paridad, conflicto, consolidación). Expande cada ítem con action/room_type/metric/reason/expected_impact concretos, pero no contradigas la urgencia ni el mensaje de la semilla.
+- ACCIONES RECOMENDADAS: Las priority_actions deben BASARSE EXCLUSIVAMENTE en la lista "ACCIONES RECOMENDADAS POR REVMAX" anterior (recommended_actions). No inventes ninguna acción que no esté en esa lista. Orden: primero las urgent, luego high, luego el resto. Mantén priority, horizon y rationale de cada acción; conéctalas con strategy, alerts y market_signals en el texto. Máximo 3 priority_actions en el JSON (usa las 3 primeras de la lista o todas si son menos).
 - Coherencia con consolidated_price_action y consolidation_rationale. Respetar action_constraints en el texto (ej. no recomendar subir precio si la restricción dice "Resolver paridad primero").
 - Cada "reason" de las priority_actions debe CITAR LA FUENTE: ej. "Pricing: ARI bajo", "Demanda alta (score 72)", "Paridad: resolver antes de cambiar precios". Nada genérico como "mejorar revenue".
 - Máximo 3 priority_actions. Orden = semilla: paridad/conflitos primero si existen, luego acción de precio consolidada.
