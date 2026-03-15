@@ -232,6 +232,15 @@ def _build_report_prompt(full_analysis: dict) -> str:
     top_notifications = briefing.get("top_notifications", [])
     notification_summary = briefing.get("notification_summary", "")
     notification_priority_counts = briefing.get("notification_priority_counts", {})
+    memory_summary = briefing.get("memory_summary", "")
+    repeated_alerts = briefing.get("repeated_alerts", [])
+    new_alerts = briefing.get("new_alerts", [])
+    resolved_alerts = briefing.get("resolved_alerts", [])
+    strategy_changed = briefing.get("strategy_changed", False)
+    overall_status_changed = briefing.get("overall_status_changed", False)
+    attention_trend = briefing.get("attention_trend", "stable")
+    previous_snapshot_found = briefing.get("previous_snapshot_found", False)
+    action_shift = briefing.get("action_shift")
 
     # Room type recommendations
     room_recs = pricing.get("room_type_analysis", [])
@@ -339,6 +348,17 @@ NOTIFICACIONES PRIORIZADAS POR REVMAX (generadas por código; no inventar notifi
   Lista de notificaciones (top_notifications; si hay urgent/high deben influir en el tono ejecutivo del informe):
 {chr(10).join(f'  [{n.get("priority","?").upper()}] {n.get("type","?")} ({n.get("delivery_intent","?")}): {n.get("title","?")} | summary: {n.get("summary","")} | rationale: {n.get("rationale","")} | source_items: {", ".join(n.get("source_items",[]))}' for n in top_notifications) if top_notifications else '  (vacío)'}
 
+MEMORIA RECIENTE DE REVMAX (comparación con la corrida anterior; no inventar memoria fuera de la generada por código):
+  previous_snapshot_found: {previous_snapshot_found}
+  memory_summary: {memory_summary or 'N/A'}
+  repeated_alerts: {repeated_alerts}
+  new_alerts: {new_alerts}
+  resolved_alerts: {resolved_alerts}
+  strategy_changed: {strategy_changed}
+  overall_status_changed: {overall_status_changed}
+  attention_trend: {attention_trend}
+  action_shift: {action_shift or 'N/A'}
+
 ═══ INSTRUCCIONES PARA EL INFORME ════════════════════
 
 REGLAS OBLIGATORIAS:
@@ -352,6 +372,7 @@ REGLAS OBLIGATORIAS:
 - ALERTAS: Si hay alertas de severidad high o critical (alert_high_count: {alert_high_count}, alert_critical_count: {alert_critical_count}), debes mencionarlas en report_text en una frase clara (ej. "RevMax detecta X alerta(s) crítica(s): paridad de tarifas; resolver antes de cambiar precios"). Las priority_actions deben priorizar las alertas críticas (ej. si hay PARITY_VIOLATION, la primera acción debe ser resolver paridad). Si alert_critical_count > 0, overall_status debe ser al menos "needs_attention" o "alert"; no uses "stable" o "strong" si hay alertas críticas.
 - SEÑALES DE MERCADO: Usa las market_signals para reforzar el "por qué" de la decisión consolidada. Si hay señales raise fuertes (market_raise_signal_count: {market_raise_signal_count}), conéctalas con la estrategia y las acciones en report_text. Si hay señales caution o lower (market_caution_signal_count: {market_caution_signal_count}, market_lower_signal_count: {market_lower_signal_count}), refleja prudencia en el tono. No inventes señales que no estén en la lista detectada por código.
 - NOTIFICACIONES: Si hay top_notifications con prioridad urgent o high, deben influir en el tono ejecutivo del report (énfasis en lo que requiere atención inmediata o inclusión clara en el informe). No inventes notificaciones fuera de las generadas por código. Usa title, summary y rationale de cada notificación; conecta con actions y alerts en el texto.
+- MEMORIA: Si hay repeated_alerts, menciónalo como persistencia del problema. Si hay resolved_alerts, menciónalo como mejora. Si strategy_changed, explícalo en una frase. Si attention_trend es worsening, el tono debe reflejar empeoramiento; si improving, reflejar mejora. No inventes memoria fuera de la generada por código (memory_summary, repeated_alerts, new_alerts, resolved_alerts, strategy_changed, attention_trend).
 
 Genera el informe siguiendo EXACTAMENTE esta estructura JSON:
 

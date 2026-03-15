@@ -40,6 +40,7 @@ from action_planner import (
     count_actions_by_priority,
 )
 from notification_logic import build_notification_bundle
+from intelligence_memory import build_memory_bundle
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -584,7 +585,17 @@ async def run_full_analysis(
     briefing["top_notifications"] = notification_bundle["top_notifications"]
     briefing["notification_summary"] = notification_bundle["notification_summary"]
     briefing["notification_priority_counts"] = notification_bundle["notification_priority_counts"]
-    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(recommended_actions)} · Notif: {len(briefing['top_notifications'])}")
+    memory_bundle = build_memory_bundle(briefing, hotel_name, _ORCH_BASE_DIR)
+    briefing["memory_summary"] = memory_bundle["memory_summary"]
+    briefing["repeated_alerts"] = memory_bundle["repeated_alerts"]
+    briefing["new_alerts"] = memory_bundle["new_alerts"]
+    briefing["resolved_alerts"] = memory_bundle["resolved_alerts"]
+    briefing["strategy_changed"] = memory_bundle["strategy_changed"]
+    briefing["overall_status_changed"] = memory_bundle["overall_status_changed"]
+    briefing["attention_trend"] = memory_bundle["attention_trend"]
+    briefing["previous_snapshot_found"] = memory_bundle["previous_snapshot_found"]
+    briefing["action_shift"] = memory_bundle.get("action_shift")
+    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(recommended_actions)} · Notif: {len(briefing['top_notifications'])} · Memoria: {'prev' if memory_bundle['previous_snapshot_found'] else 'primera'}")
 
     full_analysis = {
         "hotel_name": hotel_name,
@@ -691,6 +702,16 @@ async def run_fast_demo(
     briefing["top_notifications"] = notification_bundle["top_notifications"]
     briefing["notification_summary"] = notification_bundle["notification_summary"]
     briefing["notification_priority_counts"] = notification_bundle["notification_priority_counts"]
+    memory_bundle = build_memory_bundle(briefing, hotel_name, _ORCH_BASE_DIR)
+    briefing["memory_summary"] = memory_bundle["memory_summary"]
+    briefing["repeated_alerts"] = memory_bundle["repeated_alerts"]
+    briefing["new_alerts"] = memory_bundle["new_alerts"]
+    briefing["resolved_alerts"] = memory_bundle["resolved_alerts"]
+    briefing["strategy_changed"] = memory_bundle["strategy_changed"]
+    briefing["overall_status_changed"] = memory_bundle["overall_status_changed"]
+    briefing["attention_trend"] = memory_bundle["attention_trend"]
+    briefing["previous_snapshot_found"] = memory_bundle["previous_snapshot_found"]
+    briefing["action_shift"] = memory_bundle.get("action_shift")
     full_analysis = {
         "hotel_name": hotel_name,
         "analysis_date": datetime.now().strftime("%Y-%m-%d"),
