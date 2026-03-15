@@ -61,6 +61,38 @@ async def run_pipeline(
     )
 
 
+def _error_html(hotel_name: str, error_message: str) -> str:
+    """HTML mínimo para mostrar en el iframe cuando falla generación o no hay informe."""
+    from html import escape
+    msg = escape(str(error_message))
+    name = escape(str(hotel_name or "Hotel"))
+    return f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>RevMax — Error</title></head>
+<body style="margin:0;padding:24px;background:#F0EDE6;font-family:-apple-system,sans-serif;">
+<div style="max-width:560px;margin:20px auto;background:#FAECE7;border:1px solid #D85A30;border-radius:12px;padding:24px;">
+  <div style="font-size:14px;font-weight:700;color:#712B13;margin-bottom:8px;">No se pudo generar el informe</div>
+  <div style="font-size:13px;color:#2C2C2A;">{name}</div>
+  <pre style="margin:12px 0 0;padding:12px;background:#fff;border-radius:6px;font-size:12px;overflow:auto;white-space:pre-wrap;">{msg}</pre>
+</div>
+</body></html>"""
+
+
+def _normalize_report_for_html(report: dict, hotel_name: str) -> dict:
+    """Asegura que el report tenga todas las claves que build_email_html_v2 espera."""
+    out = dict(report)
+    out.setdefault("report_text", "")
+    if not isinstance(out["report_text"], str):
+        out["report_text"] = str(out["report_text"])
+    out.setdefault("overall_status", "stable")
+    out.setdefault("priority_actions", [])
+    if not isinstance(out["priority_actions"], list):
+        out["priority_actions"] = []
+    out.setdefault("weekly_watchlist", "")
+    out.setdefault("status_summary", "")
+    out.setdefault("email_subject", f"RevMax · {hotel_name}")
+    return out
+
+
 def render_artifacts(
     base_dir: str,
     job_id: str,
@@ -72,8 +104,21 @@ def render_artifacts(
     Devuelve (preview_path_rel, result_path_rel, html).
     """
     from mailer.report_mailer_v2 import build_email_html_v2
-    report = result.get("report", {})
-    html = build_email_html_v2(result, report)
+    report = result.get("report", {}) or {}
+    if not report:
+        report = {
+            "report_text": "No hay informe disponible. Puede que el análisis no haya llegado a generar el reporte.",
+            "overall_status": "stable",
+            "priority_actions": [],
+            "weekly_watchlist": "",
+            "status_summary": "Sin datos.",
+            "email_subject": f"RevMax · {hotel_name}",
+        }
+    report = _normalize_report_for_html(report, hotel_name)
+    try:
+        html = build_email_html_v2(result, report)
+    except Exception as e:
+        html = _error_html(hotel_name, f"Error al generar el HTML del informe: {e}")
     preview_rel = write_preview(base_dir, job_id, html)
     result_rel = write_result_report(base_dir, hotel_name, html)
     return preview_rel, result_rel, html
@@ -251,7 +296,15 @@ async def run_analysis_job(
         report = result.get("report", {})
 
         job_state.update_job(base_dir, job_id, status="rendering", stage="rendering", progress_pct=88)
-        preview_rel, result_rel, html = render_artifacts(base_dir, job_id, hotel_name, result)
+        warning_message: Optional[str] = None
+        try:
+            preview_rel, result_rel, html = render_artifacts(base_dir, job_id, hotel_name, result)
+        except Exception as e:
+            err_msg = str(e)
+            warning_message = err_msg
+            html = _error_html(hotel_name, f"Error al renderizar el informe: {err_msg}")
+            preview_rel = write_preview(base_dir, job_id, html)
+            result_rel = write_result_report(base_dir, hotel_name, html)
 
         job_state.update_job(
             base_dir,
@@ -266,8 +319,7 @@ async def run_analysis_job(
         conn = get_db_conn() if get_db_conn else None
         persist_report_to_db(conn, hotel_id, report, result_rel)
 
-        warning_message: Optional[str] = None
-        if send_email:
+        if send_email and warning_message is None:
             job_state.update_job(base_dir, job_id, status="notifying", stage="notifying", progress_pct=95)
             warning_message = try_send_report_email(cfg, html, report, hotel_name)
 

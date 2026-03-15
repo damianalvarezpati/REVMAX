@@ -513,6 +513,7 @@ async def run_full_analysis(
         progress_callback = _noop_progress
 
     start = time.time()
+    progress_callback("starting", 5)
     print(f"\n{'='*55}")
     print(f"  RevMax Orchestrator v2  ·  {hotel_name}")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -642,7 +643,17 @@ async def run_full_analysis(
     # Fase 5 — Report Writer
     print("\n▶ Fase 5/5 — Report Writer")
     progress_callback("report", 75)
-    report = await run_report_agent(full_analysis, api_key)
+    try:
+        report = await run_report_agent(full_analysis, api_key)
+    except Exception as e:
+        _report_error = str(e)
+        print(f"  [Report] Error: {_report_error}")
+        from agents.agent_07_report import _build_minimal_report_from_analysis
+        report = _build_minimal_report_from_analysis(full_analysis)
+        report["email_subject"] = f"RevMax · Informe mínimo · {full_analysis.get('hotel_name', 'Hotel')}"
+        report["report_text"] = f"Informe mínimo (el LLM no pudo generar el informe completo).\n\nError: {_report_error}\n\n{report.get('report_text', '')}"
+        report["overall_status"] = "needs_attention"
+        report["report_error"] = _report_error
     _save("report", report)
     full_analysis["report"] = report
     progress_callback("report", 85)
@@ -672,7 +683,8 @@ async def run_fast_demo(
     if progress_callback is None:
         progress_callback = _noop_progress
     start = time.time()
-    progress_callback("report", 20)
+    progress_callback("starting", 5)
+    progress_callback("report", 15)
     outputs = {
         "discovery": {
             "hotel_name": hotel_name,
@@ -777,8 +789,20 @@ async def run_fast_demo(
         "agent_outputs": outputs,
         "briefing": briefing,
     }
+    progress_callback("consolidate", 50)
+    progress_callback("report", 60)
     progress_callback("report", 70)
-    report = await run_report_agent(full_analysis, api_key)
+    try:
+        report = await run_report_agent(full_analysis, api_key)
+    except Exception as e:
+        _report_error = str(e)
+        print(f"  [Report] Error: {_report_error}")
+        from agents.agent_07_report import _build_minimal_report_from_analysis
+        report = _build_minimal_report_from_analysis(full_analysis)
+        report["email_subject"] = f"RevMax · Informe mínimo · {hotel_name}"
+        report["report_text"] = f"Informe mínimo (demo rápido; LLM falló).\n\nError: {_report_error}\n\n{report.get('report_text', '')}"
+        report["overall_status"] = "needs_attention"
+        report["report_error"] = _report_error
     full_analysis["report"] = report
     full_analysis["elapsed_seconds"] = round(time.time() - start, 1)
     progress_callback("report", 85)
