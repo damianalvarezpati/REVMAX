@@ -39,6 +39,7 @@ from action_planner import (
     build_recommended_action_summary,
     count_actions_by_priority,
 )
+from notification_logic import build_notification_bundle
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -578,7 +579,12 @@ async def run_full_analysis(
         }
         for a in recommended_actions
     ]
-    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(recommended_actions)}")
+    notification_bundle = build_notification_bundle(briefing)
+    briefing["notification_candidates"] = notification_bundle["notification_candidates"]
+    briefing["top_notifications"] = notification_bundle["top_notifications"]
+    briefing["notification_summary"] = notification_bundle["notification_summary"]
+    briefing["notification_priority_counts"] = notification_bundle["notification_priority_counts"]
+    print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(recommended_actions)} · Notif: {len(briefing['top_notifications'])}")
 
     full_analysis = {
         "hotel_name": hotel_name,
@@ -680,6 +686,11 @@ async def run_fast_demo(
         }
         for a in recommended_actions
     ]
+    notification_bundle = build_notification_bundle(briefing)
+    briefing["notification_candidates"] = notification_bundle["notification_candidates"]
+    briefing["top_notifications"] = notification_bundle["top_notifications"]
+    briefing["notification_summary"] = notification_bundle["notification_summary"]
+    briefing["notification_priority_counts"] = notification_bundle["notification_priority_counts"]
     full_analysis = {
         "hotel_name": hotel_name,
         "analysis_date": datetime.now().strftime("%Y-%m-%d"),
