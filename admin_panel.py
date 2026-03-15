@@ -11,7 +11,7 @@ Uso:
 """
 
 from fastapi import FastAPI, BackgroundTasks, Request
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 import json
@@ -22,6 +22,15 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import job_state
+import job_runtime
+import job_watchdog
+import job_recovery
+import job_observability
+import analysis_runner
+
+# Fuente de verdad operativa: job_state (data/jobs/<job_id>.json).
+# analysis_status.json es LEGACY: solo para polling antiguo del dashboard; se escribe por compatibilidad.
 app = FastAPI(title="RevMax Admin")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -192,17 +201,34 @@ def api_report_html(report_id: int):
     for r in reports:
         if r.get("id") == report_id and r.get("html_path"):
             path = r["html_path"]
-            if os.path.exists(path):
+            if not os.path.isabs(path):
+                path = os.path.normpath(os.path.join(BASE_DIR, path))
+            if os.path.exists(path) and os.path.isfile(path):
                 return FileResponse(path, media_type="text/html")
     return JSONResponse({"error": "No encontrado"}, status_code=404)
 
-@app.get("/api/preview/{filename}")
-def api_preview(filename: str):
+@app.api_route("/api/preview/{filename}", methods=["GET", "HEAD"])
+def api_preview(filename: str, request: Request):
+    """Sirve archivos de data/ por nombre (compatibilidad: report_preview.html, etc.)."""
     safe = filename.replace("..", "").replace("/", "")
     path = os.path.join(BASE_DIR, "data", safe)
-    if os.path.exists(path):
+    if os.path.exists(path) and os.path.isfile(path):
+        if request.method == "HEAD":
+            return Response(status_code=200, headers={"Content-Type": "text/html"})
         return FileResponse(path, media_type="text/html")
     return JSONResponse({"error": "No encontrado"}, status_code=404)
+
+
+@app.get("/api/preview/job/{job_id}")
+def api_preview_job(job_id: str):
+    """Sirve el preview del informe por job_id (data/previews/<job_id>.html)."""
+    safe_id = job_id.replace("..", "").replace("/", "").strip()
+    if not safe_id or len(safe_id) > 64:
+        return JSONResponse({"error": "job_id inválido"}, status_code=400)
+    path = os.path.join(BASE_DIR, "data", "previews", f"{safe_id}.html")
+    if os.path.exists(path) and os.path.isfile(path):
+        return FileResponse(path, media_type="text/html")
+    return JSONResponse({"error": "Preview no encontrado", "job_id": safe_id}, status_code=404)
 
 @app.post("/api/add-client")
 async def api_add_client(request: Request):
@@ -252,146 +278,215 @@ async def api_run_analysis(request: Request):
     if not hotel_name:
         return JSONResponse({"error": "Falta nombre del hotel"}, status_code=400)
 
-    # Limpiar error anterior al iniciar nuevo análisis
-    _clear_last_analysis_error()
+    active_job_id = job_state.has_active_job_for_hotel(BASE_DIR, hotel_name)
+    if active_job_id is not None:
+        return JSONResponse(
+            {"error": "Ya hay un análisis en curso para este hotel.", "active_job_id": active_job_id},
+            status_code=409,
+        )
 
     send_email = data.get("send_email", False)
-    # Ejecutar en segundo plano en el mismo event loop (asyncio.create_task)
-    asyncio.create_task(_run_bg(hotel_name, city, api_key, hotel_id, cfg, send_email))
-    return {"ok": True, "message": f"Análisis iniciado para '{hotel_name}' (~90s)"}
+    fast_demo = data.get("fast_demo", False)
+    job_id = job_state.create_job(BASE_DIR, hotel_name, city, hotel_id=hotel_id, fast_demo=fast_demo)
+    _write_analysis_status("running")
+
+    task = asyncio.create_task(_run_bg(job_id, hotel_name, city, api_key, hotel_id, cfg, send_email, fast_demo))
+    await job_runtime.register(job_id, task)
+    msg = "Demo rápido iniciado (~20 s)" if fast_demo else f"Análisis iniciado para '{hotel_name}' (1–2 min)"
+    return {"ok": True, "job_id": job_id, "message": msg}
 
 
-def _last_error_path():
-    return os.path.join(BASE_DIR, "data", "last_analysis_error.json")
-
-def _clear_last_analysis_error():
-    p = _last_error_path()
-    if os.path.exists(p):
-        try:
-            os.remove(p)
-        except Exception:
-            pass
-
-def _get_error_source(tb):
-    """Extrae el origen del error desde el traceback (archivo y línea de nuestro código)."""
-    try:
-        import traceback as tb_mod
-        if tb is None:
-            return "desconocido"
-        # extract_tb es compatible con 3.9 y devuelve (filename, lineno, name, line)
-        # Orden: más reciente primero (último frame de nuestra código antes de la lib)
-        for filename, lineno, _name, _line in reversed(tb_mod.extract_tb(tb)):
-            if "site-packages" in filename or "lib/python" in filename:
-                continue
-            if "agents" in filename and "agent_01" in filename:
-                return f"Agente Discovery (agents/agent_01_discovery.py, línea {lineno})"
-            if "agents" in filename and "agent_02" in filename:
-                return f"Agente Compset (agents/agent_02_compset.py, línea {lineno})"
-            if "agents" in filename and "agent_03" in filename:
-                return f"Agente Pricing (agents/agent_03_pricing.py, línea {lineno})"
-            if "agents" in filename and "agent_04" in filename:
-                return f"Agente Demand (agents/agent_04_demand.py, línea {lineno})"
-            if "agents" in filename and "agent_05" in filename:
-                return f"Agente Reputación (agents/agent_05_reputation.py, línea {lineno})"
-            if "agents" in filename and "agent_06" in filename:
-                return f"Agente Distribución (agents/agent_06_distribution.py, línea {lineno})"
-            if "agents" in filename and "agent_07" in filename:
-                return f"Agente Informe (agents/agent_07_report.py, línea {lineno})"
-            if "orchestrator" in filename:
-                return f"Orquestador (orchestrator.py, línea {lineno})"
-            if "report_mailer" in filename or ("mailer" in filename and "report" in filename):
-                return f"Email (mailer/, línea {lineno})"
-            if "scraper" in filename or "booking_scraper" in filename or "rate_shopper" in filename:
-                return f"Scraping (scraper/, línea {lineno})"
-        return "pipeline de análisis"
-    except Exception:
-        return "desconocido"
+@app.get("/api/job-status/{job_id}")
+def api_job_status(job_id: str):
+    """Devuelve el estado persistente del job. 404 si no existe."""
+    job = job_state.get_job(BASE_DIR, job_id)
+    if job is None:
+        return JSONResponse({"error": "Job no encontrado", "job_id": job_id}, status_code=404)
+    return job
 
 
-def _write_last_analysis_error(msg: str, source: str = "", exc_type: str = ""):
-    p = _last_error_path()
+@app.get("/api/jobs")
+def api_list_jobs(limit: int = 50):
+    """Lista los jobs más recientes (por updated_at). Útil para el dashboard."""
+    jobs = job_state.list_recent_jobs(BASE_DIR, limit=min(limit, 100))
+    return {"jobs": jobs}
+
+
+DEFAULT_STALE_SECONDS = 900
+
+
+@app.post("/api/jobs/run-watchdog")
+def api_run_watchdog(
+    max_idle_seconds: float = DEFAULT_STALE_SECONDS,
+    dry_run: bool = False,
+):
+    """
+    Marca como stalled los jobs activos sin actualización en max_idle_seconds.
+    No marca stalled si el task sigue vivo en runtime (reconciliación).
+    dry_run=true: solo devuelve resumen, no escribe.
+    """
+    result = job_watchdog.mark_stale_jobs(
+        BASE_DIR,
+        max_idle_seconds,
+        stalled_message=f"Job colgado: sin actualización en {int(max_idle_seconds)} s.",
+        is_alive=job_runtime.is_running,
+        dry_run=dry_run,
+    )
+    return {
+        "reviewed": result["reviewed"],
+        "active_count": result["active_count"],
+        "alive_in_runtime": result["alive_in_runtime"],
+        "marked_stalled": [m[0] for m in result["marked_stalled"]],
+        "ignored": result["ignored"],
+        "dry_run": result["dry_run"],
+    }
+
+
+@app.get("/api/jobs/runtime")
+def api_jobs_runtime():
+    """
+    Observabilidad: snapshot de runtime vs persistencia para diagnóstico.
+    Incluye job_ids activos en runtime, orphaned, mismatch y conteos por estado.
+    """
+    return job_observability.get_runtime_snapshot(
+        BASE_DIR,
+        get_active_job_ids_fn=job_runtime.get_active_job_ids,
+        is_running_fn=job_runtime.is_running,
+    )
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def api_cancel_job(job_id: str):
+    """
+    Cancela un job activo. Si hay task viva, la cancela; el job queda en estado terminal (cancelled).
+    Si el job no está activo, devuelve 400 con mensaje claro.
+    """
+    job = job_state.get_job(BASE_DIR, job_id)
+    if job is None:
+        return JSONResponse(
+            {"error": "Job no encontrado", "job_id": job_id},
+            status_code=404,
+        )
+    from job_schema import ACTIVE_STATUSES
+    if job.get("status") not in ACTIVE_STATUSES:
+        return JSONResponse(
+            {
+                "error": "El job no está activo; no se puede cancelar.",
+                "job_id": job_id,
+                "current_status": job.get("status"),
+            },
+            status_code=400,
+        )
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    job_state.update_job(
+        BASE_DIR,
+        job_id,
+        status="cancelled",
+        stage="error",
+        error_message="Cancelado por el usuario.",
+        completed_at=now_iso,
+    )
+    cancelled_task = job_runtime.cancel_task(job_id)
+    return {
+        "ok": True,
+        "job_id": job_id,
+        "message": "Job cancelado.",
+        "task_was_running": cancelled_task,
+    }
+
+
+@app.post("/api/jobs/run-recovery")
+def api_run_recovery(dry_run: bool = False, policy: str = "stalled"):
+    """
+    Ejecuta el saneamiento de startup/crash recovery: jobs activos en persistencia
+    sin task viva en runtime se marcan según policy (stalled o failed).
+    dry_run=true: solo lista qué jobs se sanearían, sin escribir.
+    """
+    if policy not in ("stalled", "failed"):
+        return JSONResponse(
+            {"error": "policy debe ser 'stalled' o 'failed'"},
+            status_code=400,
+        )
+    result = job_recovery.run_startup_recovery(
+        BASE_DIR,
+        job_runtime.is_running,
+        policy=policy,
+        dry_run=dry_run,
+    )
+    return {
+        "ok": True,
+        "orphaned": [{"job_id": o[0], "hotel_name": o[1], "status_applied": o[2]} for o in result["orphaned"]],
+        "dry_run": result["dry_run"],
+    }
+
+
+# ─────────────────────────────────────────────────────────
+# LEGACY — analysis_status.json (idle | running | success | error)
+# Solo para compatibilidad con polling antiguo del dashboard.
+# analysis_runner NO escribe aquí; solo recibe callbacks on_legacy_success / on_legacy_error
+# que admin_panel usa para escribir este archivo. Fuente de verdad de jobs: job_state (data/jobs/).
+# ─────────────────────────────────────────────────────────
+
+def _analysis_status_path():
+    return os.path.join(BASE_DIR, "data", "analysis_status.json")
+
+
+def _write_analysis_status(status: str, **kwargs):
+    """LEGACY: escribe analysis_status.json para polling antiguo."""
+    p = _analysis_status_path()
     os.makedirs(os.path.dirname(p), exist_ok=True)
     try:
-        data = {"error": msg, "at": datetime.now().isoformat()}
-        if source:
-            data["source"] = source
-        if exc_type:
-            data["exc_type"] = exc_type
+        data = {"status": status, "at": datetime.now().isoformat(), **kwargs}
         with open(p, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+            f.flush()
     except Exception:
         pass
 
-
-async def _run_bg(hotel_name, city, api_key, hotel_id, cfg, send_email=False):
+async def _run_bg(job_id, hotel_name, city, api_key, hotel_id, cfg, send_email=False, fast_demo=False):
+    """
+    Orquesta la ejecución del análisis delegando en analysis_runner.
+    Registra errores en log. Siempre da de baja el task en job_runtime al terminar.
+    """
     try:
-        from orchestrator import run_full_analysis
-        result = await run_full_analysis(hotel_name=hotel_name, city_hint=city, api_key=api_key)
-        report = result.get("report", {})
-
-        from mailer.report_mailer_v2 import build_email_html_v2
-        html = build_email_html_v2(result, report)
-        os.makedirs(REPORTS_DIR, exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d_%H%M")
-        html_path = os.path.join(REPORTS_DIR, f"{hotel_name.replace(' ','_')}_{ts}.html")
-        with open(html_path, "w", encoding="utf-8") as f:
-            f.write(html)
-        # Guardar en portal DB si existe
-        conn = portal_db()
-        if conn:
-            conn.execute(
-                "INSERT INTO reports (hotel_id,date,status,overall,subject,report_text,actions,html_path) VALUES (?,?,?,?,?,?,?,?)",
-                (hotel_id, datetime.now().strftime("%Y-%m-%d"), "done",
-                 report.get("overall_status"), report.get("email_subject"),
-                 report.get("report_text"), json.dumps(report.get("priority_actions",[])), html_path)
-            )
-            conn.commit(); conn.close()
-
-        # Enviar email solo si el usuario eligió "Generar y enviar" y hay config
-        smtp_email    = cfg.get("smtp_email","")
-        smtp_password = cfg.get("smtp_password","")
-        recipient     = cfg.get("report_recipient", smtp_email)
-        if send_email and smtp_email and smtp_password and recipient:
-            from mailer.report_mailer_v2 import send_email as do_send_email
-            do_send_email(html, report.get("email_subject", f"RevMax · {hotel_name}"),
-                          recipient, smtp_email, smtp_password)
-
+        await analysis_runner.run_analysis_job(
+            base_dir=BASE_DIR,
+            job_id=job_id,
+            hotel_name=hotel_name,
+            city=city,
+            api_key=api_key,
+            hotel_id=hotel_id,
+            cfg=cfg,
+            send_email=send_email,
+            fast_demo=fast_demo,
+            get_db_conn=portal_db,
+            on_legacy_success=lambda: _write_analysis_status("success"),
+            on_legacy_error=lambda err, src, exc: _write_analysis_status("error", error=err, source=src, exc_type=exc),
+        )
     except Exception as e:
         import traceback
+        err_log = os.path.join(BASE_DIR, "data", "admin_errors.log")
+        os.makedirs(os.path.dirname(err_log), exist_ok=True)
         try:
-            tb = e.__traceback__
-            err_log = os.path.join(BASE_DIR, "data", "admin_errors.log")
-            os.makedirs(os.path.dirname(err_log), exist_ok=True)
             with open(err_log, "a", encoding="utf-8") as f:
                 f.write(f"\n{datetime.now().isoformat()} ERROR {hotel_name}:\n{traceback.format_exc()}\n")
-            source = _get_error_source(tb)
-            exc_type = type(e).__name__
-            err_msg = str(e)
-            if "credit balance is too low" in err_msg.lower() or "credits" in err_msg.lower():
-                err_msg = "Saldo de créditos insuficiente en Anthropic. Añade créditos en console.anthropic.com → Plans & Billing y usa la misma API key que tienes en Config."
-                source = "API de Anthropic (cuenta / créditos)"
-            elif "invalid_request_error" in err_msg or "BadRequestError" in exc_type:
-                err_msg = (err_msg[:300] + "…") if len(err_msg) > 300 else err_msg
-                if not source or source == "pipeline de análisis":
-                    source = "API de Anthropic"
-            elif "AuthenticationError" in exc_type or "authentication" in err_msg.lower():
-                source = "API de Anthropic (API key inválida o expirada)"
-            _write_last_analysis_error(err_msg, source=source, exc_type=exc_type)
         except Exception:
-            _write_last_analysis_error(str(e), source="al guardar el error", exc_type=type(e).__name__)
+            pass
+    finally:
+        job_runtime.unregister(job_id)
 
 
-@app.get("/api/last-analysis-error")
-def api_last_analysis_error():
-    """Devuelve el último error del análisis en segundo plano (para mostrarlo en el panel)."""
-    p = _last_error_path()
+@app.get("/api/analysis-status")
+def api_analysis_status():
+    """LEGACY: estado único para polling antiguo: { status: idle|running|success|error, at?, error?, source?, exc_type? }."""
+    p = _analysis_status_path()
     if not os.path.exists(p):
-        return {"error": None}
+        return {"status": "idle", "at": None}
     try:
         with open(p, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
-        return {"error": None}
+        return {"status": "idle", "at": None}
 
 
 @app.post("/api/update-plan")
@@ -629,6 +724,10 @@ iframe{width:100%;border:none;}
           <option value="preview">Solo generar informe (preview, no envía email)</option>
           <option value="send">Generar informe y enviar por email</option>
         </select></div>
+      <div class="fg" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="run-fast-demo" style="width:18px;height:18px;">
+        <label class="fl" for="run-fast-demo" style="margin:0;">Demo rápido (~20 s) — sin scraping ni 7 agentes, solo genera el informe para probar</label>
+      </div>
       <button class="btn bp" style="width:100%;justify-content:center;margin-top:4px;"
         id="run-btn" onclick="runAnalysis()">
         <span id="run-btn-txt">▷ Generar informe</span>
@@ -918,16 +1017,28 @@ async function saveConfig(){
 // ── ACTIONS ──
 async function quickRun(name,city,id){
   const r=await api('/api/run-analysis','POST',{hotel_name:name,city,hotel_id:id});
-  toast(r.ok?`Análisis iniciado para ${name} (~90s)`:r.error,'ok');
+  toast(r.ok?`Análisis iniciado para ${name} (~90s)`:(r.error||'Error'),r.ok?'ok':'err');
   nav('run');
   document.getElementById('run-hotel').value=name;
   document.getElementById('run-city').value=city;
+}
+
+function showPreviewAndDone(btn,btxt,status,jobId){
+  btn.disabled=false; btxt.textContent='▷ Generar informe';
+  status.style.display='none';
+  status.style.background=''; status.style.color='';
+  toast('¡Análisis completado!','ok');
+  const src=jobId ? ('/api/preview/job/'+encodeURIComponent(jobId)+'?t='+Date.now()) : ('/api/preview/report_preview.html?t='+Date.now());
+  document.getElementById('preview-area').innerHTML=
+    '<div class="iframe-wrap"><iframe src="'+src+'" height="500" onload="this.style.height=(this.contentWindow.document.body.scrollHeight+20)+\'px\'"></iframe></div>';
+  loadAll();
 }
 
 async function runAnalysis(){
   const hotel=document.getElementById('run-hotel').value.trim();
   const city=document.getElementById('run-city').value.trim();
   const mode=document.getElementById('run-mode').value;
+  const fastDemo=document.getElementById('run-fast-demo').checked;
   if(!hotel){toast('Escribe el nombre del hotel','err');return;}
 
   const btn=document.getElementById('run-btn');
@@ -937,11 +1048,13 @@ async function runAnalysis(){
 
   const status=document.getElementById('run-status');
   status.style.display='block';
-  status.textContent='Pipeline iniciado. Los 7 agentes están trabajando (~90 segundos)...';
+  status.style.background='var(--blb);color:var(--bl);';
+  status.textContent=fastDemo ? 'Demo rápido en curso (~20 s)...' : 'Análisis en curso (1–2 min). Los 7 agentes están trabajando...';
 
   const r=await api('/api/run-analysis','POST',{
     hotel_name:hotel, city, hotel_id:1,
-    send_email: mode==='send'
+    send_email: mode==='send',
+    fast_demo: fastDemo
   });
 
   if(!r.ok){
@@ -950,52 +1063,83 @@ async function runAnalysis(){
     status.style.display='none'; return;
   }
 
-  // Poll cada 4s: comprobar si terminó (preview) o si hubo error
+  const jobId=r.job_id||null;
+  toast(fastDemo ? 'Demo iniciado (~20 s)' : 'Análisis iniciado (1–2 min)','ok');
+
   let polls=0;
   const poll=setInterval(async()=>{
     polls++;
-    if(polls>45){
+    if(polls>90){
       clearInterval(poll);
       btn.disabled=false; btxt.textContent='▷ Generar informe';
-      status.textContent='Tardó más de lo esperado. Revisa la pestaña Config y el log data/admin_errors.log';
+      status.textContent='Tardó más de lo esperado. Revisa data/admin_errors.log';
       status.style.background='var(--blb);color:var(--bl);';
-      await loadAll();
+      loadAll();
       return;
     }
-    // ¿Hubo error?
-    const errR=await fetch('/api/last-analysis-error').catch(()=>null);
-    if(errR&&errR.ok){
-      const errData=await errR.json();
-      if(errData&&errData.error){
-        clearInterval(poll);
-        btn.disabled=false; btxt.textContent='▷ Generar informe';
-        status.style.display='block';
-        status.style.background='#3d2020'; status.style.color='#f0a0a0';
-        status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
-        status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
-        let txt='Error: '+errData.error;
-        if(errData.source) txt+='\n\nOrigen: '+errData.source;
-        if(errData.exc_type) txt+='\nTipo: '+errData.exc_type;
-        status.textContent=txt;
-        toast('Análisis falló','err');
+    if(jobId){
+      const jR=await fetch('/api/job-status/'+jobId).catch(()=>null);
+      if(jR&&jR.ok){
+        const job=await jR.json();
+        if(job.stage) status.textContent=(job.stage||'')+(job.progress_pct!=null?' · '+job.progress_pct+'%':'');
+        if(job.status==='completed'){
+          clearInterval(poll);
+          showPreviewAndDone(btn,btxt,status,jobId);
+          return;
+        }
+        if(job.status==='failed'){
+          clearInterval(poll);
+          btn.disabled=false; btxt.textContent='▷ Generar informe';
+          status.style.display='block';
+          status.style.background='#3d2020'; status.style.color='#f0a0a0';
+          status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
+          status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
+          status.textContent='Error: '+(job.error_message||'Unknown');
+          toast('Análisis falló','err');
+          return;
+        }
+        if(job.status==='stalled'){
+          clearInterval(poll);
+          btn.disabled=false; btxt.textContent='▷ Generar informe';
+          status.style.display='block';
+          status.style.background='#3d2020'; status.style.color='#f0a0a0';
+          status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
+          status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
+          status.textContent='Job colgado: '+(job.error_message||'Sin actualización en el tiempo límite.');
+          toast('Análisis colgado','err');
+          return;
+        }
+        if(job.status==='cancelled'){
+          clearInterval(poll);
+          btn.disabled=false; btxt.textContent='▷ Generar informe';
+          status.style.display='block';
+          status.style.background='var(--s2)'; status.style.color='var(--tx2)';
+          status.textContent='Análisis cancelado.';
+          toast('Análisis cancelado','err');
+          return;
+        }
         return;
       }
     }
-    // Verificar si apareció el preview
-    const previewR=await fetch('/api/preview/report_preview.html',{method:'HEAD'}).catch(()=>null);
-    if(previewR&&previewR.ok){
+    const stR=await fetch('/api/analysis-status').catch(()=>null);
+    if(!stR||!stR.ok) return;
+    const st=await stR.json();
+    if(st.status==='success'){
+      clearInterval(poll);
+      showPreviewAndDone(btn,btxt,status,null);
+      return;
+    }
+    if(st.status==='error'){
       clearInterval(poll);
       btn.disabled=false; btxt.textContent='▷ Generar informe';
-      status.style.display='none';
-      status.style.background=''; status.style.color='';
-      toast('¡Análisis completado!','ok');
-      document.getElementById('preview-area').innerHTML=
-        `<div class="iframe-wrap"><iframe src="/api/preview/report_preview.html"
-           height="500" onload="this.style.height=(this.contentWindow.document.body.scrollHeight+20)+'px'">
-         </iframe></div>`;
-      await loadAll();
+      status.style.display='block';
+      status.style.background='#3d2020'; status.style.color='#f0a0a0';
+      status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
+      status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
+      status.textContent='Error: '+(st.error||'Unknown')+(st.source?'\n\nOrigen: '+st.source:'')+(st.exc_type?'\nTipo: '+st.exc_type:'');
+      toast('Análisis falló','err');
     }
-  },4000);
+  },2000);
 }
 
 async function viewReport(id,subject){
@@ -1052,6 +1196,25 @@ async def api_save_config(request: Request):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     return {"ok": True}
+
+
+@app.on_event("startup")
+def startup_recovery():
+    """Al arrancar, sanea jobs activos huérfanos (sin task viva) por crash/reinicio."""
+    try:
+        result = job_recovery.run_startup_recovery(
+            BASE_DIR,
+            job_runtime.is_running,
+            policy="stalled",
+        )
+        if result["orphaned"]:
+            import logging
+            logging.getLogger("revmax").warning(
+                "Startup recovery: %d job(s) marcados stalled (sin task viva)",
+                len(result["orphaned"]),
+            )
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
