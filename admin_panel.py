@@ -1249,7 +1249,10 @@ async function runAnalysis(){
   }
 
   const jobId=r.job_id||null;
-  if(typeof console!=='undefined'&&console.log) console.log('[RevMax] run-analysis response: ok=',r.ok,' job_id=',jobId);
+  const FRONTEND_ANALYSIS_TIMEOUT_SECONDS=600;
+  const FRONTEND_ANALYSIS_POLL_INTERVAL_MS=2000;
+  const FRONTEND_ANALYSIS_MAX_POLLS=Math.ceil(FRONTEND_ANALYSIS_TIMEOUT_SECONDS*1000/FRONTEND_ANALYSIS_POLL_INTERVAL_MS);
+  if(typeof console!=='undefined'&&console.log) console.log('[RevMax] run-analysis response: ok=',r.ok,' job_id=',jobId,' frontend timeout=',FRONTEND_ANALYSIS_TIMEOUT_SECONDS,'s maxPolls=',FRONTEND_ANALYSIS_MAX_POLLS);
   toast(fastDemo ? 'Demo iniciado (~20 s)' : 'Análisis iniciado (1–2 min)','ok');
   const progressBlock=document.getElementById('run-progress-block');
   const progressIdle=document.getElementById('run-progress-idle');
@@ -1259,12 +1262,28 @@ async function runAnalysis(){
   let polls=0;
   const poll=setInterval(async()=>{
     polls++;
-    if(polls>90){
+    if(polls>FRONTEND_ANALYSIS_MAX_POLLS){
       clearInterval(poll);
       btn.disabled=false; btxt.textContent='Generar análisis';
-      status.textContent='Tardó más de lo esperado. Revisa data/admin_errors.log';
-      if(progressBlock) progressBlock.style.display='none';
-      if(progressIdle) progressIdle.style.display='block';
+      if(progressBlock) progressBlock.style.display='block';
+      if(progressIdle) progressIdle.style.display='none';
+      status.style.display='block';
+      status.style.background='var(--amber-bg)'; status.style.color='var(--amber)';
+      status.style.whiteSpace='normal'; status.style.textAlign='left';
+      status.style.padding='12px'; status.style.maxHeight='none';
+      status.textContent='El análisis sigue tardando más de lo habitual. Puede seguir en curso en el servidor. Comprueba más tarde el estado o data/admin_errors.log.';
+      (async function(){
+        if(jobId){
+          try{
+            const jR=await fetch('/api/job-status/'+jobId);
+            if(jR&&jR.ok){ const job=await jR.json(); renderProgressSteps(job.progress_steps||[]); var prefix=(job.stage?(STAGE_MESSAGES[job.stage]||job.stage)+(job.progress_pct!=null?' · '+job.progress_pct+'%':'')+' — ':'');
+              status.textContent=prefix+status.textContent;
+              var durEl=document.getElementById('run-duration'); if(job.analysis_timing&&job.analysis_timing.total_seconds!=null&&durEl) durEl.textContent='Duración: '+Math.round(job.analysis_timing.total_seconds)+' s';
+              if((job.evidence_found||job.analysis_quality)&&typeof renderResultPanel==='function'){ var rc=document.getElementById('run-result-content'); var re=document.getElementById('run-result-empty'); if(rc) rc.style.display='block'; if(re) re.style.display='none'; renderResultPanel(job); } }
+          }catch(e){}
+        }
+        if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] frontend timeout after',polls,'polls (timeout=',FRONTEND_ANALYSIS_TIMEOUT_SECONDS,'s), progress panel remains visible');
+      })();
       loadAll();
       return;
     }
@@ -1289,40 +1308,45 @@ async function runAnalysis(){
         if(job.status==='failed'){
           clearInterval(poll);
           btn.disabled=false; btxt.textContent='Generar análisis';
-          if(progressBlock) progressBlock.style.display='none';
-          if(progressIdle) progressIdle.style.display='block';
+          renderProgressSteps(job.progress_steps||[]);
+          if(progressBlock) progressBlock.style.display='block';
+          if(progressIdle) progressIdle.style.display='none';
           status.style.display='block';
           status.style.background='var(--red-bg)'; status.style.color='var(--red)';
           status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
           status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
           status.textContent='Error: '+(job.error_message||'Unknown');
-          if(steps&&steps.length) renderProgressSteps(steps);
-          if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] analysis failed',job.error_message);
+          if((job.evidence_found||job.analysis_quality)&&typeof renderResultPanel==='function'){ var rc=document.getElementById('run-result-content'); var re=document.getElementById('run-result-empty'); if(rc){ rc.style.display='block'; } if(re){ re.style.display='none'; } renderResultPanel(job); }
+          if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] final state: failed, progress panel remains visible',job.error_message);
           toast('Análisis falló','err');
           return;
         }
         if(job.status==='stalled'){
           clearInterval(poll);
           btn.disabled=false; btxt.textContent='Generar análisis';
-          if(progressBlock) progressBlock.style.display='none';
-          if(progressIdle) progressIdle.style.display='block';
+          renderProgressSteps(job.progress_steps||[]);
+          if(progressBlock) progressBlock.style.display='block';
+          if(progressIdle) progressIdle.style.display='none';
           status.style.display='block';
           status.style.background='var(--red-bg)'; status.style.color='var(--red)';
           status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
           status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
           status.textContent='Job colgado: '+(job.error_message||'Sin actualización en el tiempo límite.');
-          if(steps&&steps.length) renderProgressSteps(steps);
+          if((job.evidence_found||job.analysis_quality)&&typeof renderResultPanel==='function'){ var rc=document.getElementById('run-result-content'); var re=document.getElementById('run-result-empty'); if(rc){ rc.style.display='block'; } if(re){ re.style.display='none'; } renderResultPanel(job); }
+          if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] final state: stalled, progress panel remains visible');
           toast('Análisis colgado','err');
           return;
         }
         if(job.status==='cancelled'){
           clearInterval(poll);
           btn.disabled=false; btxt.textContent='Generar análisis';
-          if(progressBlock) progressBlock.style.display='none';
-          if(progressIdle) progressIdle.style.display='block';
+          renderProgressSteps(job.progress_steps||[]);
+          if(progressBlock) progressBlock.style.display='block';
+          if(progressIdle) progressIdle.style.display='none';
           status.style.display='block';
           status.style.background='var(--s2)'; status.style.color='var(--text2)';
           status.textContent='Análisis cancelado.';
+          if(typeof console!=='undefined'&&console.log) console.log('[RevMax] final state: cancelled, progress panel remains visible');
           toast('Análisis cancelado','err');
           return;
         }
@@ -1343,13 +1367,14 @@ async function runAnalysis(){
       if(st.status==='error'){
         clearInterval(poll);
         btn.disabled=false; btxt.textContent='Generar análisis';
-        if(progressBlock) progressBlock.style.display='none';
-        if(progressIdle) progressIdle.style.display='block';
+        if(progressBlock) progressBlock.style.display='block';
+        if(progressIdle) progressIdle.style.display='none';
         status.style.display='block';
         status.style.background='var(--red-bg)'; status.style.color='var(--red)';
         status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
         status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
         status.textContent='Error: '+(st.error||'Unknown')+(st.source?'\n\nOrigen: '+st.source:'')+(st.exc_type?'\nTipo: '+st.exc_type:'');
+        if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] final state: legacy error, progress panel remains visible');
         toast('Análisis falló','err');
       }
     }
