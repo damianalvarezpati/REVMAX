@@ -4,7 +4,7 @@ RevMax — Schema y validación de jobs.
 Cualquier clave desconocida en update_job se rechaza con ValueError.
 """
 
-from typing import Any, FrozenSet
+from typing import Any, Dict, FrozenSet
 
 ALLOWED_STATUSES: FrozenSet[str] = frozenset({
     "pending",
@@ -63,6 +63,20 @@ ACTIVE_STATUSES: FrozenSet[str] = frozenset({
     "persisting",
     "notifying",
 })
+
+# Transiciones de estado permitidas: desde cada estado, solo se puede ir a los del set.
+# Evita corrupciones (ej. running -> completed directo).
+ALLOWED_TRANSITIONS: Dict[str, FrozenSet[str]] = {
+    "pending": frozenset({"running", "cancelled"}),
+    "running": frozenset({"rendering", "failed", "cancelled", "stalled"}),
+    "rendering": frozenset({"persisting", "failed", "cancelled"}),
+    "persisting": frozenset({"notifying", "completed", "failed"}),
+    "notifying": frozenset({"completed", "failed"}),
+    "completed": frozenset(),
+    "failed": frozenset(),
+    "cancelled": frozenset(),
+    "stalled": frozenset(),
+}
 
 NULLABLE_UPDATE_KEYS: FrozenSet[str] = frozenset({
     "error_message",

@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from job_schema import (
     ALLOWED_STATUSES,
     ALLOWED_STAGES,
+    ALLOWED_TRANSITIONS,
     ACTIVE_STATUSES,
     NULLABLE_UPDATE_KEYS,
     reject_unknown_update_keys,
@@ -107,6 +108,17 @@ def update_job(base_dir: str, job_id: str, **kwargs: Any) -> bool:
             job = json.load(f)
     except (json.JSONDecodeError, OSError):
         return False
+
+    if "status" in kwargs:
+        current_status = (job.get("status") or "pending").strip().lower()
+        new_status = validate_status(kwargs["status"])
+        if current_status in ALLOWED_TRANSITIONS:
+            allowed = ALLOWED_TRANSITIONS[current_status]
+            if new_status not in allowed:
+                raise ValueError(
+                    f"invalid status transition: {current_status!r} -> {new_status!r}. "
+                    f"Allowed from {current_status!r}: {sorted(allowed)!r}"
+                )
 
     now = datetime.utcnow().isoformat() + "Z"
     job["updated_at"] = now

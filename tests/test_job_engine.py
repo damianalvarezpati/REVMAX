@@ -61,7 +61,11 @@ def test_has_active_job_for_hotel_blocks_second_active_job():
         job_id1 = job_state.create_job(base, "Hotel Same", "Barcelona")
         assert job_state.has_active_job_for_hotel(base, "Hotel Same") == job_id1
         assert job_state.has_active_job_for_hotel(base, "Otro Hotel") is None
-        # Marcar como completed y comprobar que ya no bloquea
+        # Transición válida hasta completed y comprobar que ya no bloquea
+        job_state.update_job(base, job_id1, status="running", stage="starting")
+        job_state.update_job(base, job_id1, status="rendering", stage="rendering")
+        job_state.update_job(base, job_id1, status="persisting", stage="persisting")
+        job_state.update_job(base, job_id1, status="notifying", stage="notifying")
         job_state.update_job(base, job_id1, status="completed", stage="done", progress_pct=100)
         assert job_state.has_active_job_for_hotel(base, "Hotel Same") is None
     finally:
@@ -85,7 +89,7 @@ def test_watchdog_does_not_mark_stalled_if_runtime_says_alive():
             dry_run=False,
         )
         assert result["alive_in_runtime"] >= 1
-        assert len(result["marked_stalled"]) == 0
+        assert result["marked_stalled"] == 0
         job = job_state.get_job(base, job_id)
         assert job["status"] == "running"
     finally:
@@ -106,8 +110,8 @@ def test_watchdog_marks_stalled_when_not_alive():
             is_alive=lambda jid: False,
             dry_run=False,
         )
-        assert len(result["marked_stalled"]) == 1
-        assert result["marked_stalled"][0][0] == job_id
+        assert result["marked_stalled"] == 1
+        assert result["marked_stalled_ids"][0] == job_id
         job = job_state.get_job(base, job_id)
         assert job["status"] == "stalled"
         assert job.get("completed_at") is not None

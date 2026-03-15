@@ -336,9 +336,10 @@ def api_run_watchdog(
         "reviewed": result["reviewed"],
         "active_count": result["active_count"],
         "alive_in_runtime": result["alive_in_runtime"],
-        "marked_stalled": [m[0] for m in result["marked_stalled"]],
+        "marked_stalled": result["marked_stalled"],
+        "marked_stalled_ids": result.get("marked_stalled_ids", []),
         "ignored": result["ignored"],
-        "dry_run": result["dry_run"],
+        "dry_run": result.get("dry_run", False),
     }
 
 

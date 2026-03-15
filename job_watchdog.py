@@ -3,11 +3,8 @@ RevMax — Detección de jobs colgados (stalled).
 Marca jobs que llevan demasiado tiempo en estado activo sin actualizar updated_at.
 
 Reconciliación runtime vs persistencia:
-- Si is_alive(job_id) devuelve True (task vivo en runtime), el job NUNCA se marca stalled.
-- Solo se marcan como stalled los jobs activos en persistencia que:
-  1) llevan más de max_idle_seconds sin actualizar updated_at, y
-  2) no tienen task vivo en runtime (o is_alive no se proporciona).
-Fuente que manda para "sigue vivo": runtime (is_alive). Fuente que manda para estado persistido: job_state.
+- Si is_alive(job_id) es True (task vivo en runtime), el job NUNCA se marca stalled.
+- Solo se marca stalled cuando: estado activo AND runtime no tiene task viva AND idle > max_idle_seconds.
 """
 
 from datetime import datetime, timezone
@@ -43,15 +40,12 @@ def mark_stale_jobs(
     Busca jobs en estado activo cuyo updated_at sea más antiguo que max_idle_seconds
     y los marca como stalled, EXCEPTO si is_alive(job_id) es True (task vivo en runtime).
 
-    is_alive: opcional. Si se pasa, no se marca stalled ningún job cuyo task siga vivo.
-    dry_run: si True, no se escribe en disco; solo se devuelve el resumen de qué se haría.
+    Lógica:
+    1) job.status en ACTIVE_STATUSES
+    2) si is_alive(job_id) True -> NO marcar stalled, incrementar alive_in_runtime
+    Solo marcar stalled cuando: estado activo AND runtime no tiene task viva AND idle > max_idle_seconds.
 
-    Devuelve un resumen útil para diagnóstico:
-      reviewed: total de jobs recientes revisados
-      active_count: cuántos están en estado activo
-      alive_in_runtime: de los activos, cuántos tienen task vivo (ignorados)
-      marked_stalled: lista de (job_id, hotel_name) marcados (o que se marcarían en dry_run)
-      ignored: activos pero vivos en runtime (no marcados)
+    Devuelve: reviewed, active_count, alive_in_runtime, marked_stalled (int), marked_stalled_ids (list), ignored.
     """
     now = datetime.now(timezone.utc)
     recent = job_state.list_recent_jobs(base_dir, limit=500)
@@ -92,7 +86,8 @@ def mark_stale_jobs(
         "reviewed": reviewed,
         "active_count": active_count,
         "alive_in_runtime": alive_in_runtime,
-        "marked_stalled": marked,
+        "marked_stalled": len(marked),
+        "marked_stalled_ids": [m[0] for m in marked],
         "ignored": ignored,
         "dry_run": dry_run,
     }
