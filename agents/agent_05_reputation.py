@@ -156,6 +156,51 @@ from datetime import datetime
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from agents.agent_parse_utils import (
+    parse_json_response,
+    log_agent_parse_failure,
+    MAX_RAW_LOG_CHARS,
+)
+
+AGENT_NAME = "reputation"
+
+
+def _build_minimal_reputation_fallback(hotel_profile: dict, compset_data: dict) -> dict:
+    """Dict mínimo válido cuando el LLM falla o devuelve JSON inválido."""
+    return {
+        "agent": "reputation",
+        "hotel_name": hotel_profile.get("name", "?"),
+        "analysis_date": datetime.now().strftime("%Y-%m-%d"),
+        "confidence_score": 0.3,
+        "confidence_notes": "Fallback: parse o API failure.",
+        "gri": {
+            "value": 70.0,
+            "interpretation": "Fallback: datos insuficientes.",
+            "vs_compset_avg": 0.0,
+            "can_command_premium": False,
+            "suggested_premium_pct": 0.0,
+        },
+        "platform_scores": {},
+        "review_velocity": {"trend": "stable", "interpretation": "?"},
+        "sentiment_analysis": {
+            "overall_sentiment": "neutral",
+            "positive_themes": [],
+            "negative_themes": [],
+            "price_perception": "neutral",
+            "price_perception_note": "Fallback.",
+        },
+        "compset_reputation_comparison": [],
+        "reputation_pricing_authority": {
+            "verdict": "justified",
+            "explanation": "Fallback: sin análisis.",
+            "max_sustainable_premium_pct": 0.0,
+            "action": "Mantener postura.",
+        },
+        "actionable_alerts": [],
+        "recent_negative_themes": [],
+        "recent_positive_themes": [],
+    }
+
 
 async def run_reputation_agent(
     hotel_profile: dict,
@@ -163,30 +208,51 @@ async def run_reputation_agent(
     api_key: str,
     model: str = "claude-opus-4-5",
 ) -> dict:
+    """
+    Ejecuta el Agente Reputation. Nunca lanza por JSON inválido/truncado;
+    devuelve fallback mínimo si falla parse o API.
+    """
     client = anthropic.Anthropic(api_key=api_key)
     user_prompt = _build_reputation_prompt(hotel_profile, compset_data)
+    prompt_len = len(user_prompt)
 
     print(f"  [Agente Reputation] Analizando reputación de {hotel_profile.get('name','?')}...")
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=2000,
-        system=AGENT_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}]
-    )
-
-    raw = response.content[0].text.strip()
+    raw = ""
+    response_len = 0
     try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        import re
-        match = re.search(r'\{[\s\S]*\}', raw)
-        result = json.loads(match.group()) if match else {}
+        response = client.messages.create(
+            model=model,
+            max_tokens=2000,
+            system=AGENT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = (response.content[0].text if response.content else "") or ""
+        raw = raw.strip()
+        response_len = len(raw)
+    except Exception as e:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            (raw or "")[:MAX_RAW_LOG_CHARS], f"API exception: {e}",
+        )
+        return _build_minimal_reputation_fallback(hotel_profile, compset_data)
+
+    if not raw:
+        log_agent_parse_failure(AGENT_NAME, prompt_len, 0, "", "empty response")
+        return _build_minimal_reputation_fallback(hotel_profile, compset_data)
+
+    result, parse_error = parse_json_response(raw)
+    if result is None:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            raw[:MAX_RAW_LOG_CHARS], parse_error or "parse failed",
+        )
+        return _build_minimal_reputation_fallback(hotel_profile, compset_data)
 
     gri = result.get("gri", {}).get("value", "?")
     vs_compset = result.get("gri", {}).get("vs_compset_avg", "?")
     verdict = result.get("reputation_pricing_authority", {}).get("verdict", "?")
-    print(f"  [Agente Reputation] GRI: {gri} | vs compset: {vs_compset:+} | Veredicto: {verdict}")
+    print(f"  [Agente Reputation] GRI: {gri} | vs compset: {vs_compset} | Veredicto: {verdict}")
     return result
 
 

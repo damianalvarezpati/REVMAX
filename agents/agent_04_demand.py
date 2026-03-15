@@ -203,6 +203,42 @@ from datetime import datetime, timedelta
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from agents.agent_parse_utils import (
+    parse_json_response,
+    log_agent_parse_failure,
+    MAX_RAW_LOG_CHARS,
+)
+
+AGENT_NAME = "demand"
+
+
+def _build_minimal_demand_fallback(hotel_profile: dict, compset_data: dict) -> dict:
+    """Dict mínimo válido cuando el LLM falla o devuelve JSON inválido."""
+    return {
+        "agent": "demand",
+        "hotel_name": hotel_profile.get("name", "?"),
+        "analysis_date": datetime.now().strftime("%Y-%m-%d"),
+        "confidence_score": 0.3,
+        "confidence_notes": "Fallback: parse o API failure.",
+        "demand_index": {
+            "score": 50,
+            "signal": "medium",
+            "label": "Demanda media",
+            "interpretation": "Fallback: datos insuficientes.",
+        },
+        "signal_breakdown": {},
+        "forecast": {
+            "tonight": {"demand": "medium", "price_implication": "hold", "urgency": "monitor"},
+            "next_7_days": {"demand": "medium", "peak_days": [], "trough_days": []},
+            "next_30_days": {"demand": "medium", "notable_dates": [], "trend": "stable"},
+        },
+        "price_implication": "hold",
+        "recommended_adjustment_pct": 0.0,
+        "opportunities": [],
+        "events_detected": [],
+        "pms_upgrade_note": "Fallback: sin análisis LLM.",
+    }
+
 
 async def run_demand_agent(
     hotel_profile: dict,
@@ -210,30 +246,51 @@ async def run_demand_agent(
     api_key: str,
     model: str = "claude-opus-4-5",
 ) -> dict:
+    """
+    Ejecuta el Agente Demand. Nunca lanza por JSON inválido/truncado;
+    devuelve fallback mínimo si falla parse o API.
+    """
     client = anthropic.Anthropic(api_key=api_key)
     user_prompt = _build_demand_prompt(hotel_profile, compset_data)
+    prompt_len = len(user_prompt)
 
     print(f"  [Agente Demand] Analizando señales de demanda para {hotel_profile.get('name','?')}...")
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=1800,
-        system=AGENT_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}]
-    )
-
-    raw = response.content[0].text.strip()
+    raw = ""
+    response_len = 0
     try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        import re
-        match = re.search(r'\{[\s\S]*\}', raw)
-        result = json.loads(match.group()) if match else {}
+        response = client.messages.create(
+            model=model,
+            max_tokens=1800,
+            system=AGENT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = (response.content[0].text if response.content else "") or ""
+        raw = raw.strip()
+        response_len = len(raw)
+    except Exception as e:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            (raw or "")[:MAX_RAW_LOG_CHARS], f"API exception: {e}",
+        )
+        return _build_minimal_demand_fallback(hotel_profile, compset_data)
+
+    if not raw:
+        log_agent_parse_failure(AGENT_NAME, prompt_len, 0, "", "empty response")
+        return _build_minimal_demand_fallback(hotel_profile, compset_data)
+
+    result, parse_error = parse_json_response(raw)
+    if result is None:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            raw[:MAX_RAW_LOG_CHARS], parse_error or "parse failed",
+        )
+        return _build_minimal_demand_fallback(hotel_profile, compset_data)
 
     score = result.get("demand_index", {}).get("score", "?")
     signal = result.get("demand_index", {}).get("signal", "?")
     implication = result.get("price_implication", "?")
-    print(f"  [Agente Demand] Score: {score}/100 | Señal: {signal.upper()} | Precio: {implication.upper()}")
+    print(f"  [Agente Demand] Score: {score}/100 | Señal: {str(signal).upper()} | Precio: {str(implication).upper()}")
     return result
 
 

@@ -180,6 +180,44 @@ from datetime import datetime
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from agents.agent_parse_utils import (
+    parse_json_response,
+    log_agent_parse_failure,
+    MAX_RAW_LOG_CHARS,
+)
+
+AGENT_NAME = "distribution"
+
+
+def _build_minimal_distribution_fallback(hotel_profile: dict, compset_data: dict) -> dict:
+    """Dict mínimo válido cuando el LLM falla o devuelve JSON inválido."""
+    return {
+        "agent": "distribution",
+        "hotel_name": hotel_profile.get("name", "?"),
+        "analysis_date": datetime.now().strftime("%Y-%m-%d"),
+        "confidence_score": 0.3,
+        "confidence_notes": "Fallback: parse o API failure.",
+        "visibility_score": 0.5,
+        "visibility_label": "Fallback: datos insuficientes.",
+        "booking_audit": {
+            "search_position": 99,
+            "search_position_percentile": "bottom_50pct",
+            "genius_level": 0,
+            "preferred_partner": False,
+            "content_score_estimated": 0,
+            "content_gaps": [],
+            "cancellation_policy": "?",
+            "response_rate_signals": "?",
+        },
+        "rate_parity": {"status": "ok", "issues_detected": [], "parity_issues": False},
+        "google_hotels": {"visible": False, "position_estimated": 99, "free_booking_links_active": False},
+        "channel_presence": {},
+        "quick_wins": [],
+        "seo_recommendations": [],
+        "parity_issues": False,
+        "distribution_health": "needs_attention",
+    }
+
 
 async def run_distribution_agent(
     hotel_profile: dict,
@@ -187,29 +225,50 @@ async def run_distribution_agent(
     api_key: str,
     model: str = "claude-opus-4-5",
 ) -> dict:
+    """
+    Ejecuta el Agente Distribution. Nunca lanza por JSON inválido/truncado;
+    devuelve fallback mínimo si falla parse o API.
+    """
     client = anthropic.Anthropic(api_key=api_key)
     user_prompt = _build_distribution_prompt(hotel_profile, compset_data)
+    prompt_len = len(user_prompt)
 
     print(f"  [Agente Distribution] Auditando visibilidad de {hotel_profile.get('name','?')}...")
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=1800,
-        system=AGENT_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}]
-    )
-
-    raw = response.content[0].text.strip()
+    raw = ""
+    response_len = 0
     try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        import re
-        match = re.search(r'\{[\s\S]*\}', raw)
-        result = json.loads(match.group()) if match else {}
+        response = client.messages.create(
+            model=model,
+            max_tokens=1800,
+            system=AGENT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = (response.content[0].text if response.content else "") or ""
+        raw = raw.strip()
+        response_len = len(raw)
+    except Exception as e:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            (raw or "")[:MAX_RAW_LOG_CHARS], f"API exception: {e}",
+        )
+        return _build_minimal_distribution_fallback(hotel_profile, compset_data)
+
+    if not raw:
+        log_agent_parse_failure(AGENT_NAME, prompt_len, 0, "", "empty response")
+        return _build_minimal_distribution_fallback(hotel_profile, compset_data)
+
+    result, parse_error = parse_json_response(raw)
+    if result is None:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            raw[:MAX_RAW_LOG_CHARS], parse_error or "parse failed",
+        )
+        return _build_minimal_distribution_fallback(hotel_profile, compset_data)
 
     visibility = result.get("visibility_score", "?")
     health = result.get("distribution_health", "?")
-    parity = result.get("rate_parity", {}).get("status", "?")
+    parity = (result.get("rate_parity") or {}).get("status", "?")
     print(f"  [Agente Distribution] Visibilidad: {visibility} | Salud: {health} | Paridad: {parity}")
     return result
 

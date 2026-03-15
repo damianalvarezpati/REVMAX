@@ -203,6 +203,46 @@ from typing import Optional
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from agents.agent_parse_utils import (
+    parse_json_response,
+    log_agent_parse_failure,
+    MAX_RAW_LOG_CHARS,
+)
+
+AGENT_NAME = "compset"
+
+
+def _build_minimal_compset_fallback(hotel_profile: dict, market_data: dict) -> dict:
+    """Dict mínimo válido cuando el LLM falla o devuelve JSON inválido."""
+    name = hotel_profile.get("name", "Hotel")
+    adr = hotel_profile.get("adr_double")
+    if adr is None or (isinstance(adr, str) and adr == "?"):
+        adr = 100.0
+    elif not isinstance(adr, (int, float)):
+        adr = 100.0
+    return {
+        "hotel_name": name,
+        "analysis_date": datetime.now().strftime("%Y-%m-%d"),
+        "confidence_score": 0.3,
+        "confidence_notes": "Fallback: parse o API failure.",
+        "primary_segment": hotel_profile.get("primary_segment", "mixed"),
+        "micro_market": "?",
+        "hotel_adr_reference": {"standard_double": adr, "source": "fallback", "date_checked": datetime.now().strftime("%Y-%m-%d")},
+        "compset": {"primary": [], "aspirational": [], "surveillance": []},
+        "compset_summary": {
+            "primary_avg_adr": float(adr),
+            "primary_min_adr": round(float(adr) * 0.8, 1),
+            "primary_max_adr": round(float(adr) * 1.2, 1),
+            "your_position": "at_market",
+            "your_adr_index": 1.0,
+            "market_pressure": "hold",
+            "notes": "Fallback: sin datos de compset.",
+        },
+        "exclusions": [],
+        "seasonal_notes": "",
+        "next_review_trigger": "Revisar cuando haya datos de mercado.",
+    }
+
 
 async def run_compset_agent(
     hotel_profile: dict,
@@ -211,43 +251,52 @@ async def run_compset_agent(
     model: str = "claude-opus-4-5",
 ) -> dict:
     """
-    Ejecuta el Agente Compset.
-
-    hotel_profile: output del Agente 1 Discovery
-    market_data: lista de hoteles candidatos obtenida del scraper
+    Ejecuta el Agente Compset. Nunca lanza por JSON inválido/truncado;
+    devuelve fallback mínimo si falla parse o API.
     """
     client = anthropic.Anthropic(api_key=api_key)
-
     user_prompt = _build_compset_prompt(hotel_profile, market_data)
+    prompt_len = len(user_prompt)
+    candidates_count = len(market_data.get("candidates", []))
 
-    print(f"  [Agente Compset] Analizando {len(market_data.get('candidates', []))} candidatos...")
+    print(f"  [Agente Compset] Analizando {candidates_count} candidatos...")
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=2000,
-        system=AGENT_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}]
-    )
-
-    raw = response.content[0].text.strip()
-
-    # Extraer JSON limpio
+    raw = ""
+    response_len = 0
     try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        import re
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            result = json.loads(match.group())
-        else:
-            raise ValueError(f"Agente Compset no devolvió JSON válido: {raw[:200]}")
+        response = client.messages.create(
+            model=model,
+            max_tokens=2000,
+            system=AGENT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = (response.content[0].text if response.content else "") or ""
+        raw = raw.strip()
+        response_len = len(raw)
+    except Exception as e:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            (raw or "")[:MAX_RAW_LOG_CHARS], f"API exception: {e}",
+        )
+        return _build_minimal_compset_fallback(hotel_profile, market_data)
+
+    if not raw:
+        log_agent_parse_failure(AGENT_NAME, prompt_len, 0, "", "empty response")
+        return _build_minimal_compset_fallback(hotel_profile, market_data)
+
+    result, parse_error = parse_json_response(raw)
+    if result is None:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            raw[:MAX_RAW_LOG_CHARS], parse_error or "parse failed",
+        )
+        return _build_minimal_compset_fallback(hotel_profile, market_data)
 
     print(f"  [Agente Compset] Compset definido: "
           f"{len(result.get('compset', {}).get('primary', []))} primarios, "
           f"{len(result.get('compset', {}).get('aspirational', []))} aspiracionales, "
           f"{len(result.get('compset', {}).get('surveillance', []))} vigilancia")
     print(f"  [Agente Compset] Confidence: {result.get('confidence_score', '?')}")
-
     return result
 
 

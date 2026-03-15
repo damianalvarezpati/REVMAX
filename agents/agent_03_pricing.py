@@ -217,6 +217,14 @@ from datetime import datetime
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from agents.agent_parse_utils import (
+    parse_json_response,
+    log_agent_parse_failure,
+    MAX_RAW_LOG_CHARS,
+)
+
+AGENT_NAME = "pricing"
+
 
 def _calculate_proxy_indices(hotel_profile: dict, compset_data: dict) -> dict:
     """
@@ -267,6 +275,52 @@ def _calculate_proxy_indices(hotel_profile: dict, compset_data: dict) -> dict:
     }
 
 
+def _build_minimal_pricing_fallback(
+    hotel_profile: dict,
+    compset_data: dict,
+    demand_data: dict,
+) -> dict:
+    """Dict mínimo válido cuando el LLM falla o devuelve JSON inválido."""
+    pre = _calculate_proxy_indices(hotel_profile, compset_data)
+    summary = compset_data.get("compset_summary", {})
+    market_avg = summary.get("primary_avg_adr") or pre.get("market_avg") or 100.0
+    return {
+        "agent": "pricing",
+        "hotel_name": hotel_profile.get("name", "?"),
+        "analysis_date": datetime.now().strftime("%Y-%m-%d"),
+        "confidence_score": 0.3,
+        "confidence_notes": "Fallback: parse o API failure.",
+        "indices": {
+            "ari": {"value": pre.get("ari_calculated") or 1.0, "interpretation": "Fallback", "signal": "at", "target_range": [0.95, 1.10]},
+            "mpi": {"value": pre.get("mpi_proxy") or 1.0, "interpretation": "Fallback", "signal": "at", "source": "proxy_compset_availability"},
+            "rgi": {"value": pre.get("rgi_estimated") or 1.0, "interpretation": "Fallback", "signal": "at", "vs_target": "on_track"},
+            "bari": {"value": 1.0, "your_bar": 0, "market_bar": 0},
+        },
+        "position_diagnosis": {"quadrant": "B_volume", "quadrant_label": "Datos insuficientes", "summary": "Fallback por fallo de parse o API."},
+        "room_type_analysis": [],
+        "recommendation": {
+            "action": "hold",
+            "urgency": "monitor",
+            "primary_action": "Mantener precio. Datos insuficientes.",
+            "secondary_action": "",
+            "expected_impact": "",
+            "review_in_hours": 48,
+        },
+        "yield_opportunities": [],
+        "pricing_alerts": [],
+        "market_context": {
+            "compset_avg_adr": market_avg,
+            "compset_min_adr": pre.get("market_min") or 80,
+            "compset_max_adr": pre.get("market_max") or 120,
+            "your_position_rank": pre.get("your_rank") or 5,
+            "total_compset": pre.get("total_primary") or 5,
+            "promotions_in_compset": pre.get("promo_count") or 0,
+            "estimated_market_occupancy_pct": 50.0,
+        },
+        "pms_upgrade_note": "Fallback: sin análisis LLM.",
+    }
+
+
 async def run_pricing_agent(
     hotel_profile: dict,
     compset_data: dict,
@@ -275,47 +329,52 @@ async def run_pricing_agent(
     model: str = "claude-opus-4-5",
 ) -> dict:
     """
-    Ejecuta el Agente Pricing.
-
-    hotel_profile: output del Agente 1 Discovery
-    compset_data: output del Agente 2 Compset
-    demand_data: output del Agente 4 Demand (puede ser stub)
+    Ejecuta el Agente Pricing. Nunca lanza por JSON inválido/truncado;
+    devuelve fallback mínimo si falla parse o API.
     """
     client = anthropic.Anthropic(api_key=api_key)
-
-    # Pre-calcular índices matemáticos para dar al LLM datos precisos
     pre_calculated = _calculate_proxy_indices(hotel_profile, compset_data)
-
     user_prompt = _build_pricing_prompt(hotel_profile, compset_data, demand_data, pre_calculated)
+    prompt_len = len(user_prompt)
 
     print(f"  [Agente Pricing] Calculando índices MPI/ARI/RGI para {hotel_profile.get('name', '?')}...")
-    print(f"  [Agente Pricing] ARI calculado: {pre_calculated['ari_calculated']} | "
-          f"MPI proxy: {pre_calculated['mpi_proxy']}")
+    print(f"  [Agente Pricing] ARI calculado: {pre_calculated['ari_calculated']} | MPI proxy: {pre_calculated['mpi_proxy']}")
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=2000,
-        system=AGENT_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}]
-    )
-
-    raw = response.content[0].text.strip()
-
+    raw = ""
+    response_len = 0
     try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        import re
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            result = json.loads(match.group())
-        else:
-            raise ValueError("Agente Pricing no devolvió JSON válido")
+        response = client.messages.create(
+            model=model,
+            max_tokens=2000,
+            system=AGENT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = (response.content[0].text if response.content else "") or ""
+        raw = raw.strip()
+        response_len = len(raw)
+    except Exception as e:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            (raw or "")[:MAX_RAW_LOG_CHARS], f"API exception: {e}",
+        )
+        return _build_minimal_pricing_fallback(hotel_profile, compset_data, demand_data)
+
+    if not raw:
+        log_agent_parse_failure(AGENT_NAME, prompt_len, 0, "", "empty response")
+        return _build_minimal_pricing_fallback(hotel_profile, compset_data, demand_data)
+
+    result, parse_error = parse_json_response(raw)
+    if result is None:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            raw[:MAX_RAW_LOG_CHARS], parse_error or "parse failed",
+        )
+        return _build_minimal_pricing_fallback(hotel_profile, compset_data, demand_data)
 
     quadrant = result.get("position_diagnosis", {}).get("quadrant", "?")
     action = result.get("recommendation", {}).get("action", "?")
     rgi = result.get("indices", {}).get("rgi", {}).get("value", "?")
-    print(f"  [Agente Pricing] Cuadrante: {quadrant} | RGI: {rgi} | Acción: {action.upper()}")
-
+    print(f"  [Agente Pricing] Cuadrante: {quadrant} | RGI: {rgi} | Acción: {action.upper() if isinstance(action, str) else '?'}")
     return result
 
 

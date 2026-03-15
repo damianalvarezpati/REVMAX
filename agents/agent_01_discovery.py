@@ -217,6 +217,70 @@ from datetime import datetime
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from agents.agent_parse_utils import (
+    parse_json_response,
+    log_agent_parse_failure,
+    MAX_RAW_LOG_CHARS,
+)
+
+AGENT_NAME = "discovery"
+
+
+def _build_minimal_discovery_fallback(hotel_name: str, city_hint: str = "") -> dict:
+    """Dict mínimo válido cuando el LLM falla o devuelve JSON inválido."""
+    return {
+        "name": hotel_name or "Hotel",
+        "chain": None,
+        "city": city_hint or "?",
+        "country": "?",
+        "address": "?",
+        "coordinates": {"lat": None, "lon": None},
+        "stars": 3,
+        "total_rooms": 0,
+        "year_opened": None,
+        "last_renovation": None,
+        "micro_market": {
+            "zone_type": "periferia",
+            "zone_name": "?",
+            "distance_center_km": None,
+            "distance_airport_km": None,
+            "distance_train_km": None,
+            "demand_catchment": "?",
+        },
+        "primary_segment": "mixed",
+        "segment_confidence": 0.3,
+        "segment_signals": [],
+        "room_types": [],
+        "adr_double": 100.0,
+        "adr_source": "estimado",
+        "adr_date": datetime.now().strftime("%Y-%m-%d"),
+        "channels": {},
+        "zone": "?",
+        "booking_score": 7.0,
+        "reputation": {
+            "booking_score": 7.0,
+            "booking_reviews": 0,
+            "google_score": None,
+            "google_reviews": 0,
+            "tripadvisor_rank": None,
+            "tripadvisor_total": None,
+            "recent_positive_themes": [],
+            "recent_negative_themes": [],
+            "review_velocity": "media",
+        },
+        "ota_visibility": {"booking_search_position": 99, "google_hotels_visible": False, "visibility_score": 0.5},
+        "operational_status": {"is_active": True, "has_availability": True, "last_review_days_ago": None, "profile_quality": "baja"},
+        "amenities_detected": {},
+        "discovery_metadata": {
+            "confidence_score": 0.3,
+            "confidence_notes": "Fallback: parse o API failure.",
+            "data_sources": [],
+            "scraped_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "fields_missing": [],
+            "recommended_manual_verification": [],
+        },
+    }
+
 
 async def run_discovery_agent(
     hotel_name: str,
@@ -226,42 +290,54 @@ async def run_discovery_agent(
     model: str = "claude-opus-4-5",
 ) -> dict:
     """
-    Ejecuta el Agente Discovery.
-
-    hotel_name: nombre del hotel (único input requerido del usuario)
-    city_hint: ciudad opcional para desambiguar (ej: "Barcelona")
-    scraped_data: datos crudos del scraper (opcional, mejora el output)
+    Ejecuta el Agente Discovery. Nunca lanza por JSON inválido/truncado;
+    devuelve fallback mínimo si falla parse o API.
     """
     client = anthropic.Anthropic(api_key=api_key)
-
     user_prompt = _build_discovery_prompt(hotel_name, city_hint, scraped_data)
+    prompt_len = len(user_prompt)
 
     print(f"  [Agente Discovery] Perfilando: {hotel_name}...")
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=2000,
-        system=AGENT_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}]
-    )
-
-    raw = response.content[0].text.strip()
-
+    raw = ""
+    response_len = 0
     try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        import re
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            result = json.loads(match.group())
-        else:
-            raise ValueError(f"Agente Discovery no devolvió JSON válido")
+        response = client.messages.create(
+            model=model,
+            max_tokens=2000,
+            system=AGENT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = (response.content[0].text if response.content else "") or ""
+        raw = raw.strip()
+        response_len = len(raw)
+    except Exception as e:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            (raw or "")[:MAX_RAW_LOG_CHARS], f"API exception: {e}",
+        )
+        return _build_minimal_discovery_fallback(hotel_name, city_hint)
 
+    if not raw:
+        log_agent_parse_failure(AGENT_NAME, prompt_len, 0, "", "empty response")
+        return _build_minimal_discovery_fallback(hotel_name, city_hint)
+
+    result, parse_error = parse_json_response(raw)
+    if result is None:
+        log_agent_parse_failure(
+            AGENT_NAME, prompt_len, response_len,
+            raw[:MAX_RAW_LOG_CHARS], parse_error or "parse failed",
+        )
+        return _build_minimal_discovery_fallback(hotel_name, city_hint)
+
+    if result.get("name") is None:
+        result["name"] = hotel_name or "Hotel"
+    if result.get("adr_double") is None and result.get("adr_double") != 0:
+        result["adr_double"] = 100.0
     conf = result.get("discovery_metadata", {}).get("confidence_score", "?")
     segment = result.get("primary_segment", "?")
     adr = result.get("adr_double", "?")
     print(f"  [Agente Discovery] Perfil construido — segmento: {segment}, ADR: {adr}€, confidence: {conf}")
-
     return result
 
 
