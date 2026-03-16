@@ -5,9 +5,24 @@ Detecta oportunidades concretas de captura de valor o mejora de posicionamiento.
 Generado por código, no por LLM. Diferenciado de alertas y acciones.
 """
 
+from typing import Optional
+
 OPPORTUNITY_LEVELS = ("low", "medium", "high")
 MAX_OPPORTUNITIES = 5
 LEVEL_ORDER = {"high": 3, "medium": 2, "low": 1}
+
+
+def _safe_type_string(obj) -> Optional[str]:
+    """Extrae un tipo hashable (str) de un item; evita unhashable type: 'dict'."""
+    if obj is None:
+        return None
+    if isinstance(obj, str) and obj.strip():
+        return obj.strip()
+    if isinstance(obj, (int, float, bool)):
+        return str(obj)
+    if isinstance(obj, dict):
+        return None  # no usar dicts en sets
+    return str(obj)[:80] if obj else None
 
 
 def _opportunity(
@@ -45,9 +60,9 @@ def build_opportunities(briefing: dict) -> list[dict]:
     recommended_actions = briefing.get("recommended_actions", [])
     top_notifications = briefing.get("top_notifications", [])
 
-    alert_types = {a.get("type") for a in alerts}
-    signal_types = {s.get("type") for s in market_signals}
-    action_types = {a.get("type") for a in recommended_actions}
+    alert_types = {_safe_type_string(a.get("type")) for a in alerts if isinstance(a, dict) and _safe_type_string(a.get("type"))}
+    signal_types = {_safe_type_string(s.get("type")) for s in market_signals if isinstance(s, dict) and _safe_type_string(s.get("type"))}
+    action_types = {_safe_type_string(a.get("type")) for a in recommended_actions if isinstance(a, dict) and _safe_type_string(a.get("type"))}
     has_critical = any(a.get("severity") == "critical" for a in alerts)
     has_high_alert = any(a.get("severity") == "high" for a in alerts)
 
@@ -227,5 +242,13 @@ def count_high_opportunities(opportunities: list) -> int:
 
 
 def get_opportunity_types(opportunities: list) -> list:
-    """Lista de tipos de oportunidades presentes."""
-    return sorted({o.get("type") for o in opportunities if o.get("type")})
+    """Lista de tipos de oportunidades presentes. Solo tipos hashables (str)."""
+    seen = set()
+    for o in opportunities:
+        if not isinstance(o, dict):
+            t = _safe_type_string(o) if o is not None else None
+        else:
+            t = _safe_type_string(o.get("type"))
+        if t and t not in seen:
+            seen.add(t)
+    return sorted(seen)

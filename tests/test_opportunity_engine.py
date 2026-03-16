@@ -176,3 +176,18 @@ def test_empty_briefing_no_crash():
     opportunities = build_opportunities(_briefing())
     assert isinstance(opportunities, list)
     assert len(opportunities) <= MAX_OPPORTUNITIES
+
+
+def test_get_opportunity_types_no_unhashable_dict():
+    """get_opportunity_types con type dict o mixto no debe lanzar unhashable type: 'dict'."""
+    # Si type es un dict (malformado), no debe romper
+    opportunities = [
+        {"type": "PRICE_CAPTURE_OPPORTUNITY", "opportunity_level": "high", "title": "A", "summary": "S", "rationale": "R", "source_items": [], "potential_value": "v", "recommended_posture": "raise"},
+        {"type": {"nested": "dict"}, "opportunity_level": "medium", "title": "B", "summary": "S", "rationale": "R", "source_items": [], "potential_value": "v", "recommended_posture": "hold"},
+        {"type": None, "opportunity_level": "low", "title": "C", "summary": "S", "rationale": "R", "source_items": [], "potential_value": "v", "recommended_posture": "hold"},
+    ]
+    result = get_opportunity_types(opportunities)
+    assert isinstance(result, list)
+    assert "PRICE_CAPTURE_OPPORTUNITY" in result
+    # type dict y None se omiten, no se añaden al set
+    assert all(isinstance(x, str) for x in result)

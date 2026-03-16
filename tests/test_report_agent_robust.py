@@ -10,6 +10,9 @@ from agents.agent_07_report import (
     _parse_report_response,
     _build_minimal_report_from_analysis,
     _normalize_report_dict,
+    _build_report_prompt,
+    _normalize_list_of_strings,
+    _normalize_list_of_dicts,
 )
 
 
@@ -128,3 +131,86 @@ def test_html_built_from_fallback():
     assert "Hotel Fallback" in html
     assert "<!DOCTYPE html" in html or "<html" in html
     assert "</body>" in html
+
+
+# --- Tests para bug "unhashable type: 'dict'" (listas mixtas en briefing) ---
+
+
+def test_normalize_list_of_strings_mixed():
+    """Lista con strings y dicts no debe romper."""
+    out = _normalize_list_of_strings(["a", {"x": 1}, None, "b"], max_len=80)
+    assert out == ["a", '{"x": 1}', "b"]
+    out2 = _normalize_list_of_strings([], max_len=80)
+    assert out2 == []
+
+
+def test_normalize_list_of_dicts_skips_non_dict():
+    """Solo dicts; strings/otros se ignoran."""
+    out = _normalize_list_of_dicts([{"type": "A", "title": "T1"}, "string", {"type": "B"}], ["type", "title"])
+    assert len(out) == 2
+    assert out[0]["type"] == "A" and out[0]["title"] == "T1"
+    assert out[1]["type"] == "B"
+
+
+def test_build_report_prompt_opportunities_mixed_strings_dicts():
+    """Briefing con opportunities mezclando strings y dicts no debe lanzar unhashable."""
+    full = _full_analysis("Hotel Mixed")
+    full["briefing"]["opportunities"] = [
+        {"type": "PRICE_CAPTURE", "opportunity_level": "high", "title": "O1", "summary": "S1"},
+        "a string opportunity",
+    ]
+    full["briefing"]["executive_summary_seed"] = ["Line 1", "Line 2", {"bad": "dict"}, "Line 4"]
+    full["briefing"]["executive_top_risks"] = [{"type": "ALERT", "severity": "high", "message": "M"}]
+    full["briefing"]["executive_top_actions"] = [{"type": "ACTION", "title": "Do X"}]
+    full["briefing"]["executive_top_opportunities"] = [{"type": "OPP", "title": "Y"}]
+    full["agent_outputs"] = {
+        "discovery": {"adr_double": 150},
+        "compset": {"compset_summary": {"primary_avg_adr": 140}},
+        "pricing": {"market_context": {"your_position_rank": 1, "total_compset": 5}, "indices": {"ari": {"value": 1.0}, "rgi": {"value": 1.0}}, "position_diagnosis": {"quadrant": "?"}, "recommendation": {"action": "hold"}},
+        "demand": {"demand_index": {"score": 50, "signal": "medium"}, "events_detected": []},
+        "reputation": {"gri": {"value": 7}},
+        "distribution": {"visibility_score": 0.8, "rate_parity": {"status": "ok"}, "booking_audit": {"search_position": 1}},
+    }
+    prompt = _build_report_prompt(full)
+    assert isinstance(prompt, str)
+    assert "Hotel Mixed" in prompt
+    assert "unhashable" not in prompt.lower()
+    assert len(prompt) > 500
+
+
+def test_build_report_prompt_top_notifications_and_scenario_dicts():
+    """Briefing con top_notifications y scenario_assessment como listas de dicts."""
+    full = _full_analysis("Hotel Notif")
+    full["briefing"]["top_notifications"] = [{"type": "N1", "priority": "high"}, {"type": "N2"}]
+    full["briefing"]["scenario_assessment"] = [{"scenario": "raise", "net_score": 1}]
+    full["briefing"]["decision_drivers"] = ["D1", {"key": "val"}]  # mixed
+    full["agent_outputs"] = {
+        "discovery": {"adr_double": 100},
+        "compset": {"compset_summary": {"primary_avg_adr": 100}},
+        "pricing": {"market_context": {"your_position_rank": 1, "total_compset": 5}, "indices": {"ari": {"value": 1}, "rgi": {"value": 1}}, "position_diagnosis": {"quadrant": "?"}, "recommendation": {"action": "hold"}},
+        "demand": {"demand_index": {"score": 50, "signal": "medium"}, "events_detected": []},
+        "reputation": {"gri": {"value": 7}},
+        "distribution": {"visibility_score": 0.8, "rate_parity": {"status": "ok"}, "booking_audit": {"search_position": 1}},
+    }
+    prompt = _build_report_prompt(full)
+    assert isinstance(prompt, str)
+    assert "Hotel Notif" in prompt
+    assert len(prompt) > 300
+
+
+def test_build_report_prompt_seed_with_dict_item_no_exception():
+    """executive_summary_seed con un item dict no debe lanzar unhashable al formatear."""
+    full = _full_analysis("Hotel Seed")
+    full["briefing"]["executive_summary_seed"] = ["L1", {"type": "x"}, "L3", "L4"]
+    full["agent_outputs"] = {
+        "discovery": {"adr_double": 100},
+        "compset": {"compset_summary": {"primary_avg_adr": 100}},
+        "pricing": {"market_context": {"your_position_rank": 1, "total_compset": 5}, "indices": {"ari": {"value": 1}, "rgi": {"value": 1}}, "position_diagnosis": {}, "recommendation": {"action": "hold"}},
+        "demand": {"demand_index": {"score": 50, "signal": "medium"}, "events_detected": []},
+        "reputation": {"gri": {"value": 7}},
+        "distribution": {"visibility_score": 0.8, "rate_parity": {"status": "ok"}, "booking_audit": {}},
+    }
+    prompt = _build_report_prompt(full)
+    assert isinstance(prompt, str)
+    assert "Hotel Seed" in prompt
+    assert "Resumen semilla" in prompt

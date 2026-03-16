@@ -347,6 +347,31 @@ async def run_report_agent(
     return result
 
 
+def _normalize_list_of_strings(lst, max_len: int = 80) -> list:
+    """Convierte cada elemento a string para el prompt; dicts/non-strings no rompen."""
+    out = []
+    for i, x in enumerate(lst):
+        if x is None:
+            continue
+        if isinstance(x, str):
+            out.append(x[:max_len] if len(x) > max_len else x)
+        elif isinstance(x, dict):
+            out.append(json.dumps(x, ensure_ascii=False)[:max_len])
+        else:
+            out.append(str(x)[:max_len])
+    return out
+
+
+def _normalize_list_of_dicts(lst, keys: list) -> list:
+    """Filtra solo dicts y extrae claves; evita .get() sobre no-dicts."""
+    out = []
+    for x in lst:
+        if not isinstance(x, dict):
+            continue
+        out.append({k: (x.get(k) if isinstance(x.get(k), (str, int, float, bool, type(None))) else str(x.get(k))[:100]) for k in keys})
+    return out
+
+
 def _build_report_prompt(full_analysis: dict) -> str:
     hotel_name = full_analysis.get("hotel_name", "?")
     date = full_analysis.get("analysis_date", datetime.now().strftime("%Y-%m-%d"))
@@ -468,22 +493,31 @@ def _build_report_prompt(full_analysis: dict) -> str:
     new_critical_alerts = briefing.get("new_critical_alerts", [])
     resolved_critical_alerts = briefing.get("resolved_critical_alerts", [])
 
-    # Room type recommendations
-    room_recs = pricing.get("room_type_analysis", [])
+    # Room type recommendations (solo dicts para evitar .get sobre no-dict)
+    room_recs = [r for r in (pricing.get("room_type_analysis") or []) if isinstance(r, dict)]
     room_recs_text = "\n".join([
         f"  {r.get('type','?')}: {r.get('your_price','?')}€ → "
         f"{r.get('recommended_price','?')}€ ({r.get('change_pct',0):+.1f}%) — {r.get('justification','')}"
         for r in room_recs
     ]) if room_recs else "  (sin datos por tipo de habitación)"
 
+    conflicts_safe = [c for c in (conflicts or [])[:5] if isinstance(c, dict)]
     conflicts_text = "\n".join([
         f"  {c.get('description','?')} → {c.get('resolution_hint','?')}"
-        for c in conflicts[:5]
-    ]) if conflicts else "  Ninguno."
+        for c in conflicts_safe
+    ]) if conflicts_safe else "  Ninguno."
 
+    seed_safe = [s for s in (recommended_priority_actions_seed or [])[:5] if isinstance(s, dict)]
     seed_actions = "\n".join(
-        f"  [{s.get('urgency','?')}] {s.get('action_hint','')}" for s in recommended_priority_actions_seed[:5]
-    ) if recommended_priority_actions_seed else "  (vacío)"
+        f"  [{s.get('urgency','?')}] {s.get('action_hint','')}" for s in seed_safe
+    ) if seed_safe else "  (vacío)"
+
+    summary_seed_lines = _normalize_list_of_strings((executive_summary_seed or [])[:4], 80)
+    summary_seed_text = chr(10).join(f"  {i+1}. {s}" for i, s in enumerate(summary_seed_lines)) if summary_seed_lines else "  (vacío)"
+    top_risks_safe = _normalize_list_of_dicts((executive_top_risks or [])[:3], ["type", "severity", "message"])
+    top_actions_safe = _normalize_list_of_dicts((executive_top_actions or [])[:3], ["type", "title"])
+    top_opps_safe = _normalize_list_of_dicts((executive_top_opportunities or [])[:3], ["type", "title"])
+    decision_drivers_safe = _normalize_list_of_strings((decision_drivers or [])[:3], 200)
 
     return f"""Genera el informe diario ejecutivo para:
 
@@ -493,10 +527,10 @@ CONFIDENCE: {system_confidence}
 
 BRIEFING EJECUTIVO (estructura obligatoria):
 Orden secciones en report_text: {executive_priority_order}
-Resumen semilla (4 líneas base): {chr(10).join(f'  {i+1}. {s[:80]}' for i, s in enumerate(executive_summary_seed[:4])) if executive_summary_seed else '  (vacío)'}
-Top riesgos (solo estos): {json.dumps(executive_top_risks[:3], ensure_ascii=False)}
-Top acciones (solo estas): {json.dumps([{{"type": a.get("type"), "title": a.get("title")}} for a in executive_top_actions[:3]], ensure_ascii=False)}
-Top oportunidades: {json.dumps([{{"type": o.get("type"), "title": o.get("title")}} for o in executive_top_opportunities[:3]], ensure_ascii=False)}
+Resumen semilla (4 líneas base): {summary_seed_text}
+Top riesgos (solo estos): {json.dumps(top_risks_safe, ensure_ascii=False)}
+Top acciones (solo estas): {json.dumps(top_actions_safe, ensure_ascii=False)}
+Top oportunidades: {json.dumps(top_opps_safe, ensure_ascii=False)}
 Incluir memoria reciente: {executive_include_memory}
 
 RESUMEN AGENTES (una línea por dimensión):
@@ -508,7 +542,7 @@ DECISIÓN CONSOLIDADA:
 Acción: {consolidated_action.upper()}
 Racional: {(consolidation_rationale or "N/A")[:150]}
 derived_overall_status: {derived_overall_status or 'stable'}
-decision_drivers: {decision_drivers[:3] if decision_drivers else []}
+decision_drivers: {decision_drivers_safe}
 Semilla priority_actions (expandir con detalle; máximo 3):
 {seed_actions}
 

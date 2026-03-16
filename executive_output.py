@@ -26,8 +26,8 @@ def _build_summary_seed(briefing: dict) -> list[str]:
     strategy = briefing.get("strategy_label", "BALANCED")
     status = briefing.get("derived_overall_status", "stable")
     action = briefing.get("consolidated_price_action", "hold")
-    alerts = briefing.get("alerts", [])
-    opportunities = briefing.get("opportunities", [])
+    alerts = [a for a in briefing.get("alerts", []) if isinstance(a, dict)]
+    opportunities = [o for o in briefing.get("opportunities", []) if isinstance(o, dict)]
     critical_count = briefing.get("alert_critical_count", 0)
     high_count = briefing.get("alert_high_count", 0)
 
@@ -40,7 +40,7 @@ def _build_summary_seed(briefing: dict) -> list[str]:
     high_opps = [o for o in opportunities if o.get("opportunity_level") == "high"]
     if high_opps:
         o = high_opps[0]
-        line3 = f"Oportunidad principal: {o.get('title', '')} — {o.get('summary', '')[:70]}."
+        line3 = f"Oportunidad principal: {o.get('title', '')} — {(o.get('summary') or '')[:70]}."
     else:
         line3 = "Oportunidad: mantener postura y estabilidad según señales."
     line4 = f"Postura recomendada: {action.upper()} (consolidación y estrategia alineadas)."
@@ -62,7 +62,7 @@ def _build_section_hints(briefing: dict) -> dict:
 
 def _build_top_risks(briefing: dict) -> list[dict]:
     """Top 2-3 riesgos: critical primero, luego high. Solo type, severity, message corto."""
-    alerts = briefing.get("alerts", [])
+    alerts = [a for a in briefing.get("alerts", []) if isinstance(a, dict)]
     critical = [a for a in alerts if a.get("severity") == "critical"]
     high = [a for a in alerts if a.get("severity") == "high"]
     ordered = critical + high
@@ -78,13 +78,13 @@ def _build_top_risks(briefing: dict) -> list[dict]:
 
 def _build_top_actions(briefing: dict) -> list[dict]:
     """Top 3 acciones: ya vienen ordenadas por prioridad en recommended_actions."""
-    actions = briefing.get("recommended_actions", [])
-    return [{"type": a.get("type"), "priority": a.get("priority"), "title": a.get("title"), "horizon": a.get("horizon"), "rationale": a.get("rationale", "")[:100]} for a in actions[:MAX_TOP_ACTIONS]]
+    actions = [a for a in briefing.get("recommended_actions", []) if isinstance(a, dict)]
+    return [{"type": a.get("type"), "priority": a.get("priority"), "title": a.get("title"), "horizon": a.get("horizon"), "rationale": (a.get("rationale") or "")[:100]} for a in actions[:MAX_TOP_ACTIONS]]
 
 
 def _build_top_opportunities(briefing: dict) -> list[dict]:
     """Top 2-3 oportunidades: high primero, luego medium."""
-    opportunities = briefing.get("opportunities", [])
+    opportunities = [o for o in briefing.get("opportunities", []) if isinstance(o, dict)]
     high_first = sorted(opportunities, key=lambda o: (0 if o.get("opportunity_level") == "high" else 1, 0 if o.get("opportunity_level") == "medium" else 1))
     return [{"type": o.get("type"), "opportunity_level": o.get("opportunity_level"), "title": o.get("title"), "summary": (o.get("summary") or "")[:100], "recommended_posture": o.get("recommended_posture")} for o in high_first[:MAX_TOP_OPPORTUNITIES]]
 

@@ -13,24 +13,72 @@ CHANGE_SEVERITY_MEDIUM = "medium"
 CHANGE_SEVERITY_HIGH = "high"
 
 
+def _safe_str_type(x) -> Optional[str]:
+    """Solo tipos hashables para sets; evita unhashable type: 'dict'."""
+    if x is None:
+        return None
+    if isinstance(x, str) and x.strip():
+        return x.strip()
+    if isinstance(x, (int, float, bool)):
+        return str(x)
+    return None
+
+
 def _curr_critical_alert_types(briefing: dict) -> set:
-    return {a.get("type") for a in briefing.get("alerts", []) if a.get("type") and a.get("severity") == "critical"}
+    out = set()
+    for a in briefing.get("alerts", []):
+        if not isinstance(a, dict):
+            continue
+        t = _safe_str_type(a.get("type"))
+        if t and a.get("severity") == "critical":
+            out.add(t)
+    return out
 
 
 def _curr_high_alert_types(briefing: dict) -> set:
-    return {a.get("type") for a in briefing.get("alerts", []) if a.get("type") and a.get("severity") == "high"}
+    out = set()
+    for a in briefing.get("alerts", []):
+        if not isinstance(a, dict):
+            continue
+        t = _safe_str_type(a.get("type"))
+        if t and a.get("severity") == "high":
+            out.add(t)
+    return out
 
 
 def _curr_top_notification_types(briefing: dict) -> set:
-    return {n.get("type") for n in briefing.get("top_notifications", []) if n.get("type")}
+    out = set()
+    for n in briefing.get("top_notifications", []):
+        if isinstance(n, dict):
+            t = _safe_str_type(n.get("type"))
+        else:
+            t = _safe_str_type(n)
+        if t:
+            out.add(t)
+    return out
 
 
 def _curr_opportunity_types(briefing: dict) -> set:
-    return {o.get("type") for o in briefing.get("opportunities", []) if o.get("type")}
+    out = set()
+    for o in briefing.get("opportunities", []):
+        if isinstance(o, dict):
+            t = _safe_str_type(o.get("type"))
+        else:
+            t = _safe_str_type(o)
+        if t:
+            out.add(t)
+    return out
 
 
 def _curr_action_types(briefing: dict) -> set:
-    return {a.get("type") for a in briefing.get("recommended_actions", []) if a.get("type")}
+    out = set()
+    for a in briefing.get("recommended_actions", []):
+        if not isinstance(a, dict):
+            continue
+        t = _safe_str_type(a.get("type"))
+        if t:
+            out.add(t)
+    return out
 
 
 def build_change_detection(briefing: dict, previous_snapshot: Optional[dict]) -> dict:
@@ -94,9 +142,19 @@ def build_change_detection(briefing: dict, previous_snapshot: Optional[dict]) ->
     out["recommended_scenario_changed"] = curr_scenario != prev_scenario
     out["scenario_shift"] = out["recommended_scenario_changed"]
 
-    # New / resolved critical and high alerts (use snapshot lists when present)
-    new_alert_types = set(briefing.get("new_alerts", []))
-    resolved_alert_types = set(briefing.get("resolved_alerts", []))
+    # New / resolved critical and high alerts (solo tipos hashables; evita unhashable type: 'dict')
+    def _alert_type_list(lst):
+        out = set()
+        for x in lst or []:
+            if isinstance(x, dict):
+                t = _safe_str_type(x.get("type"))
+            else:
+                t = _safe_str_type(x)
+            if t:
+                out.add(t)
+        return out
+    new_alert_types = _alert_type_list(briefing.get("new_alerts", []))
+    resolved_alert_types = _alert_type_list(briefing.get("resolved_alerts", []))
     curr_critical = _curr_critical_alert_types(briefing)
     curr_high = _curr_high_alert_types(briefing)
     prev_critical = set(prev.get("critical_alert_types") or [])
