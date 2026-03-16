@@ -13,6 +13,10 @@ from agents.agent_07_report import (
     _build_report_prompt,
     _normalize_list_of_strings,
     _normalize_list_of_dicts,
+    _format_events_for_report,
+    _infer_price_positioning_language,
+    _build_human_strategy_message,
+    _build_human_confidence_message,
 )
 
 
@@ -213,4 +217,113 @@ def test_build_report_prompt_seed_with_dict_item_no_exception():
     prompt = _build_report_prompt(full)
     assert isinstance(prompt, str)
     assert "Hotel Seed" in prompt
-    assert "Resumen semilla" in prompt
+    assert "Semilla" in prompt
+
+
+# --- Tests estructura y tono humano del informe ---
+
+
+def test_prompt_contains_expected_structure():
+    """El prompt exige la estructura de 5 bloques en report_text."""
+    full = _full_analysis("Hotel Struct")
+    full["agent_outputs"] = {
+        "discovery": {"adr_double": 100},
+        "compset": {"compset_summary": {"primary_avg_adr": 100}},
+        "pricing": {"market_context": {}, "indices": {}, "position_diagnosis": {}, "recommendation": {"action": "hold"}},
+        "demand": {"demand_index": {"signal": "medium"}, "events_detected": []},
+        "reputation": {},
+        "distribution": {"rate_parity": {"status": "ok"}},
+    }
+    prompt = _build_report_prompt(full)
+    assert "RECOMENDACIÓN" in prompt
+    assert "CONTEXTO DE MERCADO" in prompt
+    assert "POSICIÓN DEL HOTEL" in prompt
+    assert "INTERPRETACIÓN ESTRATÉGICA" in prompt
+    assert "ACCIÓN SUGERIDA" in prompt
+
+
+def test_prompt_forbids_robotic_language():
+    """El prompt prohíbe frases robóticas (lista explícita en REGLAS)."""
+    full = _full_analysis("Hotel Robo")
+    full["agent_outputs"] = {
+        "discovery": {"adr_double": 100},
+        "compset": {"compset_summary": {"primary_avg_adr": 100}},
+        "pricing": {"market_context": {}, "indices": {}, "position_diagnosis": {}, "recommendation": {"action": "hold"}},
+        "demand": {"demand_index": {"signal": "medium"}, "events_detected": []},
+        "reputation": {},
+        "distribution": {"rate_parity": {"status": "ok"}},
+    }
+    prompt = _build_report_prompt(full)
+    assert "Prohibido" in prompt
+    assert "Market indicates" in prompt
+    assert "Te equivocas" in prompt
+
+
+def test_format_events_for_report_enumerates_names():
+    """Cuando hay eventos con nombres, se enumeran en el texto."""
+    out = _format_events_for_report(["Mobile World Congress", "Feria Alimentaria"])
+    assert "Mobile World Congress" in out
+    assert "Feria Alimentaria" in out
+    assert "Eventos detectados" in out or "eventos" in out.lower()
+
+
+def test_prompt_includes_formatted_events_when_present():
+    """Cuando hay eventos en agent_outputs.demand.events_detected, el prompt los incluye formateados."""
+    full = _full_analysis("Hotel Events")
+    full["agent_outputs"] = {
+        "discovery": {"adr_double": 100},
+        "compset": {"compset_summary": {"primary_avg_adr": 100}},
+        "pricing": {"market_context": {}, "indices": {}, "position_diagnosis": {}, "recommendation": {"action": "hold"}},
+        "demand": {"demand_index": {"signal": "high"}, "events_detected": ["Mobile World Congress", "Feria Alimentaria"]},
+        "reputation": {},
+        "distribution": {"rate_parity": {"status": "ok"}},
+    }
+    prompt = _build_report_prompt(full)
+    assert "Mobile World Congress" in prompt
+    assert "Feria Alimentaria" in prompt
+
+
+def test_format_events_for_report_no_names_uses_fallback():
+    """Cuando hay eventos sin nombres fiables, se usa frase de señales sin identificar."""
+    out = _format_events_for_report([{}])
+    assert "demanda" in out.lower() and ("identificar" in out.lower() or "precisión" in out.lower())
+    out_empty = _format_events_for_report([])
+    assert out_empty == ""
+
+
+def test_build_human_confidence_message_low():
+    """Confianza baja devuelve mensaje de prudencia."""
+    msg = _build_human_confidence_message(0.35)
+    assert "prudencia" in msg or "datos" in msg or "limitada" in msg
+    assert _build_human_confidence_message(0.8) == ""
+
+
+def test_low_confidence_generates_prudent_message():
+    """Cuando system_confidence es baja, el prompt incluye mensaje de prudencia."""
+    full = _full_analysis("Hotel LowConf")
+    full["briefing"]["system_confidence"] = 0.35
+    full["agent_outputs"] = {
+        "discovery": {"adr_double": 100},
+        "compset": {"compset_summary": {"primary_avg_adr": 100}},
+        "pricing": {"market_context": {}, "indices": {}, "position_diagnosis": {}, "recommendation": {"action": "hold"}},
+        "demand": {"demand_index": {"signal": "medium"}, "events_detected": []},
+        "reputation": {},
+        "distribution": {"rate_parity": {"status": "ok"}},
+    }
+    prompt = _build_report_prompt(full)
+    assert "prudencia" in prompt or "calidad de los datos" in prompt or "limitada" in prompt or "moderada" in prompt
+
+
+def test_below_market_high_demand_suggests_raise_without_accusatory():
+    """Precio por debajo del mercado + demanda alta: mensaje sugiere margen de subida sin 'equivocado'."""
+    briefing = {"consolidated_price_action": "raise"}
+    outputs = {
+        "discovery": {"adr_double": 90},
+        "compset": {"compset_summary": {"primary_avg_adr": 110}},
+        "demand": {"demand_index": {"signal": "high"}},
+    }
+    pos_phrase, strat_label = _infer_price_positioning_language(outputs)
+    assert "por debajo" in pos_phrase
+    msg = _build_human_strategy_message(briefing, outputs, pos_phrase, strat_label)
+    assert "margen" in msg or "aumentar" in msg or "subida" in msg or "demanda fuerte" in msg
+    assert "equivocado" not in msg and "incorrecto" not in msg and "te equivocas" not in msg.lower()

@@ -10,96 +10,59 @@ el mejor revenue manager virtual que el director haya tenido.
 """
 
 AGENT_SYSTEM_PROMPT = """
-Eres el Agente Report Writer de RevMax, el revenue manager virtual más avanzado
-disponible para hoteles independientes. Combinas la precisión analítica de un
-Revenue Manager senior con la claridad comunicativa de un consultor de McKinsey
-y el conocimiento operativo de un Director de Hotel con 20 años de experiencia.
+Eres el redactor del informe diario de RevMax para el director del hotel o el revenue manager.
+El informe debe responder de forma muy clara a una sola pregunta:
 
-Tu output es el informe diario que llegará al email del director cada mañana.
-Es lo primero que lee. Tiene que merecer esos 3 minutos de su atención.
+  ¿Mi precio actual está bien o qué debería hacer y por qué?
 
-════════════════════════════════════════════════════════════
-PRINCIPIOS DE COMUNICACIÓN EJECUTIVA HOTELERA
-════════════════════════════════════════════════════════════
+TONO OBLIGATORIO: humano, cercano, profesional, claro, elegante, directo pero no brusco.
+Escribe como un revenue manager con criterio que habla a un par, no como un sistema técnico.
 
-PIRÁMIDE DE MINTO — ESTRUCTURA OBLIGATORIA
-  1. Conclusión primero: el director sabe en 10 segundos si hay algo urgente.
-  2. Argumentos de soporte: los 3 datos más relevantes que justifican la conclusión.
-  3. Detalle de soporte: tablas y datos para quien quiera profundizar.
-  Nunca enterrar la conclusión al final del informe.
+PROHIBIDO (nunca uses estas fórmulas):
+  - "Market indicates hold" / "Market suggests lower" / "Strategy adequate"
+  - "Recommended posture: hold" / "Pricing strategy appropriate"
+  - "Signals are mixed" sin explicar qué señales y qué implican
+  - "Tu estrategia es incorrecta" / "Te equivocas"
+  - Frases vagas o robóticas que no explican la lógica de negocio
 
-LAS 3 PREGUNTAS QUE EL DIRECTOR NECESITA RESPONDER HOY:
-  ① ¿Estoy bien posicionado en precio vs mi competencia ahora mismo?
-  ② ¿Hay algo urgente que deba hacer hoy (promo, subida, alerta)?
-  ③ ¿Qué tendencia debo vigilar esta semana?
+SÍ USA (ejemplos de estilo deseado):
+  - "Tu precio actual está por debajo del mercado y sugiere una estrategia orientada a captar demanda."
+  - "Este enfoque suele funcionar bien cuando la demanda es baja o incierta."
+  - "Sin embargo, en este momento el mercado en tu zona muestra señales de demanda fuerte."
+  - "En este contexto, podría existir margen para aumentar el precio sin comprometer la ocupación."
+  - "Tu precio actual sugiere una estrategia agresiva, que suele funcionar bien en contextos de demanda débil."
 
-TONO Y ESTILO:
-  - Directo, sin ambigüedades. "Sube la suite junior a 195€ hoy" no
-    "podría considerarse una revisión del precio de la suite junior".
-  - Números concretos siempre. "8.6 en Booking, el compset promedia 8.1"
-    no "tu puntuación es buena comparada con la competencia".
-  - Máximo 3 acciones prioritarias. Más de 3 = ninguna se hace.
-  - Señalar siempre si hay un conflicto de señales y cómo resolverlo.
-  - Usar el nombre del hotel. Personalización = más lectura.
+ESTRUCTURA OBLIGATORIA DEL report_text (en este orden, con párrafos separados por \\n\\n):
 
-JERARQUÍA DE URGENCIA:
-  🔴 INMEDIATO (hoy): promo de competidor activa, evento puntual,
-     caída brusca de precio del compset, problema de paridad.
-  🟡 ESTA SEMANA: ajuste de precio recomendado, mejora de contenido OTA,
-     respuesta a reviews, revisión de tipo de habitación.
-  🟢 ESTE MES: revisión del compset, estrategia estacional,
-     mejora de visibilidad, análisis de mix de canales.
+1. RECOMENDACIÓN
+   Una frase muy clara: "Subir ligeramente el precio" / "Mantener el precio actual" / "Revisar a la baja el precio actual".
 
-════════════════════════════════════════════════════════════
-ESTRUCTURA DEL INFORME (ORDEN OBLIGATORIO)
-════════════════════════════════════════════════════════════
+2. CONTEXTO DE MERCADO
+   Demanda detectada, eventos relevantes (si hay eventos concretos, enuméralos por nombre; si no hay nombres fiables, di: "Se han detectado señales de demanda elevada, aunque no ha sido posible identificar con precisión los eventos causantes."), situación de la competencia.
 
-1. ESTADO HOY (3 líneas máximo)
-   La situación en una frase. Qué manda hoy: precio, demanda o reputación.
+3. POSICIÓN DEL HOTEL
+   Precio del hotel frente al compset: por debajo / alineado / por encima. Si competidores venden más caro o más barato, dilo con naturalidad.
 
-2. TU POSICIÓN VS COMPETENCIA
-   Precio actual vs media del compset. Índice ARI. Posición en ranking.
-   Si hay promotores activos en el compset: nombrarlos.
+4. INTERPRETACIÓN ESTRATÉGICA
+   Qué estrategia parece reflejar el precio actual (captación de demanda / equilibrada / premium) y por qué tiene sentido o no en el contexto actual. Si hay disonancia (ej. precio bajo + demanda alta), explícala sin acusar: "Esto podría indicar margen para una estrategia ligeramente más firme."
 
-3. DEMANDA DEL MERCADO
-   Señal de demanda (alta/media/baja) con la razón principal.
-   Eventos detectados. Forecast próximos 7 días en 2 líneas.
+5. ACCIÓN SUGERIDA
+   Recomendación clara, breve y práctica para cerrar.
 
-4. REPUTACIÓN Y VISIBILIDAD
-   GRI vs compset. Temas negativos accionables. Posición en Booking.
-   Solo si hay algo relevante — no repetir datos estables sin cambio.
+PARIDAD: No escribas "La paridad es correcta." Usa frases explicativas:
+  - "No se han detectado discrepancias relevantes entre los principales canales revisados."
+  - "La tarifa parece consistente entre los portales analizados."
+  - "Se han observado diferencias entre canales, lo que puede afectar a la competitividad."
+Si conoces el número de canales revisados, puedes mencionarlo. Si no, no lo inventes.
 
-5. LAS 3 ACCIONES DE HOY (la parte más importante)
-   Cada acción: QUÉ hacer + en QUÉ habitación/canal + CUÁNTO/CUÁNDO + POR QUÉ.
-   Ordenadas por urgencia. Numeradas. Sin ambigüedad.
+BOOKING / POSICIÓN EN PORTALES: No uses la posición como argumento fuerte sin contexto. Si el dato no es fiable o no está segmentado, no bases la recomendación en él. Si lo usas, explícalo con prudencia.
 
-6. ALERTA DE LA SEMANA (si hay)
-   Una tendencia o amenaza que vigilar. Una frase.
+CONFIANZA: Si la confianza del análisis es baja, dilo de forma elegante en el informe, por ejemplo:
+  - "Esta recomendación debe interpretarse con prudencia, ya que la calidad de los datos disponibles en esta corrida ha sido limitada."
+  - "El análisis apunta en esta dirección, aunque la confianza es moderada por falta de algunos datos clave."
+No pongas un porcentaje suelto sin contexto.
 
-════════════════════════════════════════════════════════════
-REGLAS DE ORO
-════════════════════════════════════════════════════════════
-
-1. Si hay un conflicto entre agentes (Pricing dice subir, Demand dice baja demanda),
-   explicarlo en una frase y dar la recomendación resultante con razonamiento.
-
-2. Si el confidence_score del sistema es bajo (<0.65), mencionarlo:
-   "Nota: algunos datos son estimaciones — verificar con tu equipo."
-
-3. Nunca inventar datos. Si un dato no está disponible, omitirlo.
-
-4. El asunto del email debe resumir el estado en <60 caracteres:
-   "Alta demanda · Sube suite +12% · Rival con promo activa"
-
-5. Máximo 400 palabras en el cuerpo principal. El director puede ver
-   las tablas de datos si quiere más detalle.
-
-6. Terminar siempre con una frase de contexto: qué vigilar mañana.
-
-7. TRAZABILIDAD: Cada conclusión y cada priority_action.reason debe citar
-   la fuente (Pricing, Demand, Reputation, Distribution o conflicto resuelto).
-   Evitar razones genéricas. Ejemplo: "Pricing: ARI 0.94 por debajo de meta"
-   no "Conviene subir precio".
+REGLAS: Máximo 400 palabras en report_text. Máximo 3 priority_actions. Asunto del email <60 caracteres. Nunca inventes datos. Usa el nombre del hotel.
 """
 
 import json
@@ -372,6 +335,125 @@ def _normalize_list_of_dicts(lst, keys: list) -> list:
     return out
 
 
+def _format_events_for_report(events: list) -> str:
+    """
+    Formatea eventos para el informe. Si hay nombres concretos, los enumera.
+    Si no hay nombres fiables, devuelve mensaje de señales sin identificar.
+    """
+    if not events:
+        return ""
+    names = []
+    for e in events:
+        if isinstance(e, str) and e.strip():
+            names.append(e.strip())
+        elif isinstance(e, dict) and (e.get("name") or e.get("title") or e.get("event_name")):
+            names.append((e.get("name") or e.get("title") or e.get("event_name") or "").strip())
+    if names:
+        return "Eventos detectados: " + ", ".join(names[:8])
+    return "Se han detectado señales de demanda elevada, aunque no ha sido posible identificar con precisión los eventos causantes."
+
+
+def _infer_price_positioning_language(outputs: dict) -> tuple:
+    """
+    Infiere la posición del precio (por debajo / alineado / por encima) y la estrategia implícita.
+    Devuelve (frase_posición, estrategia_implícita).
+    """
+    discovery = outputs.get("discovery", {})
+    compset = outputs.get("compset", {})
+    compset_summary = compset.get("compset_summary") or {}
+    try:
+        own = discovery.get("adr_double")
+        market = compset_summary.get("primary_avg_adr")
+        if own is not None and market is not None and isinstance(own, (int, float)) and isinstance(market, (int, float)) and market > 0:
+            diff_pct = (own - market) / market
+            if diff_pct <= -0.05:
+                return (
+                    "Tu precio actual está por debajo de la media del compset.",
+                    "agresiva / orientada a captar demanda",
+                )
+            if diff_pct >= 0.05:
+                return (
+                    "Tu precio actual está por encima de la media del compset.",
+                    "premium / de maximización de ADR",
+                )
+            return (
+                "Tu precio actual está alineado con la media del compset.",
+                "equilibrada",
+            )
+    except (TypeError, ZeroDivisionError):
+        pass
+    return ("", "")
+
+
+def _build_human_strategy_message(
+    briefing: dict,
+    outputs: dict,
+    positioning_phrase: str,
+    strategy_label: str,
+) -> str:
+    """
+    Construye un mensaje humano que cruza la estrategia implícita del precio con el contexto real.
+    No acusatorio; sugiere disonancia o alineación con frases tipo "podría existir margen" / "suele funcionar bien cuando...".
+    """
+    if not positioning_phrase:
+        return ""
+    demand = outputs.get("demand", {})
+    raw_signal = (demand.get("demand_index") or {}).get("signal", "medium") or "medium"
+    demand_signal = str(raw_signal).lower().replace(" ", "_") if raw_signal else "medium"
+    action = (briefing.get("consolidated_price_action") or "hold").lower()
+    parts = []
+    if "por debajo" in positioning_phrase:
+        parts.append("Tu precio actual sugiere una estrategia orientada a captar demanda. Este enfoque suele funcionar bien cuando la demanda es baja o incierta.")
+        if demand_signal in ("high", "very_high") and action in ("raise", "hold"):
+            parts.append("Sin embargo, en este momento el mercado muestra señales de demanda fuerte. Varios competidores podrían estar vendiendo más caro para fechas similares. En este contexto, podría existir margen para aumentar el precio sin comprometer la ocupación.")
+        elif demand_signal in ("low", "very_low"):
+            parts.append("En el contexto actual de demanda débil, esta postura es coherente con el mercado.")
+    elif "por encima" in positioning_phrase:
+        parts.append("Tu precio actual refleja una estrategia premium o de maximización de ADR.")
+        if demand_signal in ("low", "very_low") and action in ("lower", "hold"):
+            parts.append("Con demanda actualmente baja, conviene vigilar la ocupación; si esta se resiente, podría ser momento de revisar a la baja de forma selectiva.")
+        else:
+            parts.append("Si la reputación y la demanda lo sostienen, tiene sentido mantener una postura firme.")
+    else:
+        parts.append("Tu precio está alineado con el mercado, lo que refleja una estrategia equilibrada.")
+        if action == "raise":
+            parts.append("Las señales actuales apuntan a que podría haber margen para una subida moderada.")
+        elif action == "lower":
+            parts.append("Las señales sugieren revisar a la baja en algún segmento o fecha.")
+    return " ".join(parts)
+
+
+def _build_human_confidence_message(system_confidence: float) -> str:
+    """
+    Si la confianza es baja, devuelve una frase elegante para que el informe la use.
+    Si es aceptable, devuelve cadena vacía.
+    """
+    if system_confidence is None:
+        return ""
+    try:
+        c = float(system_confidence)
+    except (TypeError, ValueError):
+        return ""
+    if c < 0.5:
+        return "Esta recomendación debe interpretarse con prudencia, ya que la calidad de los datos disponibles en esta corrida ha sido limitada."
+    if c < 0.65:
+        return "El análisis apunta en esta dirección, aunque la confianza es moderada por falta de algunos datos clave."
+    return ""
+
+
+def _build_parity_message(parity_status: str, channels_mentioned: bool = False) -> str:
+    """
+    Mensaje humano sobre paridad entre canales. Evita "La paridad es correcta."
+    """
+    if not parity_status or parity_status == "ok":
+        if channels_mentioned:
+            return "No se han detectado discrepancias relevantes entre los principales canales revisados."
+        return "La tarifa parece consistente entre los portales analizados."
+    if str(parity_status).lower() in ("violation", "violación", "error"):
+        return "Se han observado diferencias entre canales, lo que puede afectar a la competitividad o a la conversión."
+    return "Revisión de paridad: " + str(parity_status)
+
+
 def _build_report_prompt(full_analysis: dict) -> str:
     hotel_name = full_analysis.get("hotel_name", "?")
     date = full_analysis.get("analysis_date", datetime.now().strftime("%Y-%m-%d"))
@@ -493,6 +575,13 @@ def _build_report_prompt(full_analysis: dict) -> str:
     new_critical_alerts = briefing.get("new_critical_alerts", [])
     resolved_critical_alerts = briefing.get("resolved_critical_alerts", [])
 
+    # Textos humanizados para el informe (estructura de 5 bloques)
+    events_formatted = _format_events_for_report(events or [])
+    pos_phrase, strat_label_inferred = _infer_price_positioning_language(outputs)
+    strategy_human = _build_human_strategy_message(briefing, outputs, pos_phrase, strat_label_inferred)
+    confidence_human = _build_human_confidence_message(system_confidence)
+    parity_human = _build_parity_message(parity_status or "ok", channels_mentioned=False)
+
     # Room type recommendations (solo dicts para evitar .get sobre no-dict)
     room_recs = [r for r in (pricing.get("room_type_analysis") or []) if isinstance(r, dict)]
     room_recs_text = "\n".join([
@@ -519,54 +608,57 @@ def _build_report_prompt(full_analysis: dict) -> str:
     top_opps_safe = _normalize_list_of_dicts((executive_top_opportunities or [])[:3], ["type", "title"])
     decision_drivers_safe = _normalize_list_of_strings((decision_drivers or [])[:3], 200)
 
-    return f"""Genera el informe diario ejecutivo para:
+    return f"""Genera el informe diario para el director del hotel. La pregunta central es: ¿Mi precio actual está bien o qué debería hacer y por qué?
 
 HOTEL: {hotel_name}
 FECHA: {date}
-CONFIDENCE: {system_confidence}
 
-BRIEFING EJECUTIVO (estructura obligatoria):
-Orden secciones en report_text: {executive_priority_order}
-Resumen semilla (4 líneas base): {summary_seed_text}
-Top riesgos (solo estos): {json.dumps(top_risks_safe, ensure_ascii=False)}
-Top acciones (solo estas): {json.dumps(top_actions_safe, ensure_ascii=False)}
-Top oportunidades: {json.dumps(top_opps_safe, ensure_ascii=False)}
-Incluir memoria reciente: {executive_include_memory}
+TEXTOS PARA INCORPORAR (usa estos para redactar de forma humana; no copies literal si no encaja, pero sí el tono):
+- Eventos: {events_formatted or "(ninguno detectado)"}
+- Posición del hotel vs compset: {pos_phrase or "(no calculada con los datos disponibles)"}
+- Interpretación estratégica (usa como base): {strategy_human or "(elabora a partir del briefing y la acción consolidada)"}
+- Nota de confianza (incluir solo si no está vacío): {confidence_human or "(omitir)"}
+- Paridad entre canales: {parity_human}
 
-RESUMEN AGENTES (una línea por dimensión):
-Pricing: ADR {your_adr}€ | compset {market_avg}€ | pos #{your_rank}/{total_compset} | ARI {ari} RGI {rgi} | acción {consolidated_action.upper()}
-Demand: score {demand_score} señal {demand_signal} | eventos {len(events)}
-Reputation: GRI {gri} | Distribution: vis {visibility} paridad {parity_status} pos Booking #{booking_pos}
+DATOS NUMÉRICOS:
+Precio hotel {your_adr}€ | Media compset {market_avg}€ | Posición ranking {your_rank}/{total_compset} | ARI {ari} RGI {rgi}
+Demanda: score {demand_score} señal {demand_signal}
+Reputación: GRI {gri} | Visibilidad {visibility} | Posición Booking (usar con prudencia): {booking_pos}
 
-DECISIÓN CONSOLIDADA:
-Acción: {consolidated_action.upper()}
+DECISIÓN CONSOLIDADA: {consolidated_action.upper()}
 Racional: {(consolidation_rationale or "N/A")[:150]}
-derived_overall_status: {derived_overall_status or 'stable'}
-decision_drivers: {decision_drivers_safe}
-Semilla priority_actions (expandir con detalle; máximo 3):
+Estado general: {derived_overall_status or 'stable'}
+Drivers: {decision_drivers_safe}
+
+Semilla de acciones prioritarias (máximo 3; expandir con detalle):
 {seed_actions}
 
-ESTRATEGIA: {strategy_label or 'BALANCED'} — {strategy_rationale or 'Postura neutra.'} Confianza: {strategy_confidence_reason or 'N/A'}
+Estrategia: {strategy_label or 'BALANCED'} — {strategy_rationale or 'Postura neutra.'}
+Escenario: {recommended_scenario or 'hold'} — {scenario_summary or 'N/A'}
+Alertas: {alert_summary or 'Ninguna'}
+Señales de mercado: {market_signal_summary or 'Ninguna'}
+Conflictos: {conflicts_text}
 
-ESCENARIO: recommended_scenario={recommended_scenario or 'hold'} — {scenario_summary or 'N/A'}
+ESTRUCTURA OBLIGATORIA de report_text (en este orden, párrafos separados por \\n\\n):
+1. RECOMENDACIÓN — Una frase clara: subir ligeramente el precio / mantener el precio actual / revisar a la baja.
+2. CONTEXTO DE MERCADO — Demanda, eventos (enumerar si hay nombres; si no, usar la frase de eventos anterior), competencia.
+3. POSICIÓN DEL HOTEL — Precio vs compset (por debajo / alineado / por encima).
+4. INTERPRETACIÓN ESTRATÉGICA — Qué estrategia refleja el precio y por qué tiene o no sentido ahora.
+5. ACCIÓN SUGERIDA — Recomendación práctica para cerrar.
 
-ALERTAS: {alert_summary or 'Ninguna'} (high={alert_high_count} critical={alert_critical_count})
-MERCADO: {market_signal_summary or 'Ninguna'}
-CONFLICTOS: {conflicts_text}
-
-REGLAS: overall_status debe ser {derived_overall_status or 'stable'}. Máximo 3 priority_actions. report_text máximo 400 palabras. Orden: resumen → postura → riesgos → acciones → oportunidades → contexto → memoria (si executive_include_memory). Citar fuentes en reason.
+REGLAS: Tono humano, cercano, profesional. Prohibido: "Market indicates hold", "Strategy adequate", "Te equivocas". overall_status: {derived_overall_status or 'stable'}. Máximo 400 palabras en report_text. Máximo 3 priority_actions. Citar fuentes en reason.
 
 Devuelve ÚNICAMENTE este JSON (sin texto antes ni después):
 
 {{
-  "email_subject": "asunto <60 chars",
+  "email_subject": "asunto <60 caracteres",
   "overall_status": "strong|stable|needs_attention|alert",
-  "status_summary": "1 frase situación de hoy",
-  "report_text": "cuerpo en texto plano, párrafos con \\n\\n. Resumen 4 líneas, postura, riesgos, acciones, oportunidades, contexto, memoria si aplica. Max 400 palabras.",
+  "status_summary": "una frase sobre la situación de hoy",
+  "report_text": "cuerpo en texto plano. Párrafos con \\n\\n. Estructura: RECOMENDACIÓN, CONTEXTO DE MERCADO, POSICIÓN DEL HOTEL, INTERPRETACIÓN ESTRATÉGICA, ACCIÓN SUGERIDA. Máximo 400 palabras.",
   "priority_actions": [
     {{ "rank": 1, "urgency": "immediate|this_week|this_month", "action": "qué hacer", "room_type": "general", "metric": "", "reason": "fuente", "expected_impact": "" }}
   ],
-  "weekly_watchlist": "1 tendencia a vigilar esta semana"
+  "weekly_watchlist": "una tendencia a vigilar esta semana"
 }}
 """
 
