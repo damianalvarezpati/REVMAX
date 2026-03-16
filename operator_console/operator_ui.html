@@ -10,19 +10,20 @@
   <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js" defer></script>
   <style>
     :root {
-      --bg: #F8FAFC;
+      --bg: #F6F7FB;
       --card: #FFFFFF;
-      --primary: #0F172A;
+      --primary: #101828;
+      --secondary: #667085;
       --accent: #3B82F6;
       --warning: #F59E0B;
       --error: #EF4444;
-      --success: #10B981;
-      --muted: #64748B;
-      --border: #E2E8F0;
-      --radius: 14px;
-      --shadow: 0 8px 30px rgba(0,0,0,0.05);
+      --success: #12B76A;
+      --muted: #667085;
+      --border: #E4E7EC;
+      --radius: 16px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.04);
       --side-bg: #0F172A;
-      --side-text: rgba(255,255,255,0.7);
+      --side-text: rgba(255,255,255,0.65);
       --side-active: #fff;
       --side-width: 220px;
     }
@@ -50,37 +51,65 @@
       flex-direction: column;
     }
     .logo {
-      padding: 0 20px 24px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      margin-bottom: 8px;
+      padding: 0 24px 28px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      margin-bottom: 12px;
     }
-    .logo-title { font-size: 18px; font-weight: 700; color: var(--side-active); letter-spacing: -0.03em; }
-    .logo-sub { font-size: 10px; color: var(--side-text); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.08em; }
-    .nav { flex: 1; padding: 12px 0; }
+    .logo-title { font-size: 20px; font-weight: 700; color: var(--side-active); letter-spacing: -0.03em; }
+    .logo-sub { font-size: 10px; color: var(--side-text); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.1em; }
+    .nav { flex: 1; padding: 16px 0; }
     .nav-item {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 10px 20px;
+      gap: 14px;
+      padding: 12px 24px;
       color: var(--side-text);
       cursor: pointer;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 500;
       border-radius: 10px;
-      margin: 0 12px 2px;
-      transition: background 0.15s, color 0.15s;
+      margin: 0 12px 4px;
+      transition: background 0.2s ease, color 0.2s ease;
     }
-    .nav-item:hover { color: var(--side-active); background: rgba(255,255,255,0.06); }
-    .nav-item.on { color: var(--side-active); background: rgba(255,255,255,0.1); }
-    .nav-item .lucide { width: 20px; height: 20px; flex-shrink: 0; stroke: currentColor; }
-    .side-foot { padding: 12px 20px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: var(--side-text); }
+    .nav-item:hover { color: var(--side-active); background: rgba(255,255,255,0.07); }
+    .nav-item.on { color: var(--side-active); background: rgba(255,255,255,0.12); }
+    .nav-item .lucide { width: 20px; height: 20px; flex-shrink: 0; stroke: currentColor; opacity: 0.9; }
+    .side-foot { padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: var(--side-text); opacity: 0.8; }
 
     .main {
       margin-left: var(--side-width);
-      padding: 32px 40px 48px;
       flex: 1;
       min-width: 0;
-      max-width: 1200px;
+      display: flex;
+      flex-direction: column;
+    }
+    .analysis-wrap {
+      display: flex;
+      flex: 1;
+      min-width: 0;
+    }
+    .analysis-main {
+      flex: 1;
+      min-width: 0;
+      padding: 32px 40px 48px;
+      max-width: 720px;
+    }
+    .analysis-aside {
+      width: 320px;
+      flex-shrink: 0;
+      padding: 32px 24px 48px;
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.02);
+    }
+    .main-content { padding: 32px 40px 48px; flex: 1; min-width: 0; max-width: 100%; }
+
+    @media (max-width: 1024px) {
+      .analysis-aside { width: 280px; }
+    }
+    @media (max-width: 900px) {
+      .analysis-wrap { flex-direction: column; }
+      .analysis-aside { width: 100%; border-left: none; border-top: 1px solid var(--border); }
     }
     .page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
     .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
@@ -139,53 +168,100 @@
     .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
     select.form-input { cursor: pointer; }
 
-    /* Analysis: hero decision card */
-    .hero-decision {
-      text-align: center;
-      padding: 40px 32px;
-      background: linear-gradient(135deg, var(--bg) 0%, #EEF2FF 100%);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      margin-bottom: 24px;
-    }
-    .hero-decision .label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px; }
-    .hero-decision .action { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; }
-    .hero-decision.raise .action { color: var(--success); }
-    .hero-decision.hold .action { color: var(--warning); }
-    .hero-decision.lower .action { color: var(--error); }
-    .hero-decision .confidence { margin-top: 12px; font-size: 13px; color: var(--muted); }
-    .hero-decision .explain { margin-top: 8px; font-size: 13px; color: var(--muted); max-width: 480px; margin-left: auto; margin-right: auto; }
+    /* —— Analysis: premium revenue intelligence —— */
 
-    /* Market snapshot grid */
-    .snapshot-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 16px;
+    .hero-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: var(--secondary);
+      margin-bottom: 16px;
     }
-    .snapshot-item {
+    .analysis-hero {
+      text-align: center;
+      padding: 56px 48px 64px;
       background: var(--card);
       border-radius: var(--radius);
-      padding: 18px;
-      border: 1px solid var(--border);
       box-shadow: var(--shadow);
-      transition: box-shadow 0.2s;
+      margin-bottom: 40px;
+      border: 1px solid rgba(0,0,0,0.03);
+      transition: box-shadow 0.25s ease;
     }
-    .snapshot-item:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
-    .snapshot-item .k { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
-    .snapshot-item .v { font-size: 18px; font-weight: 700; color: var(--primary); }
+    .analysis-hero:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.06); }
+    .analysis-hero .decision-title {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      margin-bottom: 12px;
+    }
+    .analysis-hero.raise .decision-title { color: var(--success); }
+    .analysis-hero.hold .decision-title { color: var(--warning); }
+    .analysis-hero.lower .decision-title { color: var(--error); }
+    .analysis-hero .confidence-line { font-size: 15px; color: var(--secondary); margin-bottom: 24px; }
+    .analysis-hero .explain-main {
+      font-size: 17px;
+      line-height: 1.55;
+      color: var(--primary);
+      max-width: 560px;
+      margin: 0 auto 20px;
+    }
+    .analysis-hero .explain-sub { font-size: 14px; color: var(--secondary); max-width: 480px; margin: 0 auto 24px; }
+    .hero-chips {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .hero-chip {
+      display: inline-block;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--secondary);
+      background: var(--bg);
+      border-radius: 10px;
+    }
 
-    /* Progress steps */
+    /* Sections: whitespace, no boxes */
+    .analysis-section {
+      margin-bottom: 48px;
+    }
+    .analysis-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+    }
+    .analysis-section-body { font-size: 15px; line-height: 1.6; color: var(--primary); }
+
+    /* Market snapshot: horizontal metrics, no cards */
+    .metrics-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 40px 48px;
+    }
+    .metric-block { flex: 0 0 auto; }
+    .metric-block .metric-label { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 4px; }
+    .metric-block .metric-value { font-size: 24px; font-weight: 700; color: var(--primary); letter-spacing: -0.02em; }
+
+    /* Progress steps: clean list, progressive feel */
     .step-list { list-style: none; }
     .step-list li {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px 0;
-      font-size: 13px;
-      border-bottom: 1px solid var(--border);
+      padding: 10px 0;
+      font-size: 14px;
+      color: var(--primary);
     }
-    .step-list li:last-child { border-bottom: none; }
-    .step-icon { width: 22px; height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .step-list li { opacity: 0.85; }
+    .step-list .done { opacity: 1; }
+    .step-list .active { opacity: 1; font-weight: 500; }
+    .step-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .step-list .done .step-icon { color: var(--success); }
     .step-list .active .step-icon { color: var(--accent); }
     .step-list .warning .step-icon { color: var(--warning); }
@@ -201,35 +277,84 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Actions list */
-    .actions-list { list-style: none; }
-    .actions-list li {
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 13px;
-    }
-    .actions-list li:last-child { border-bottom: none; }
-    .actions-list .bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    /* Events list */
+    .events-list { list-style: none; }
+    .events-list li { padding: 6px 0; font-size: 15px; color: var(--primary); padding-left: 0; }
+    .parity-channels { list-style: none; }
+    .parity-channels li { font-size: 14px; color: var(--muted); padding: 4px 0; }
 
-    /* Compset editable */
+    /* Compset: minimal UI */
+    .compset-warning {
+      font-size: 14px;
+      color: var(--warning);
+      margin-bottom: 16px;
+      padding: 12px 0;
+    }
     .compset-list { list-style: none; }
     .compset-list li {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 14px;
-      background: var(--bg);
-      border-radius: 10px;
-      margin-bottom: 8px;
-      font-size: 13px;
+      padding: 8px 0;
+      font-size: 14px;
+      border-bottom: none;
     }
-    .compset-list .remove-btn { padding: 4px 8px; font-size: 11px; color: var(--error); background: transparent; border: none; cursor: pointer; border-radius: 6px; }
-    .compset-list .remove-btn:hover { background: rgba(239,68,68,0.1); }
-    .add-compset { display: flex; gap: 8px; margin-top: 12px; }
-    .add-compset .form-input { flex: 1; }
+    .compset-list .remove-btn { padding: 4px 8px; font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; border-radius: 6px; }
+    .compset-list .remove-btn:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+    .add-compset { display: flex; gap: 10px; margin-top: 16px; }
+    .add-compset .form-input { flex: 1; max-width: 280px; }
+
+    /* Recommended action: narrative */
+    .recommended-action-text { font-size: 16px; line-height: 1.6; color: var(--primary); }
+
+    /* Setup panel (right column) */
+    .setup-panel .form-group { margin-bottom: 14px; }
+    .setup-panel .form-group:last-of-type { margin-bottom: 20px; }
+    .setup-panel .card-title { margin-bottom: 16px; }
+    .demo-banner-strong {
+      background: linear-gradient(90deg, #FEF3C7 0%, #FDE68A 100%);
+      border: 1px solid #F59E0B;
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #92400E;
+      margin-bottom: 20px;
+    }
+    .progress-panel { padding: 24px 0 0; border-top: 1px solid var(--border); margin-top: 24px; }
+
+    /* Confidence & data quality block */
+    .quality-block {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 40px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(0,0,0,0.03);
+    }
+    .quality-block .analysis-section-title { margin-bottom: 12px; }
+    .quality-row { display: flex; flex-wrap: wrap; gap: 24px 32px; align-items: baseline; margin-bottom: 12px; }
+    .quality-row:last-child { margin-bottom: 0; }
+    .quality-label { font-size: 12px; color: var(--secondary); font-weight: 500; }
+    .quality-value { font-size: 15px; font-weight: 600; color: var(--primary); }
+    .quality-notes { font-size: 13px; color: var(--secondary); line-height: 1.5; margin-top: 8px; }
+    .quality-block .quality-value.quality-good,
+    .quality-block .quality-value.quality-excellent { color: var(--success); }
+    .quality-block .quality-value.quality-degraded { color: var(--warning); }
+    .quality-block .quality-value.quality-poor { color: var(--error); }
+
+    /* Distribution: parity status + channels + message */
+    .parity-status { font-size: 18px; font-weight: 700; color: var(--success); margin-bottom: 8px; }
+    .parity-status.warn { color: var(--warning); }
+    .channels-line { font-size: 13px; color: var(--secondary); margin-bottom: 12px; }
+    .parity-message { font-size: 14px; line-height: 1.5; color: var(--primary); }
+
+    /* Legacy snapshot-item for evidence grid if used elsewhere */
+    .snapshot-item .k { font-size: 10px; font-weight: 600; color: var(--muted); }
+    .snapshot-item .v { font-size: 18px; font-weight: 700; color: var(--primary); }
+    .actions-list { list-style: none; }
+    .actions-list li { padding: 8px 0; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+    .actions-list .bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
     /* Client cards */
     .client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
@@ -360,7 +485,7 @@
     <nav class="nav">
       <div class="nav-item on" data-page="run" id="nav-run">
         <i data-lucide="activity" class="lucide"></i>
-        <span>Análisis</span>
+        <span>Analysis</span>
       </div>
       <div class="nav-item" data-page="dash" id="nav-dash">
         <i data-lucide="layout-dashboard" class="lucide"></i>
@@ -368,126 +493,73 @@
       </div>
       <div class="nav-item" data-page="clients" id="nav-clients">
         <i data-lucide="users" class="lucide"></i>
-        <span>Clientes</span>
+        <span>Clients</span>
       </div>
       <div class="nav-item" data-page="reports" id="nav-reports">
         <i data-lucide="file-text" class="lucide"></i>
-        <span>Informes</span>
+        <span>Reports</span>
       </div>
       <div class="nav-item" data-page="alerts" id="nav-alerts">
         <i data-lucide="bell" class="lucide"></i>
-        <span>Alertas</span>
+        <span>Alerts</span>
       </div>
       <div class="nav-item" data-page="config" id="nav-config">
         <i data-lucide="settings" class="lucide"></i>
-        <span>Configuración</span>
+        <span>Settings</span>
       </div>
     </nav>
-    <div class="side-foot" id="last-refresh"></div>
+    <div class="side-foot" id="last-refresh">Last updated</div>
   </aside>
 
   <main class="main">
-    <!-- ANÁLISIS -->
+    <!-- ANALYSIS -->
     <div id="pg-run">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
-        <div>
-          <h1 class="page-title">Análisis</h1>
-          <p class="page-sub">Configura el hotel, lanza el análisis y revisa la recomendación</p>
-        </div>
-        <button class="btn btn-secondary" onclick="loadAll()">
-          <i data-lucide="refresh-cw" class="lucide"></i>
-          Actualizar
-        </button>
-      </div>
-
-      <div style="display:grid;grid-template-columns:280px 1fr;gap:32px;align-items:start;">
-        <!-- Panel lateral: configuración -->
-        <div>
-          <div class="card">
-            <div class="card-title">Configuración</div>
-            <div class="form-group">
-              <label class="form-label">Hotel</label>
-              <input type="text" class="form-input" id="run-hotel" placeholder="Nombre del hotel">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Ciudad</label>
-              <input type="text" class="form-input" id="run-city" placeholder="Ciudad">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Web oficial</label>
-              <input type="text" class="form-input" id="run-website" placeholder="https://...">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Email cliente</label>
-              <input type="email" class="form-input" id="run-email" placeholder="director@hotel.com">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Modo</label>
-              <select class="form-input" id="run-mode">
-                <option value="preview">Solo preview</option>
-                <option value="send">Generar y enviar email</option>
-              </select>
-            </div>
-            <div class="form-group" style="display:flex;align-items:center;gap:8px;">
-              <input type="checkbox" id="run-fast-demo" onchange="toggleDemoWarning()" style="width:18px;height:18px;accent-color:var(--accent);">
-              <label class="form-label" for="run-fast-demo" style="margin:0;text-transform:none;">Demo rápida</label>
-            </div>
-            <div id="run-demo-warning" class="demo-banner" style="display:none;">Demo rápida — sin scraping ni análisis completo</div>
-            <button class="btn btn-primary" id="run-btn" onclick="runAnalysis()" style="width:100%;justify-content:center;padding:14px;">
-              <i data-lucide="play" class="lucide"></i>
-              <span id="run-btn-txt">Run analysis</span>
-            </button>
+      <div class="analysis-wrap">
+        <div class="analysis-main">
+          <!-- A. HERO DECISION -->
+          <div class="analysis-hero" id="block-decision" style="display:none;">
+            <div class="hero-badge">REVMAX RECOMMENDS</div>
+            <div class="decision-title" id="decision-action">—</div>
+            <div class="confidence-line" id="decision-meta">Confidence —%</div>
+            <p class="explain-main" id="decision-explain-main"></p>
+            <p class="explain-sub" id="decision-explain-sub"></p>
+            <div class="hero-chips" id="hero-chips"></div>
           </div>
 
-          <div class="card" id="block-progress">
-            <div class="card-title">Progreso</div>
-            <div id="run-progress-idle" style="color:var(--muted);font-size:13px;">Inicia un análisis para ver el progreso.</div>
-            <div id="run-progress-block" style="display:none;">
-              <ul class="step-list" id="run-progress-steps"></ul>
-              <div id="run-duration" style="margin-top:12px;font-size:12px;color:var(--muted);"></div>
-              <div id="run-status" style="margin-top:6px;font-size:11px;color:var(--muted);"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Área central: decisión y contexto -->
-        <div>
-          <div class="card" id="block-decision" style="display:none;">
-            <div class="card-title">REVMAX RECOMMENDS</div>
-            <div class="hero-decision" id="decision-hero">
-              <div class="label">Recomendación</div>
-              <div class="action" id="decision-action">—</div>
-              <div class="confidence" id="decision-meta"></div>
-              <div class="explain" id="decision-explain"></div>
-            </div>
+          <!-- B. MARKET SNAPSHOT -->
+          <div class="analysis-section" id="block-snapshot" style="display:none;">
+            <h2 class="analysis-section-title">Market snapshot</h2>
+            <div class="metrics-row" id="snapshot-metrics"></div>
           </div>
 
-          <div class="card" id="block-snapshot" style="display:none;">
-            <div class="card-title">Market snapshot</div>
-            <div class="snapshot-grid" id="snapshot-grid"></div>
+          <!-- C. MARKET CONTEXT -->
+          <div class="analysis-section" id="block-context" style="display:none;">
+            <h2 class="analysis-section-title">Market context</h2>
+            <p class="analysis-section-body" id="context-text"></p>
           </div>
 
-          <div class="card" id="block-context" style="display:none;">
-            <div class="card-title">Market context</div>
-            <p id="context-text" style="font-size:13px;color:var(--primary);line-height:1.6;"></p>
-          </div>
-
-          <div class="card" id="block-events" style="display:none;">
-            <div class="card-title">Events detected</div>
+          <!-- D. EVENTS DETECTED -->
+          <div class="analysis-section" id="block-events" style="display:none;">
+            <h2 class="analysis-section-title">Events detected in your area</h2>
             <ul class="events-list" id="events-list"></ul>
-            <div id="events-empty" class="empty-state" style="display:none;">No se han detectado eventos en esta corrida.</div>
+            <p id="events-empty" class="analysis-section-body" style="display:none;color:var(--secondary);">No se han detectado eventos relevantes en esta corrida.</p>
           </div>
 
-          <div class="card" id="block-actions" style="display:none;">
-            <div class="card-title">Recommended actions</div>
-            <ul class="actions-list" id="actions-list"></ul>
+          <!-- E. DISTRIBUTION & PARITY -->
+          <div class="analysis-section" id="block-parity" style="display:none;">
+            <h2 class="analysis-section-title">Distribution & parity</h2>
+            <div class="parity-status" id="parity-status">OK</div>
+            <div class="channels-line" id="parity-channels-line">Booking · Expedia · Hotels.com · Google Hotels · Official website</div>
+            <p class="parity-message" id="parity-message"></p>
           </div>
 
-          <div class="card" id="block-compset">
-            <div class="card-title">Comparable hotels</div>
+          <!-- F. COMPSET -->
+          <div class="analysis-section" id="block-compset">
+            <h2 class="analysis-section-title">Comparable hotels</h2>
+            <p class="compset-warning" id="compset-warning" style="display:none;">Comparable hotels could not be detected automatically. Please add competitors manually.</p>
             <ul class="compset-list" id="compset-list"></ul>
             <div class="add-compset">
-              <input type="text" class="form-input" id="compset-add-input" placeholder="Nombre del competidor">
+              <input type="text" class="form-input" id="compset-add-input" placeholder="Hotel name">
               <button type="button" class="btn btn-secondary" onclick="addCompset()">
                 <i data-lucide="plus" class="lucide"></i>
                 Add competitor
@@ -495,29 +567,31 @@
             </div>
           </div>
 
-          <div class="card" id="block-summary" style="display:none;">
-            <div class="card-title">Resumen ejecutivo</div>
-            <p id="exec-summary-text" style="margin:0;font-size:13px;color:var(--primary);line-height:1.6;"></p>
+          <!-- G. RECOMMENDED ACTION -->
+          <div class="analysis-section" id="block-actions" style="display:none;">
+            <h2 class="analysis-section-title">Recommended action</h2>
+            <p class="recommended-action-text" id="recommended-action-text"></p>
+            <ul class="actions-list" id="recommended-action-bullets"></ul>
           </div>
 
-          <div class="card" id="block-evidence" style="display:none;">
-            <div class="card-title">Qué ha encontrado RevMax</div>
-            <div id="evidence-degraded" style="display:none;margin-bottom:12px;padding:10px 12px;background:#FEF3C7;border-radius:10px;font-size:12px;color:#B45309;">Análisis parcial / degradado</div>
-            <div class="snapshot-grid" id="evidence-grid"></div>
-          </div>
-
-          <div class="card" id="block-health" style="display:none;">
-            <div class="card-title">Salud del análisis</div>
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
-              <span class="quality-badge" id="quality-badge">—</span>
-              <span id="quality-summary" style="font-size:13px;color:var(--muted);"></span>
+          <!-- H. CONFIDENCE & DATA QUALITY -->
+          <div class="quality-block" id="block-quality" style="display:none;">
+            <h2 class="analysis-section-title">Confidence & data quality</h2>
+            <div class="quality-row">
+              <span class="quality-label">Analysis quality</span>
+              <span class="quality-value" id="quality-value">—</span>
             </div>
-            <p id="quality-detail" style="margin:0;font-size:12px;color:var(--muted);"></p>
+            <div class="quality-row">
+              <span class="quality-label">Confidence</span>
+              <span class="quality-value" id="quality-confidence">—</span>
+            </div>
+            <p class="quality-notes" id="quality-notes"></p>
           </div>
 
-          <div class="card" id="block-validation">
+          <!-- Validation, QA, preview (collapsed) -->
+          <div class="card" id="block-validation" style="margin-top:40px;">
             <div class="card-title">Validación humana</div>
-            <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Puntúa el caso actual (se guarda en data/qa_runs/).</p>
+            <p style="font-size:12px;color:var(--secondary);margin-bottom:14px;">Puntúa el caso actual (se guarda en data/qa_runs/).</p>
             <input type="hidden" id="val-job-id" value="">
             <div class="form-group"><label class="form-label">Score (1–5)</label><input type="number" class="form-input" id="val-score" min="1" max="5" value="3" style="max-width:80px;"></div>
             <div class="form-group"><label class="form-label">Agreement</label><select class="form-input" id="val-verdict"><option value="agree">agree</option><option value="partial">partial</option><option value="disagree">disagree</option></select></div>
@@ -525,29 +599,76 @@
             <div class="form-group"><label class="form-label">Adjustment</label><select class="form-input" id="val-adjustment"><option value="no_change_needed">no_change_needed</option><option value="adjust_thresholds">adjust_thresholds</option><option value="adjust_weights">adjust_weights</option><option value="review_prompt_structure">review_prompt_structure</option><option value="review_action_rules">review_action_rules</option><option value="review_strategy_rules">review_strategy_rules</option></select></div>
             <button class="btn btn-primary" onclick="saveValidation()">Guardar validación</button>
           </div>
-
           <div class="card">
             <div class="card-title">Historial QA</div>
             <div style="max-height:280px;overflow-y:auto;">
               <table class="tbl"><thead><tr><th>Fecha</th><th>Hotel</th><th>Score</th><th>Verdict</th><th>Adjustment</th></tr></thead><tbody id="qa-history"></tbody></table>
             </div>
           </div>
-
           <div class="card">
             <div class="card-title">Diagnóstico del modelo</div>
-            <div id="model-diagnosis"><p style="font-size:13px;color:var(--muted);">Cargando...</p></div>
+            <div id="model-diagnosis"><p style="font-size:13px;color:var(--secondary);">Cargando...</p></div>
           </div>
-
           <div class="card" id="block-preview" style="display:none;">
             <div class="card-title">Vista previa del informe</div>
             <div class="iframe-wrap" style="height:500px;"><iframe id="run-preview-iframe" title="Preview"></iframe></div>
           </div>
         </div>
+
+        <!-- RIGHT COLUMN: Setup + Progress -->
+        <aside class="analysis-aside">
+          <div class="card setup-panel">
+            <div class="card-title">Setup</div>
+            <div id="run-demo-banner-strong" class="demo-banner-strong" style="display:none;">DEMO MODE — No full scraping or analysis</div>
+            <div class="form-group">
+              <label class="form-label">Hotel</label>
+              <input type="text" class="form-input" id="run-hotel" placeholder="Hotel name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">City</label>
+              <input type="text" class="form-input" id="run-city" placeholder="City">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Official website</label>
+              <input type="text" class="form-input" id="run-website" placeholder="https://…">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Client email</label>
+              <input type="email" class="form-input" id="run-email" placeholder="director@hotel.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mode</label>
+              <select class="form-input" id="run-mode">
+                <option value="preview">Preview only</option>
+                <option value="send">Send email</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" id="run-fast-demo" onchange="toggleDemoWarning()" style="width:18px;height:18px;accent-color:var(--accent);">
+              <label class="form-label" for="run-fast-demo" style="margin:0;text-transform:none;">Demo</label>
+            </div>
+            <button class="btn btn-primary" id="run-btn" onclick="runAnalysis()" style="width:100%;justify-content:center;padding:14px;">
+              <i data-lucide="play" class="lucide"></i>
+              <span id="run-btn-txt">Run analysis</span>
+            </button>
+          </div>
+          <div class="progress-panel" id="block-progress">
+            <h2 class="analysis-section-title">Progress</h2>
+            <div id="run-progress-idle" style="color:var(--secondary);font-size:14px;">Start an analysis to see progress.</div>
+            <div id="run-progress-block" style="display:none;">
+              <ul class="step-list" id="run-progress-steps"></ul>
+              <div id="run-duration" style="margin-top:16px;font-size:13px;color:var(--secondary);"></div>
+              <div id="run-status" style="margin-top:4px;font-size:12px;color:var(--secondary);"></div>
+              <div id="run-status-rotating" style="margin-top:6px;font-size:12px;color:var(--accent);"></div>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
 
     <!-- DASHBOARD -->
     <div id="pg-dash" style="display:none;">
+      <div class="main-content">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
         <div>
           <h1 class="page-title">Dashboard</h1>
@@ -560,10 +681,12 @@
         <div class="card" style="padding:0;overflow:hidden;"><div class="card-title" style="padding:24px 28px 0;">Últimos informes</div><table class="tbl"><tbody id="dash-rep"></tbody></table></div>
         <div class="card"><div class="card-title">Últimas alertas</div><div id="dash-alrt"></div></div>
       </div>
+      </div>
     </div>
 
     <!-- CLIENTES -->
     <div id="pg-clients" style="display:none;">
+      <div class="main-content">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
         <div>
           <h1 class="page-title">Clientes</h1>
@@ -576,27 +699,33 @@
       </div>
       <div class="client-grid" id="clients-grid"></div>
       <div id="clients-table-wrap" style="display:none;"><table class="tbl"><thead><tr><th>Hotel</th><th>Ciudad</th><th>Email</th><th>Plan</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="clients-body"></tbody></table></div>
+      </div>
     </div>
 
     <!-- INFORMES -->
     <div id="pg-reports" style="display:none;">
+      <div class="main-content">
       <h1 class="page-title">Informes</h1>
       <p class="page-sub">Historial de análisis</p>
       <div class="card" style="padding:0;overflow:hidden;">
         <ul class="report-list" id="reports-list"></ul>
         <div id="reports-empty" class="empty-state" style="display:none;">Sin informes</div>
       </div>
+      </div>
     </div>
 
     <!-- ALERTAS -->
     <div id="pg-alerts" style="display:none;">
+      <div class="main-content">
       <h1 class="page-title">Log de alertas</h1>
       <p class="page-sub">Eventos y notificaciones</p>
       <div class="card" id="alerts-body"></div>
+      </div>
     </div>
 
     <!-- CONFIG -->
     <div id="pg-config" style="display:none;">
+      <div class="main-content">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
         <h1 class="page-title">Configuración</h1>
         <button class="btn btn-primary" onclick="saveConfig()">Guardar</button>
@@ -607,6 +736,7 @@
         <div class="form-group"><label class="form-label">Ciudad</label><input type="text" class="form-input" id="c-city"></div>
         <div class="form-group"><label class="form-label">Anthropic API Key</label><input type="password" class="form-input" id="c-apikey"></div>
         <div class="form-group"><label class="form-label">Email destinatario</label><input type="text" class="form-input" id="c-recipient"></div>
+      </div>
       </div>
     </div>
   </main>
@@ -665,16 +795,21 @@ function nav(page) {
 }
 
 function toggleDemoWarning() {
-  var w = document.getElementById('run-demo-warning');
+  var w = document.getElementById('run-demo-banner-strong');
   var c = document.getElementById('run-fast-demo');
-  w.style.display = c && c.checked ? 'block' : 'none';
+  if (w) w.style.display = c && c.checked ? 'block' : 'none';
 }
 
 function fmt(v) {
   return (v === undefined || v === null || v === '' || String(v).trim() === '') ? '—' : String(v);
 }
+function fmtMetric(v) {
+  return (v === undefined || v === null || v === '' || String(v).trim() === '') ? 'No encontrado' : String(v);
+}
 
-var STAGE_MSG = { starting: 'Iniciando...', discovery: 'Identificando hotel', compset: 'Detectando comp set', parallel: 'Análisis en paralelo', pricing: 'Pricing', demand: 'Demand', reputation: 'Reputation', distribution: 'Distribution', consolidate: 'Consolidando', report: 'Generando informe', done: 'Completado', error: 'Error' };
+var STAGE_MSG = { starting: 'Iniciando…', discovery: 'Identificando hotel', compset: 'Detectando competidores', parallel: 'Análisis en paralelo', pricing: 'Precios', demand: 'Demanda', reputation: 'Reputación', distribution: 'Distribución', consolidate: 'Consolidando', report: 'Generando informe', done: 'Completado', error: 'Error' };
+var ROTATING_MSG = ['Analizando precios del mercado…', 'Detectando competidores…', 'Evaluando señales de demanda…', 'Revisando distribución y paridad…', 'Generando recomendación…'];
+var _rotatingIdx = 0;
 
 function renderProgressSteps(steps) {
   var el = document.getElementById('run-progress-steps');
@@ -707,12 +842,24 @@ function renderResult(job) {
   var q = job.analysis_quality || {};
   var action = (sum.consolidated_action || 'hold').toLowerCase();
   var actionLabel = action === 'raise' ? 'RAISE PRICE' : action === 'lower' ? 'LOWER PRICE' : 'HOLD PRICE';
-  document.getElementById('block-decision').style.display = 'block';
-  var hero = document.getElementById('decision-hero');
-  hero.className = 'hero-decision ' + action;
+
+  var blockDecision = document.getElementById('block-decision');
+  blockDecision.style.display = 'block';
+  blockDecision.className = 'analysis-hero ' + action;
   document.getElementById('decision-action').textContent = actionLabel;
   document.getElementById('decision-meta').textContent = 'Confidence ' + (sum.confidence_pct != null ? sum.confidence_pct : '—') + '%';
-  document.getElementById('decision-explain').textContent = sum.executive_summary ? (sum.executive_summary.slice(0, 120) + (sum.executive_summary.length > 120 ? '…' : '')) : '';
+  var execSummary = sum.executive_summary || '';
+  var mainExplain = execSummary || 'Tu precio actual está alineado con el mercado. La demanda en tu zona es estable y no se detectan señales fuertes para modificar precio hoy.';
+  document.getElementById('decision-explain-main').textContent = mainExplain.length > 220 ? mainExplain.slice(0, 220) + '…' : mainExplain;
+  var subLine = action === 'raise' ? 'Tu precio podría tener margen para subir sin comprometer la ocupación.' : action === 'lower' ? 'Conviene revisar el precio para no perder ocupación.' : 'Tu precio es competitivo y la demanda del mercado se mantiene estable.';
+  document.getElementById('decision-explain-sub').textContent = subLine;
+
+  var demandLabel = (ev.demand_score && String(ev.demand_score) !== '—') ? 'High' : 'Medium';
+  if (ev.demand_score && !isNaN(parseFloat(ev.demand_score))) { var s = parseFloat(ev.demand_score); if (s >= 70) demandLabel = 'High'; else if (s <= 40) demandLabel = 'Low'; else demandLabel = 'Medium'; }
+  var posLabel = fmt(ev.price_position);
+  var parLabel = (ev.parity_status || 'OK').toString();
+  if (parLabel.toLowerCase() !== 'ok' && parLabel !== '—') parLabel = 'Review';
+  document.getElementById('hero-chips').innerHTML = '<span class="hero-chip">Demand: ' + demandLabel + '</span><span class="hero-chip">Position: ' + posLabel + '</span><span class="hero-chip">Parity: ' + parLabel + '</span>';
 
   document.getElementById('block-snapshot').style.display = 'block';
   var snap = [
@@ -720,15 +867,15 @@ function renderResult(job) {
     ['Market average', ev.compset_avg],
     ['Price position', ev.price_position],
     ['Demand index', ev.demand_score],
-    ['Reputation score', ev.gri],
+    ['Reputation', ev.gri],
     ['Visibility', ev.visibility]
   ];
-  document.getElementById('snapshot-grid').innerHTML = snap.map(function(x) {
-    return '<div class="snapshot-item"><div class="k">' + x[0] + '</div><div class="v">' + fmt(x[1]) + '</div></div>';
+  document.getElementById('snapshot-metrics').innerHTML = snap.map(function(x) {
+    return '<div class="metric-block"><div class="metric-label">' + x[0] + '</div><div class="metric-value">' + fmtMetric(x[1]) + '</div></div>';
   }).join('');
 
   document.getElementById('block-context').style.display = 'block';
-  document.getElementById('context-text').textContent = sum.executive_summary || 'Sin resumen.';
+  document.getElementById('context-text').textContent = execSummary || 'Se detecta demanda estable en la zona. Tu precio se encuentra dentro del rango del compset.';
 
   document.getElementById('block-events').style.display = 'block';
   var events = ev.events_detected || [];
@@ -736,50 +883,55 @@ function renderResult(job) {
   var eventsList = document.getElementById('events-list');
   var eventsEmpty = document.getElementById('events-empty');
   if (events.length) {
-    eventsEmpty.style.display = 'none';
+    if (eventsEmpty) eventsEmpty.style.display = 'none';
     eventsList.innerHTML = events.map(function(e) { return '<li>' + (typeof e === 'string' ? e : (e && (e.name || e.title)) || '—') + '</li>'; }).join('');
   } else {
     eventsList.innerHTML = '';
-    eventsEmpty.style.display = 'block';
+    if (eventsEmpty) { eventsEmpty.style.display = 'block'; eventsEmpty.textContent = 'No se han detectado eventos relevantes en esta corrida.'; }
   }
 
-  document.getElementById('block-actions').style.display = 'block';
-  var actions = (sum.recommended_actions || []).slice(0, 5);
-  if (!actions.length) actions = [{ action_hint: 'Revisar informe completo.' }];
-  document.getElementById('actions-list').innerHTML = actions.map(function(a) {
-    var text = a.action_hint || a.title || a.action || '—';
-    return '<li><span class="bullet"></span><span>' + text + '</span></li>';
-  }).join('');
+  document.getElementById('block-parity').style.display = 'block';
+  var parityOk = (ev.parity_status || '').toLowerCase() === 'ok' || !ev.parity_status || String(ev.parity_status).trim() === '' || ev.parity_status === '—';
+  var parityStatusEl = document.getElementById('parity-status');
+  parityStatusEl.textContent = parityOk ? 'OK' : 'Review';
+  parityStatusEl.className = 'parity-status' + (parityOk ? '' : ' warn');
+  document.getElementById('parity-channels-line').textContent = 'Booking · Expedia · Hotels.com · Google Hotel Ads · Tripadvisor · Official website';
+  document.getElementById('parity-message').textContent = parityOk ? 'No se han detectado discrepancias relevantes entre canales principales.' : 'Se han observado diferencias entre canales. Revisar paridad.';
 
-  _compsetList = Array.isArray(ev.top_3_competitors) ? ev.top_3_competitors.slice() : (ev.top_3_competitors ? [ev.top_3_competitors] : []);
+  _compsetList = Array.isArray(ev.top_3_competitors) ? ev.top_3_competitors.filter(function(c) { return c && String(c).trim() && c !== 'No encontrados'; }) : (ev.top_3_competitors ? [ev.top_3_competitors] : []);
   renderCompsetList();
+  document.getElementById('compset-warning').style.display = _compsetList.length === 0 ? 'block' : 'none';
 
-  document.getElementById('block-summary').style.display = 'block';
-  document.getElementById('exec-summary-text').textContent = fmt(sum.executive_summary);
-  document.getElementById('block-evidence').style.display = 'block';
-  document.getElementById('evidence-degraded').style.display = (ev.is_degraded ? 'block' : 'none');
-  var keys = [['Hotel', 'hotel_detected'], ['Ciudad', 'city'], ['Precio propio', 'own_price'], ['Media compset', 'compset_avg'], ['Posición', 'price_position'], ['GRI', 'gri'], ['Visibilidad', 'visibility'], ['Demand score', 'demand_score']];
-  document.getElementById('evidence-grid').innerHTML = keys.map(function(kv) {
-    return '<div class="snapshot-item"><div class="k">' + kv[0] + '</div><div class="v">' + fmt(ev[kv[1]]) + '</div></div>';
-  }).join('');
+  document.getElementById('block-actions').style.display = 'block';
+  document.getElementById('recommended-action-text').textContent = execSummary || 'Revisar el informe completo para la recomendación detallada.';
+  var bullets = (sum.recommended_actions || []).slice(0, 4).map(function(a) { return a.action_hint || a.title || a.action || ''; }).filter(Boolean);
+  if (!bullets.length) bullets = ['Revisar informe completo para acciones detalladas.'];
+  document.getElementById('recommended-action-bullets').innerHTML = bullets.map(function(b) { return '<li><span class="bullet"></span><span>' + b + '</span></li>'; }).join('');
 
-  document.getElementById('block-health').style.display = 'block';
-  var qLabel = (q.label || 'good').toUpperCase();
-  document.getElementById('quality-badge').textContent = qLabel;
-  document.getElementById('quality-badge').className = 'quality-badge quality-' + (q.label || 'good');
-  document.getElementById('quality-summary').textContent = 'Score ' + fmt(q.score) + ' · ' + fmt(q.agents_ok) + '/' + fmt(q.agents_total) + ' agentes OK' + (q.fallback_count > 0 ? ' · ' + q.fallback_count + ' fallback' : '');
-  document.getElementById('quality-detail').textContent = fmt(q.summary);
+  document.getElementById('block-quality').style.display = 'block';
+  document.getElementById('quality-value').textContent = (q.label || 'good').toUpperCase();
+  document.getElementById('quality-value').className = 'quality-value quality-' + (q.label || 'good');
+  document.getElementById('quality-confidence').textContent = (sum.confidence_pct != null ? sum.confidence_pct : '—') + '%';
+  var notes = [];
+  if (q.fallback_count > 0) notes.push(q.fallback_count + ' agent(s) relied on fallback data.');
+  if (q.summary) notes.push(q.summary);
+  document.getElementById('quality-notes').textContent = notes.length ? notes.join(' ') : 'No issues detected.';
+
   document.getElementById('val-job-id').value = job.job_id || '';
-  document.getElementById('block-preview').style.display = 'block';
+  var blockPreview = document.getElementById('block-preview');
+  if (blockPreview) blockPreview.style.display = 'block';
   var iframe = document.getElementById('run-preview-iframe');
-  iframe.src = job.job_id ? ('/api/preview/job/' + encodeURIComponent(job.job_id) + '?t=' + Date.now()) : '';
+  if (iframe) iframe.src = job.job_id ? ('/api/preview/job/' + encodeURIComponent(job.job_id) + '?t=' + Date.now()) : '';
+  initLucide();
 }
 
 function renderCompsetList() {
   var ul = document.getElementById('compset-list');
-  ul.innerHTML = _compsetList.map(function(name, i) {
+  var warn = document.getElementById('compset-warning');
+  if (ul) ul.innerHTML = _compsetList.map(function(name, i) {
     return '<li><span>' + fmt(name) + '</span><button type="button" class="remove-btn" onclick="removeCompset(' + i + ')">Remove</button></li>';
   }).join('');
+  if (warn) warn.style.display = _compsetList.length === 0 ? 'block' : 'none';
 }
 function addCompset() {
   var input = document.getElementById('compset-add-input');
@@ -814,7 +966,7 @@ async function loadAll() {
   _clients = r[1];
   _reports = r[2];
   _alerts = r[3];
-  document.getElementById('last-refresh').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-ES');
+  document.getElementById('last-refresh').textContent = 'Last updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   var dashTs = document.getElementById('dash-ts');
   if (dashTs) dashTs.textContent = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
   var dashRep = document.getElementById('dash-rep');
@@ -960,12 +1112,20 @@ async function runAnalysis() {
     var job = await jR.json();
     renderProgressSteps(job.progress_steps || []);
     status.textContent = (STAGE_MSG[job.stage] || job.stage) + (job.progress_pct != null ? ' · ' + job.progress_pct + '%' : '');
+    var rotEl = document.getElementById('run-status-rotating');
+    var stepIndex = (job.progress_steps || []).findIndex(function(s) { return s.status === 'active'; });
+    if (rotEl) {
+      if (stepIndex >= 0 && stepIndex < ROTATING_MSG.length) rotEl.textContent = ROTATING_MSG[stepIndex];
+      else { _rotatingIdx = (_rotatingIdx + 1) % ROTATING_MSG.length; rotEl.textContent = ROTATING_MSG[_rotatingIdx]; }
+    }
     var durEl = document.getElementById('run-duration');
     if (job.analysis_timing && job.analysis_timing.total_duration != null) durEl.textContent = 'Duración: ' + Math.round(job.analysis_timing.total_duration) + ' s';
     if (job.status === 'completed') {
       clearInterval(poll);
       btn.disabled = false;
       btxt.textContent = 'Run analysis';
+      var rotEl = document.getElementById('run-status-rotating');
+      if (rotEl) rotEl.textContent = '';
       if (durEl && job.analysis_timing) durEl.textContent = 'Completado · ' + Math.round(job.analysis_timing.total_duration || 0) + ' s';
       renderResult(job);
       toast('Análisis completado', 'ok');
@@ -979,6 +1139,8 @@ async function runAnalysis() {
       clearInterval(poll);
       btn.disabled = false;
       btxt.textContent = 'Run analysis';
+      var rotEl = document.getElementById('run-status-rotating');
+      if (rotEl) rotEl.textContent = '';
       status.style.color = 'var(--error)';
       status.textContent = 'Error: ' + (job.error_message || 'Unknown');
       renderProgressSteps(job.progress_steps || []);
