@@ -1,381 +1,1019 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RevMax · Consola operativa</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#fafafa;
-  --surface:#ffffff;
-  --border:#e8e8e8;
-  --text:#0f172a;
-  --text2:#64748b;
-  --text3:#94a3b8;
-  --green:#059669;
-  --green-bg:#ecfdf5;
-  --amber:#b45309;
-  --amber-bg:#fffbeb;
-  --red:#b91c1c;
-  --red-bg:#fef2f2;
-  --radius:10px;
-  --shadow:0 1px 2px rgba(0,0,0,.04);
-  --side-bg:#0f172a;
-  --side-text:rgba(255,255,255,.65);
-  --side-active:#fff;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
-.layout{display:flex;min-height:100vh;}
-.side{width:200px;background:var(--side-bg);flex-shrink:0;padding:20px 0;position:fixed;top:0;left:0;height:100vh;display:flex;flex-direction:column;}
-.main{margin-left:200px;padding:32px 40px 48px;flex:1;min-width:0;max-width:1400px;}
-.logo{padding:0 16px 20px;border-bottom:1px solid rgba(255,255,255,.08);}
-.logo-t{font-size:16px;font-weight:700;color:var(--side-active);letter-spacing:-0.02em;}
-.logo-s{font-size:10px;color:var(--side-text);margin-top:2px;text-transform:uppercase;letter-spacing:.06em;}
-.nav{padding:16px 0;flex:1;}
-.ni{display:flex;align-items:center;gap:10px;padding:8px 16px;color:var(--side-text);cursor:pointer;font-size:13px;font-weight:500;border-radius:6px;margin:0 8px;transition:all .12s;}
-.ni:hover{color:var(--side-active);background:rgba(255,255,255,.06);}
-.ni.on{color:var(--side-active);background:rgba(255,255,255,.08);}
-.side-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:var(--side-text);}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RevMax · Revenue Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js" defer></script>
+  <style>
+    :root {
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --primary: #0F172A;
+      --accent: #3B82F6;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --success: #10B981;
+      --muted: #64748B;
+      --border: #E2E8F0;
+      --radius: 14px;
+      --shadow: 0 8px 30px rgba(0,0,0,0.05);
+      --side-bg: #0F172A;
+      --side-text: rgba(255,255,255,0.7);
+      --side-active: #fff;
+      --side-width: 220px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--primary);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: var(--side-width);
+      background: var(--side-bg);
+      flex-shrink: 0;
+      padding: 24px 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .logo {
+      padding: 0 20px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 8px;
+    }
+    .logo-title { font-size: 18px; font-weight: 700; color: var(--side-active); letter-spacing: -0.03em; }
+    .logo-sub { font-size: 10px; color: var(--side-text); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .nav { flex: 1; padding: 12px 0; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      color: var(--side-text);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 10px;
+      margin: 0 12px 2px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-item:hover { color: var(--side-active); background: rgba(255,255,255,0.06); }
+    .nav-item.on { color: var(--side-active); background: rgba(255,255,255,0.1); }
+    .nav-item .lucide { width: 20px; height: 20px; flex-shrink: 0; stroke: currentColor; }
+    .side-foot { padding: 12px 20px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: var(--side-text); }
 
-.section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;box-shadow:var(--shadow);}
-.section-title{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;}
-.btn{padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
-.btn-primary{background:var(--text);color:#fff;}
-.btn-primary:hover{background:#1e293b;}
-.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
-.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border);}
-.btn-secondary:hover{background:var(--bg);}
-.fg{margin-bottom:14px;}
-.fl{display:block;font-size:11px;font-weight:500;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;}
-.fi{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);background:var(--surface);outline:none;}
-.fi:focus{border-color:var(--text2);box-shadow:0 0 0 2px rgba(0,0,0,.04);}
-select.fi{cursor:pointer;}
+    .main {
+      margin-left: var(--side-width);
+      padding: 32px 40px 48px;
+      flex: 1;
+      min-width: 0;
+      max-width: 1200px;
+    }
+    .page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.06); }
+    .card-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+    .btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+    }
+    .btn .lucide { width: 16px; height: 16px; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #2563EB; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: var(--card); color: var(--primary); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--bg); }
+    .btn-ghost { background: transparent; color: var(--muted); }
+    .btn-ghost:hover { background: var(--bg); color: var(--primary); }
 
-.decision-hero{text-align:center;padding:40px 32px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);margin:24px 0;}
-.decision-hero .label{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px;}
-.decision-hero .action{font-size:32px;font-weight:700;letter-spacing:-0.03em;}
-.decision-hero.raise .action{color:var(--green);}
-.decision-hero.hold .action{color:var(--amber);}
-.decision-hero.lower .action{color:var(--red);}
-.decision-meta{margin-top:14px;font-size:13px;color:var(--text2);}
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--primary);
+      background: var(--card);
+      outline: none;
+    }
+    .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    select.form-input { cursor: pointer; }
 
-.step-list{list-style:none;}
-.step-list li{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:13px;border-bottom:1px solid var(--border);}
-.step-list li:last-child{border-bottom:none;}
-.step-icon{width:20px;text-align:center;}
-.step-list .done .step-icon{color:var(--green);}
-.step-list .active .step-icon{color:var(--text);}
-.step-list .warning .step-icon{color:var(--amber);}
-.step-list .error .step-icon{color:var(--red);}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--text);border-radius:50%;animation:sp .6s linear infinite;}
-@keyframes sp{to{transform:rotate(360deg)}}
+    /* Analysis: hero decision card */
+    .hero-decision {
+      text-align: center;
+      padding: 40px 32px;
+      background: linear-gradient(135deg, var(--bg) 0%, #EEF2FF 100%);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    .hero-decision .label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px; }
+    .hero-decision .action { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; }
+    .hero-decision.raise .action { color: var(--success); }
+    .hero-decision.hold .action { color: var(--warning); }
+    .hero-decision.lower .action { color: var(--error); }
+    .hero-decision .confidence { margin-top: 12px; font-size: 13px; color: var(--muted); }
+    .hero-decision .explain { margin-top: 8px; font-size: 13px; color: var(--muted); max-width: 480px; margin-left: auto; margin-right: auto; }
 
-.evidence-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;}
-.evidence-item{background:var(--bg);border-radius:8px;padding:12px 14px;border:1px solid var(--border);}
-.evidence-item .k{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
-.evidence-item .v{font-size:14px;font-weight:600;color:var(--text);}
-.quality-badge{display:inline-block;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;}
-.quality-excellent,.quality-good{background:var(--green-bg);color:var(--green);}
-.quality-degraded{background:var(--amber-bg);color:var(--amber);}
-.quality-poor{background:var(--red-bg);color:var(--red);}
+    /* Market snapshot grid */
+    .snapshot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+    }
+    .snapshot-item {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 18px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.2s;
+    }
+    .snapshot-item:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+    .snapshot-item .k { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+    .snapshot-item .v { font-size: 18px; font-weight: 700; color: var(--primary); }
 
-.agents-panel{font-size:12px;}
-.agents-panel summary{cursor:pointer;padding:8px 0;color:var(--text2);font-weight:500;}
-.agent-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);}
-.agent-row:last-child{border-bottom:none;}
-.agent-name{font-weight:500;min-width:100px;}
-.agent-status-ok{color:var(--green);}
-.agent-status-fallback{color:var(--amber);}
+    /* Progress steps */
+    .step-list { list-style: none; }
+    .step-list li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+    .step-list li:last-child { border-bottom: none; }
+    .step-icon { width: 22px; height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .step-list .done .step-icon { color: var(--success); }
+    .step-list .active .step-icon { color: var(--accent); }
+    .step-list .warning .step-icon { color: var(--warning); }
+    .step-list .error .step-icon { color: var(--error); }
+    .spin {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-.tbl{width:100%;border-collapse:collapse;font-size:13px;}
-.tbl th{padding:10px 12px;text-align:left;font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--bg);}
-.tbl td{padding:12px;border-bottom:1px solid var(--border);}
-.tbl tr:hover td{background:var(--bg);}
-.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:999;display:none;}
-.toast.ok{background:var(--green);color:#fff;}
-.toast.err{background:var(--red);color:#fff;}
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;align-items:center;justify-content:center;}
-.overlay.open{display:flex;}
-.modal{background:var(--surface);border-radius:var(--radius);padding:28px;max-width:520px;width:92%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 25px -5px rgba(0,0,0,.12);}
-.mttl{font-size:17px;font-weight:700;margin-bottom:20px;}
-.mclose{cursor:pointer;float:right;color:var(--text3);font-size:20px;}
-.demo-banner{background:var(--amber-bg);border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;font-size:12px;color:var(--amber);margin-bottom:14px;}
-.iframe-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
-iframe{width:100%;border:none;}
-.mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:20px;}
-.mc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
-.ml{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
-.mv{font-size:22px;font-weight:700;color:var(--text);}
-.pt{font-size:18px;font-weight:700;letter-spacing:-0.02em;}
-.ps{font-size:12px;color:var(--text2);margin-top:2px;}
-.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
-</style>
+    /* Actions list */
+    .actions-list { list-style: none; }
+    .actions-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .actions-list li:last-child { border-bottom: none; }
+    .actions-list .bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+    /* Compset editable */
+    .compset-list { list-style: none; }
+    .compset-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--bg);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .compset-list .remove-btn { padding: 4px 8px; font-size: 11px; color: var(--error); background: transparent; border: none; cursor: pointer; border-radius: 6px; }
+    .compset-list .remove-btn:hover { background: rgba(239,68,68,0.1); }
+    .add-compset { display: flex; gap: 8px; margin-top: 12px; }
+    .add-compset .form-input { flex: 1; }
+
+    /* Client cards */
+    .client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .client-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 24px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+    .client-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.06); transform: translateY(-1px); }
+    .client-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .client-card .city { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+    .client-card .plan-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 11px; font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .plan-basic { background: #F1F5F9; color: var(--muted); }
+    .plan-pro { background: #DBEAFE; color: #1D4ED8; }
+    .plan-premium { background: #D1FAE5; color: #047857; }
+
+    /* Report rows */
+    .report-list { list-style: none; }
+    .report-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 16px;
+    }
+    .report-list li:last-child { border-bottom: none; }
+    .report-list .decision-badge {
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .report-list .decision-raise { background: #D1FAE5; color: #047857; }
+    .report-list .decision-hold { background: #FEF3C7; color: #B45309; }
+    .report-list .decision-lower { background: #FEE2E2; color: #B91C1C; }
+
+    /* Dashboard stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 24px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.2s;
+    }
+    .stat-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+    .stat-card .label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+    .stat-card .value { font-size: 28px; font-weight: 700; color: var(--primary); }
+
+    /* Tables */
+    .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .tbl th { padding: 12px 16px; text-align: left; font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .tbl td { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+    .tbl tr:hover td { background: var(--bg); }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 14px 20px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 999;
+      display: none;
+      box-shadow: var(--shadow);
+    }
+    .toast.ok { background: var(--success); color: #fff; }
+    .toast.err { background: var(--error); color: #fff; }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 200; align-items: center; justify-content: center; }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 28px;
+      max-width: 440px;
+      width: 92%;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.12);
+    }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+    .modal-close { cursor: pointer; float: right; color: var(--muted); font-size: 20px; }
+    .demo-banner { background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 10px; padding: 12px 14px; font-size: 12px; color: #B45309; margin-bottom: 14px; }
+    .iframe-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    iframe { width: 100%; border: none; min-height: 500px; }
+    .quality-badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; }
+    .quality-excellent, .quality-good { background: #D1FAE5; color: #047857; }
+    .quality-degraded { background: #FEF3C7; color: #B45309; }
+    .quality-poor { background: #FEE2E2; color: #B91C1C; }
+    .events-list { list-style: none; }
+    .events-list li { padding: 8px 0; font-size: 13px; color: var(--primary); }
+    .empty-state { text-align: center; padding: 32px 16px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 900px) {
+      .main { padding: 20px 20px 32px; }
+      #pg-run div[style*="grid-template-columns:280px"] { grid-template-columns: 1fr !important; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .sidebar { width: 72px; padding: 16px 0; }
+      .sidebar .nav-item span { display: none; }
+      .sidebar .logo-sub { display: none; }
+      .main { margin-left: 72px; }
+      :root { --side-width: 72px; }
+    }
+  </style>
 </head>
 <body>
 <div class="layout">
-<nav class="side">
-  <div class="logo"><div class="logo-t">RevMax</div><div class="logo-s">Consola operativa</div></div>
-  <div class="nav">
-    <div class="ni on" onclick="nav('run')" id="nav-run">Análisis</div>
-    <div class="ni" onclick="nav('dash')" id="nav-dash">Dashboard</div>
-    <div class="ni" onclick="nav('clients')" id="nav-clients">Clientes</div>
-    <div class="ni" onclick="nav('reports')" id="nav-reports">Informes</div>
-    <div class="ni" onclick="nav('alerts')" id="nav-alerts">Alertas</div>
-    <div class="ni" onclick="nav('config')" id="nav-config">Config</div>
-  </div>
-  <div class="side-foot" id="last-refresh"></div>
-</nav>
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-title">RevMax</div>
+      <div class="logo-sub">Revenue Intelligence</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item on" data-page="run" id="nav-run">
+        <i data-lucide="activity" class="lucide"></i>
+        <span>Análisis</span>
+      </div>
+      <div class="nav-item" data-page="dash" id="nav-dash">
+        <i data-lucide="layout-dashboard" class="lucide"></i>
+        <span>Dashboard</span>
+      </div>
+      <div class="nav-item" data-page="clients" id="nav-clients">
+        <i data-lucide="users" class="lucide"></i>
+        <span>Clientes</span>
+      </div>
+      <div class="nav-item" data-page="reports" id="nav-reports">
+        <i data-lucide="file-text" class="lucide"></i>
+        <span>Informes</span>
+      </div>
+      <div class="nav-item" data-page="alerts" id="nav-alerts">
+        <i data-lucide="bell" class="lucide"></i>
+        <span>Alertas</span>
+      </div>
+      <div class="nav-item" data-page="config" id="nav-config">
+        <i data-lucide="settings" class="lucide"></i>
+        <span>Configuración</span>
+      </div>
+    </nav>
+    <div class="side-foot" id="last-refresh"></div>
+  </aside>
 
-<main class="main">
-
-<!-- PÁGINA PRINCIPAL: OPERACIÓN (Análisis) -->
-<div id="pg-run">
-  <div class="ph"><div><div class="pt">Operación</div><div class="ps">Generar análisis, revisar recomendación y validar</div></div><button class="btn btn-secondary" onclick="loadAll()">Actualizar</button></div>
-
-  <div style="display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start;">
-    <div>
-      <div class="section">
-        <div class="section-title">A — Configuración</div>
-        <div class="fg"><label class="fl">Hotel</label><input class="fi" id="run-hotel" placeholder="Nombre del hotel"></div>
-        <div class="fg"><label class="fl">Ciudad</label><input class="fi" id="run-city" placeholder="Ciudad"></div>
-        <div class="fg"><label class="fl">Email destino</label><input class="fi" id="run-email" type="email" placeholder="director@hotel.com"></div>
-        <div class="fg"><label class="fl">Modo</label><select class="fi" id="run-mode"><option value="preview">Solo preview</option><option value="send">Generar y enviar email</option></select></div>
-        <div class="fg" style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" id="run-fast-demo" onchange="toggleDemoWarning()" style="width:16px;height:16px;">
-          <label class="fl" for="run-fast-demo" style="margin:0;text-transform:none;">Demo rápida / Informe de prueba</label>
+  <main class="main">
+    <!-- ANÁLISIS -->
+    <div id="pg-run">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+        <div>
+          <h1 class="page-title">Análisis</h1>
+          <p class="page-sub">Configura el hotel, lanza el análisis y revisa la recomendación</p>
         </div>
-        <div id="run-demo-warning" class="demo-banner" style="display:none;">Demo rápida — sin scraping ni análisis completo</div>
-        <button class="btn btn-primary" id="run-btn" onclick="runAnalysis()" style="width:100%;justify-content:center;padding:14px;"><span id="run-btn-txt">Generar análisis</span></button>
+        <button class="btn btn-secondary" onclick="loadAll()">
+          <i data-lucide="refresh-cw" class="lucide"></i>
+          Actualizar
+        </button>
       </div>
 
-      <div class="section" id="block-progress">
-        <div class="section-title">B — Progreso</div>
-        <div id="run-progress-idle" style="color:var(--text3);font-size:13px;">Inicia un análisis para ver el progreso.</div>
-        <div id="run-progress-block" style="display:none;">
-          <ul class="step-list" id="run-progress-steps"></ul>
-          <div id="run-duration" style="margin-top:12px;font-size:12px;color:var(--text2);"></div>
-          <div id="run-status" style="margin-top:6px;font-size:11px;color:var(--text3);"></div>
+      <div style="display:grid;grid-template-columns:280px 1fr;gap:32px;align-items:start;">
+        <!-- Panel lateral: configuración -->
+        <div>
+          <div class="card">
+            <div class="card-title">Configuración</div>
+            <div class="form-group">
+              <label class="form-label">Hotel</label>
+              <input type="text" class="form-input" id="run-hotel" placeholder="Nombre del hotel">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ciudad</label>
+              <input type="text" class="form-input" id="run-city" placeholder="Ciudad">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Web oficial</label>
+              <input type="text" class="form-input" id="run-website" placeholder="https://...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email cliente</label>
+              <input type="email" class="form-input" id="run-email" placeholder="director@hotel.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Modo</label>
+              <select class="form-input" id="run-mode">
+                <option value="preview">Solo preview</option>
+                <option value="send">Generar y enviar email</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" id="run-fast-demo" onchange="toggleDemoWarning()" style="width:18px;height:18px;accent-color:var(--accent);">
+              <label class="form-label" for="run-fast-demo" style="margin:0;text-transform:none;">Demo rápida</label>
+            </div>
+            <div id="run-demo-warning" class="demo-banner" style="display:none;">Demo rápida — sin scraping ni análisis completo</div>
+            <button class="btn btn-primary" id="run-btn" onclick="runAnalysis()" style="width:100%;justify-content:center;padding:14px;">
+              <i data-lucide="play" class="lucide"></i>
+              <span id="run-btn-txt">Run analysis</span>
+            </button>
+          </div>
+
+          <div class="card" id="block-progress">
+            <div class="card-title">Progreso</div>
+            <div id="run-progress-idle" style="color:var(--muted);font-size:13px;">Inicia un análisis para ver el progreso.</div>
+            <div id="run-progress-block" style="display:none;">
+              <ul class="step-list" id="run-progress-steps"></ul>
+              <div id="run-duration" style="margin-top:12px;font-size:12px;color:var(--muted);"></div>
+              <div id="run-status" style="margin-top:6px;font-size:11px;color:var(--muted);"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Área central: decisión y contexto -->
+        <div>
+          <div class="card" id="block-decision" style="display:none;">
+            <div class="card-title">REVMAX RECOMMENDS</div>
+            <div class="hero-decision" id="decision-hero">
+              <div class="label">Recomendación</div>
+              <div class="action" id="decision-action">—</div>
+              <div class="confidence" id="decision-meta"></div>
+              <div class="explain" id="decision-explain"></div>
+            </div>
+          </div>
+
+          <div class="card" id="block-snapshot" style="display:none;">
+            <div class="card-title">Market snapshot</div>
+            <div class="snapshot-grid" id="snapshot-grid"></div>
+          </div>
+
+          <div class="card" id="block-context" style="display:none;">
+            <div class="card-title">Market context</div>
+            <p id="context-text" style="font-size:13px;color:var(--primary);line-height:1.6;"></p>
+          </div>
+
+          <div class="card" id="block-events" style="display:none;">
+            <div class="card-title">Events detected</div>
+            <ul class="events-list" id="events-list"></ul>
+            <div id="events-empty" class="empty-state" style="display:none;">No se han detectado eventos en esta corrida.</div>
+          </div>
+
+          <div class="card" id="block-actions" style="display:none;">
+            <div class="card-title">Recommended actions</div>
+            <ul class="actions-list" id="actions-list"></ul>
+          </div>
+
+          <div class="card" id="block-compset">
+            <div class="card-title">Comparable hotels</div>
+            <ul class="compset-list" id="compset-list"></ul>
+            <div class="add-compset">
+              <input type="text" class="form-input" id="compset-add-input" placeholder="Nombre del competidor">
+              <button type="button" class="btn btn-secondary" onclick="addCompset()">
+                <i data-lucide="plus" class="lucide"></i>
+                Add competitor
+              </button>
+            </div>
+          </div>
+
+          <div class="card" id="block-summary" style="display:none;">
+            <div class="card-title">Resumen ejecutivo</div>
+            <p id="exec-summary-text" style="margin:0;font-size:13px;color:var(--primary);line-height:1.6;"></p>
+          </div>
+
+          <div class="card" id="block-evidence" style="display:none;">
+            <div class="card-title">Qué ha encontrado RevMax</div>
+            <div id="evidence-degraded" style="display:none;margin-bottom:12px;padding:10px 12px;background:#FEF3C7;border-radius:10px;font-size:12px;color:#B45309;">Análisis parcial / degradado</div>
+            <div class="snapshot-grid" id="evidence-grid"></div>
+          </div>
+
+          <div class="card" id="block-health" style="display:none;">
+            <div class="card-title">Salud del análisis</div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+              <span class="quality-badge" id="quality-badge">—</span>
+              <span id="quality-summary" style="font-size:13px;color:var(--muted);"></span>
+            </div>
+            <p id="quality-detail" style="margin:0;font-size:12px;color:var(--muted);"></p>
+          </div>
+
+          <div class="card" id="block-validation">
+            <div class="card-title">Validación humana</div>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Puntúa el caso actual (se guarda en data/qa_runs/).</p>
+            <input type="hidden" id="val-job-id" value="">
+            <div class="form-group"><label class="form-label">Score (1–5)</label><input type="number" class="form-input" id="val-score" min="1" max="5" value="3" style="max-width:80px;"></div>
+            <div class="form-group"><label class="form-label">Agreement</label><select class="form-input" id="val-verdict"><option value="agree">agree</option><option value="partial">partial</option><option value="disagree">disagree</option></select></div>
+            <div class="form-group"><label class="form-label">Feedback</label><textarea class="form-input" id="val-feedback" rows="2" placeholder="Opcional"></textarea></div>
+            <div class="form-group"><label class="form-label">Adjustment</label><select class="form-input" id="val-adjustment"><option value="no_change_needed">no_change_needed</option><option value="adjust_thresholds">adjust_thresholds</option><option value="adjust_weights">adjust_weights</option><option value="review_prompt_structure">review_prompt_structure</option><option value="review_action_rules">review_action_rules</option><option value="review_strategy_rules">review_strategy_rules</option></select></div>
+            <button class="btn btn-primary" onclick="saveValidation()">Guardar validación</button>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Historial QA</div>
+            <div style="max-height:280px;overflow-y:auto;">
+              <table class="tbl"><thead><tr><th>Fecha</th><th>Hotel</th><th>Score</th><th>Verdict</th><th>Adjustment</th></tr></thead><tbody id="qa-history"></tbody></table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Diagnóstico del modelo</div>
+            <div id="model-diagnosis"><p style="font-size:13px;color:var(--muted);">Cargando...</p></div>
+          </div>
+
+          <div class="card" id="block-preview" style="display:none;">
+            <div class="card-title">Vista previa del informe</div>
+            <div class="iframe-wrap" style="height:500px;"><iframe id="run-preview-iframe" title="Preview"></iframe></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div>
-      <div class="section" id="block-decision" style="display:none;">
-        <div class="section-title">C — Decisión principal</div>
-        <div class="decision-hero" id="decision-hero"><div class="label">RevMax recomienda</div><div class="action" id="decision-action">—</div><div class="decision-meta" id="decision-meta"></div></div>
-      </div>
-
-      <div class="section" id="block-summary" style="display:none;">
-        <div class="section-title">D — Resumen ejecutivo</div>
-        <p id="exec-summary-text" style="margin:0;font-size:13px;color:var(--text);line-height:1.6;"></p>
-      </div>
-
-      <div class="section" id="block-evidence" style="display:none;">
-        <div class="section-title">E — Qué ha encontrado RevMax</div>
-        <div id="evidence-degraded" style="display:none;margin-bottom:12px;padding:10px 12px;background:var(--amber-bg);border-radius:8px;font-size:12px;color:var(--amber);">Análisis parcial / degradado</div>
-        <div class="evidence-grid" id="evidence-grid"></div>
-        <div style="margin-top:14px;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Top competidores</div>
-        <ul id="evidence-competitors" style="margin:8px 0 0;padding-left:20px;font-size:13px;"></ul>
-      </div>
-
-      <div class="section" id="block-health" style="display:none;">
-        <div class="section-title">F — Salud del análisis</div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;"><span class="quality-badge" id="quality-badge">—</span><span id="quality-summary" style="font-size:13px;color:var(--text2);"></span></div>
-        <p id="quality-detail" style="margin:0;font-size:12px;color:var(--text3);"></p>
-      </div>
-
-      <div class="section">
-        <div class="section-title">G — Diagnóstico de agentes</div>
-        <details class="agents-panel"><summary>Agents status</summary><div id="agents-list"></div></details>
-      </div>
-
-      <div class="section" id="block-validation">
-        <div class="section-title">H — Validación humana</div>
-        <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">Puntúa el caso actual (se guarda en data/qa_runs/).</p>
-        <input type="hidden" id="val-job-id" value="">
-        <div class="fg"><label class="fl">Score reasoning quality (1–5)</label><input type="number" class="fi" id="val-score" min="1" max="5" value="3" style="max-width:80px;"></div>
-        <div class="fg"><label class="fl">Agreement</label><select class="fi" id="val-verdict"><option value="agree">agree</option><option value="partial">partial</option><option value="disagree">disagree</option></select></div>
-        <div class="fg"><label class="fl">Feedback text</label><textarea class="fi" id="val-feedback" rows="2" placeholder="Opcional"></textarea></div>
-        <div class="fg"><label class="fl">Adjustment decision</label><select class="fi" id="val-adjustment"><option value="no_change_needed">no_change_needed</option><option value="adjust_thresholds">adjust_thresholds</option><option value="adjust_weights">adjust_weights</option><option value="review_prompt_structure">review_prompt_structure</option><option value="review_action_rules">review_action_rules</option><option value="review_strategy_rules">review_strategy_rules</option></select></div>
-        <button class="btn btn-primary" onclick="saveValidation()">Guardar validación</button>
-      </div>
-
-      <div class="section">
-        <div class="section-title">I — Historial QA</div>
-        <div style="max-height:280px;overflow-y:auto;">
-          <table class="tbl"><thead><tr><th>Fecha</th><th>Hotel</th><th>Score</th><th>Verdict</th><th>Adjustment</th></tr></thead><tbody id="qa-history"></tbody></table>
+    <!-- DASHBOARD -->
+    <div id="pg-dash" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+        <div>
+          <h1 class="page-title">Dashboard</h1>
+          <p class="page-sub" id="dash-ts"></p>
         </div>
+        <button class="btn btn-secondary" onclick="loadAll()">Refrescar</button>
       </div>
-
-      <div class="section">
-        <div class="section-title">J — Diagnóstico del modelo</div>
-        <div id="model-diagnosis"><p style="font-size:13px;color:var(--text3);">Cargando...</p></div>
-      </div>
-
-      <div class="section" id="block-preview" style="display:none;">
-        <div class="section-title">Vista previa del informe</div>
-        <div class="iframe-wrap" style="height:500px;"><iframe id="run-preview-iframe" title="Preview"></iframe></div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;">
+        <div class="card" style="padding:0;overflow:hidden;"><div class="card-title" style="padding:24px 28px 0;">Últimos informes</div><table class="tbl"><tbody id="dash-rep"></tbody></table></div>
+        <div class="card"><div class="card-title">Últimas alertas</div><div id="dash-alrt"></div></div>
       </div>
     </div>
+
+    <!-- CLIENTES -->
+    <div id="pg-clients" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+        <div>
+          <h1 class="page-title">Clientes</h1>
+          <p class="page-sub">Hoteles y planes</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddClient()">
+          <i data-lucide="plus" class="lucide"></i>
+          Añadir cliente
+        </button>
+      </div>
+      <div class="client-grid" id="clients-grid"></div>
+      <div id="clients-table-wrap" style="display:none;"><table class="tbl"><thead><tr><th>Hotel</th><th>Ciudad</th><th>Email</th><th>Plan</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="clients-body"></tbody></table></div>
+    </div>
+
+    <!-- INFORMES -->
+    <div id="pg-reports" style="display:none;">
+      <h1 class="page-title">Informes</h1>
+      <p class="page-sub">Historial de análisis</p>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <ul class="report-list" id="reports-list"></ul>
+        <div id="reports-empty" class="empty-state" style="display:none;">Sin informes</div>
+      </div>
+    </div>
+
+    <!-- ALERTAS -->
+    <div id="pg-alerts" style="display:none;">
+      <h1 class="page-title">Log de alertas</h1>
+      <p class="page-sub">Eventos y notificaciones</p>
+      <div class="card" id="alerts-body"></div>
+    </div>
+
+    <!-- CONFIG -->
+    <div id="pg-config" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+        <h1 class="page-title">Configuración</h1>
+        <button class="btn btn-primary" onclick="saveConfig()">Guardar</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Hotel y API</div>
+        <div class="form-group"><label class="form-label">Nombre hotel</label><input type="text" class="form-input" id="c-name"></div>
+        <div class="form-group"><label class="form-label">Ciudad</label><input type="text" class="form-input" id="c-city"></div>
+        <div class="form-group"><label class="form-label">Anthropic API Key</label><input type="password" class="form-input" id="c-apikey"></div>
+        <div class="form-group"><label class="form-label">Email destinatario</label><input type="text" class="form-input" id="c-recipient"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="modal-add" onclick="if(event.target.id==='modal-add')closeM('modal-add')">
+  <div class="modal">
+    <div class="modal-title">Añadir cliente <span class="modal-close" onclick="closeM('modal-add')">×</span></div>
+    <div class="form-group"><label class="form-label">Hotel</label><input type="text" class="form-input" id="ac-name"></div>
+    <div class="form-group"><label class="form-label">Ciudad</label><input type="text" class="form-input" id="ac-city"></div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="ac-email"></div>
+    <div class="form-group"><label class="form-label">Plan</label><select class="form-input" id="ac-plan"><option value="basic">Basic</option><option value="pro" selected>Pro</option><option value="premium">Premium</option></select></div>
+    <button class="btn btn-primary" style="width:100%;" onclick="addClient()">Añadir</button>
   </div>
 </div>
-
-<!-- DASHBOARD -->
-<div id="pg-dash" style="display:none;">
-  <div class="ph"><div><div class="pt">Dashboard</div><div class="ps" id="dash-ts"></div></div><button class="btn btn-secondary" onclick="loadAll()">Refrescar</button></div>
-  <div class="mrow" id="mrow"></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;"><div class="section"><div class="section-title">Últimos informes</div><table class="tbl"><tbody id="dash-rep"></tbody></table></div><div class="section"><div class="section-title">Últimas alertas</div><div id="dash-alrt"></div></div></div>
-</div>
-
-<!-- CLIENTES -->
-<div id="pg-clients" style="display:none;">
-  <div class="ph"><div><div class="pt">Clientes</div><div class="ps">Gestión de hoteles</div></div><button class="btn btn-primary" onclick="openAddClient()">+ Añadir cliente</button></div>
-  <div class="section" style="padding:0;overflow:hidden;"><table class="tbl"><thead><tr><th>Hotel</th><th>Ciudad</th><th>Email</th><th>Plan</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="clients-body"></tbody></table></div>
-</div>
-
-<!-- INFORMES -->
-<div id="pg-reports" style="display:none;">
-  <div class="ph"><div><div class="pt">Informes</div><div class="ps">Historial</div></div></div>
-  <div class="section" style="padding:0;overflow:hidden;"><table class="tbl"><thead><tr><th>Hotel</th><th>Fecha</th><th>Estado</th><th>Resumen</th><th>Ver</th></tr></thead><tbody id="reports-body"></tbody></table></div>
-</div>
-
-<!-- ALERTAS -->
-<div id="pg-alerts" style="display:none;">
-  <div class="ph"><div><div class="pt">Log de alertas</div></div></div>
-  <div class="section" id="alerts-body"></div>
-</div>
-
-<!-- CONFIG -->
-<div id="pg-config" style="display:none;">
-  <div class="ph"><div><div class="pt">Configuración</div></div><button class="btn btn-primary" onclick="saveConfig()">Guardar</button></div>
-  <div class="section"><div class="section-title">Hotel y API</div><div class="fg"><label class="fl">Nombre hotel</label><input class="fi" id="c-name"></div><div class="fg"><label class="fl">Ciudad</label><input class="fi" id="c-city"></div><div class="fg"><label class="fl">Anthropic API Key</label><input class="fi" id="c-apikey" type="password"></div><div class="fg"><label class="fl">Email destinatario</label><input class="fi" id="c-recipient"></div></div>
-</div>
-
-</main>
-</div>
-
-<div class="overlay" id="modal-add" onclick="if(event.target.id==='modal-add')closeM('modal-add')"><div class="modal"><div class="mttl">Añadir cliente <span class="mclose" onclick="closeM('modal-add')">×</span></div><div class="fg"><label class="fl">Hotel</label><input class="fi" id="ac-name"></div><div class="fg"><label class="fl">Ciudad</label><input class="fi" id="ac-city"></div><div class="fg"><label class="fl">Email</label><input class="fi" id="ac-email" type="email"></div><div class="fg"><label class="fl">Plan</label><select class="fi" id="ac-plan"><option value="basic">Basic</option><option value="pro" selected>Pro</option><option value="premium">Premium</option></select></div><button class="btn btn-primary" style="width:100%;" onclick="addClient()">Añadir</button></div></div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-const API='';
-let _stats={},_clients=[],_reports=[],_alerts=[];
+const API = '';
+let _stats = {}, _clients = [], _reports = [], _alerts = [];
+let _compsetList = [];
 
-async function api(path,method='GET',body=null){const o={method,headers:{'Content-Type':'application/json'}};if(body)o.body=JSON.stringify(body);const r=await fetch(API+path,o);return r.json();}
-function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type==='ok'?'ok':type==='err'?'err':'');t.style.display='block';setTimeout(()=>t.style.display='none',3200);}
-
-function nav(page){
-  document.querySelectorAll('[id^="pg-"]').forEach(p=>p.style.display='none');
-  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
-  document.getElementById('pg-'+page).style.display='block';
-  document.getElementById('nav-'+page).classList.add('on');
-  if(page==='clients')renderClients();
-  if(page==='reports')renderReports();
-  if(page==='alerts')renderAlerts();
-  if(page==='config')renderConfig();
-  if(page==='run'){toggleDemoWarning();loadQA();loadModelDiagnosis();}
+function initLucide() {
+  if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
 }
 
-function toggleDemoWarning(){const w=document.getElementById('run-demo-warning');const c=document.getElementById('run-fast-demo');w.style.display=c&&c.checked?'block':'none';}
-
-function fmt(v){return v===undefined||v===null||v===''||String(v).trim()===''?'No encontrado':String(v);}
-
-const STAGE_MSG={starting:'Iniciando...',discovery:'Identificando hotel',compset:'Detectando comp set',parallel:'Análisis en paralelo',pricing:'Pricing',demand:'Demand',reputation:'Reputation',distribution:'Distribution',consolidate:'Consolidando',report:'Generando informe',done:'Completado',error:'Error'};
-
-function renderProgressSteps(steps){
-  const el=document.getElementById('run-progress-steps');const block=document.getElementById('run-progress-block');const idle=document.getElementById('run-progress-idle');
-  if(!steps||!steps.length){if(block)block.style.display='none';if(idle)idle.style.display='block';el.innerHTML='';return;}
-  if(block)block.style.display='block';if(idle)idle.style.display='none';
-  const icon=s=>{if(s==='done')return '✓';if(s==='active')return '<span class="spin"></span>';if(s==='warning')return '⚠';if(s==='error')return '✗';return '○';};
-  el.innerHTML=steps.map(s=>'<li class="'+s.status+'"><span class="step-icon">'+icon(s.status)+'</span><span>'+s.label+'</span></li>').join('');
+async function api(path, method = 'GET', body = null) {
+  const o = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) o.body = JSON.stringify(body);
+  const r = await fetch(API + path, o);
+  return r.json();
+}
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type === 'ok' ? 'ok' : type === 'err' ? 'err' : '');
+  t.style.display = 'block';
+  setTimeout(function() { t.style.display = 'none'; }, 3200);
 }
 
-function renderResult(job){
-  const sum=job.result_summary||{};const ev=job.evidence_found||{};const q=job.analysis_quality||{};
-  const action=(sum.consolidated_action||'hold').toLowerCase();
-  const actionLabel=action==='raise'?'RAISE PRICE':action==='lower'?'LOWER PRICE':'HOLD PRICE';
-  document.getElementById('block-decision').style.display='block';
-  document.getElementById('decision-hero').className='decision-hero '+action;
-  document.getElementById('decision-action').textContent=actionLabel;
-  document.getElementById('decision-meta').textContent='Confidence '+(sum.confidence_pct!=null?sum.confidence_pct:'—')+'%';
-  document.getElementById('block-summary').style.display='block';
-  document.getElementById('exec-summary-text').textContent=fmt(sum.executive_summary);
-  document.getElementById('block-evidence').style.display='block';
-  document.getElementById('evidence-degraded').style.display=(ev.is_degraded?'block':'none');
-  const keys=[['Hotel','hotel_detected'],['Ciudad','city'],['Precio propio','own_price'],['Media compset','compset_avg'],['Posición precio','price_position'],['GRI','gri'],['Visibilidad','visibility'],['Paridad','parity_status'],['Demand score','demand_score']];
-  document.getElementById('evidence-grid').innerHTML=keys.map(([k,key])=>'<div class="evidence-item"><div class="k">'+k+'</div><div class="v">'+fmt(ev[key])+'</div></div>').join('');
-  const comps=ev.top_3_competitors||[];document.getElementById('evidence-competitors').innerHTML=Array.isArray(comps)?comps.map(c=>'<li>'+fmt(c)+'</li>').join(''):'<li>'+fmt(comps)+'</li>';
-  document.getElementById('block-health').style.display='block';
-  const qLabel=(q.label||'good').toUpperCase();
-  document.getElementById('quality-badge').textContent=qLabel;document.getElementById('quality-badge').className='quality-badge quality-'+(q.label||'good');
-  document.getElementById('quality-summary').textContent='Score '+fmt(q.score)+' · '+fmt(q.agents_ok)+'/'+fmt(q.agents_total)+' agentes OK'+(q.fallback_count>0?' · '+q.fallback_count+' fallback':'');
-  document.getElementById('quality-detail').textContent=fmt(q.summary);
-  const steps=job.progress_steps||[];const agentNames=['Discovery','Compset','Pricing','Demand','Reputation','Distribution'];
-  let list='';for(let i=0;i<Math.min(6,steps.length);i++){const s=steps[i];const st=s.status==='warning'?'fallback':'ok';list+='<div class="agent-row"><span class="agent-name">'+agentNames[i]+'</span><span class="agent-status-'+st+'">'+s.status+'</span></div>';}
-  document.getElementById('agents-list').innerHTML=list||'—';
-  document.getElementById('val-job-id').value=job.job_id||'';
-  document.getElementById('block-preview').style.display='block';
-  const iframe=document.getElementById('run-preview-iframe');iframe.src=job.job_id?('/api/preview/job/'+encodeURIComponent(job.job_id)+'?t='+Date.now()):'';
+function nav(page) {
+  document.querySelectorAll('[id^="pg-"]').forEach(function(p) { p.style.display = 'none'; });
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('on'); });
+  var pg = document.getElementById('pg-' + page);
+  if (pg) pg.style.display = 'block';
+  var navEl = document.getElementById('nav-' + page);
+  if (navEl) navEl.classList.add('on');
+  if (page === 'clients') renderClients();
+  if (page === 'reports') renderReports();
+  if (page === 'alerts') renderAlerts();
+  if (page === 'config') renderConfig();
+  if (page === 'dash') renderDashboard();
+  if (page === 'run') { toggleDemoWarning(); loadQA(); loadModelDiagnosis(); }
+  setTimeout(initLucide, 50);
 }
 
-async function loadAll(){
-  const [stats,clients,reports,alerts]=await Promise.all([api('/api/stats'),api('/api/clients'),api('/api/reports'),api('/api/alerts')]);
-  _stats=stats;_clients=clients;_reports=reports;_alerts=alerts;
-  document.getElementById('last-refresh').textContent='Actualizado '+new Date().toLocaleTimeString('es-ES');
-  document.getElementById('dash-ts').textContent=new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
-  document.getElementById('mrow').innerHTML=['Clientes activos','Informes hoy','Alertas hoy'].map((l,i)=>{const v=[_stats.active_clients||0,_stats.reports_today||0,_stats.alerts_today||0][i];return'<div class="mc"><div class="ml">'+l+'</div><div class="mv">'+v+'</div></div>';}).join('');
-  document.getElementById('dash-rep').innerHTML=(_reports.slice(0,5).map(r=>'<tr onclick="viewReport('+r.id+',\''+(r.subject||'').replace(/'/g,"\\'")+'\')"><td><strong>'+(r.subject||'—')+'</strong><br><span style="font-size:11px;color:var(--text3)">'+r.date+'</span></td><td>'+r.status+'</td></tr>').join(''))||'<tr><td colspan="2" style="color:var(--text3);padding:12px">Sin informes</td></tr>';
-  document.getElementById('dash-alrt').innerHTML=(_alerts.slice(0,5).map(a=>'<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">'+a.title+' · '+(a.created_at||'').slice(0,16)+'</div>').join(''))||'<p style="color:var(--text3)">Sin alertas</p>';
-  renderClients();renderReports();renderAlerts();
+function toggleDemoWarning() {
+  var w = document.getElementById('run-demo-warning');
+  var c = document.getElementById('run-fast-demo');
+  w.style.display = c && c.checked ? 'block' : 'none';
 }
 
-function renderClients(){const planBadge=p=>p==='premium'?'Premium':p==='pro'?'Pro':'Basic';document.getElementById('clients-body').innerHTML=_clients.map(c=>'<tr><td><strong>'+c.name+'</strong></td><td>'+c.city+'</td><td style="font-size:12px">'+c.email+'</td><td>'+planBadge(c.plan)+'</td><td>'+(c.active?'Activo':'Pausado')+'</td><td><button class="btn btn-secondary" style="font-size:11px;padding:6px 10px" onclick="quickRun(\''+c.name.replace(/'/g,"\\'")+'\',\''+(c.city||'').replace(/'/g,"\\'")+'\','+c.id+')">Analizar</button></td></tr>').join('')||'<tr><td colspan="6" style="padding:20px;color:var(--text3);text-align:center">Sin clientes</td></tr>';}
-function renderReports(){const name=id=>{const c=_clients.find(x=>x.id===id);return c?c.name:'—';};document.getElementById('reports-body').innerHTML=_reports.map(r=>'<tr><td>'+name(r.hotel_id)+'</td><td>'+r.date+'</td><td>'+r.status+'</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">'+r.subject+'</td><td><button class="btn btn-secondary" style="font-size:11px;padding:6px 10px" onclick="viewReport('+r.id+')">Ver</button></td></tr>').join('')||'<tr><td colspan="5" style="padding:20px;color:var(--text3)">Sin informes</td></tr>';}
-function renderAlerts(){document.getElementById('alerts-body').innerHTML=_alerts.map(a=>'<div style="padding:10px 0;border-bottom:1px solid var(--border)"><strong>'+a.title+'</strong><br><span style="font-size:11px;color:var(--text3)">'+a.hotel_name+' · '+(a.created_at||'').slice(0,16)+'</span></div>').join('')||'<p style="color:var(--text3)">Sin alertas</p>';}
-
-async function renderConfig(){const cfg=await api('/api/config');document.getElementById('c-name').value=cfg.name||'';document.getElementById('c-city').value=cfg.city||'';document.getElementById('c-apikey').value=cfg.anthropic_api_key||'';document.getElementById('c-recipient').value=cfg.report_recipient||'';}
-async function saveConfig(){const cfg={name:document.getElementById('c-name').value,city:document.getElementById('c-city').value,anthropic_api_key:document.getElementById('c-apikey').value,report_recipient:document.getElementById('c-recipient').value};await api('/api/save-config','POST',cfg);toast('Guardado','ok');}
-
-async function loadQA(){const r=await api('/api/qa/cases');const cases=r.cases||[];const tbody=document.getElementById('qa-history');tbody.innerHTML=cases.slice(0,25).map(c=>'<tr><td>'+(c.timestamp||'').slice(0,16)+'</td><td>'+c.hotel_name+'</td><td>'+fmt(c.human_score)+'</td><td>'+fmt(c.human_verdict)+'</td><td>'+fmt(c.adjustment_decision)+'</td></tr>').join('')||'<tr><td colspan="5" style="padding:12px;color:var(--text3)">Sin casos</td></tr>';}
-async function loadModelDiagnosis(){const s=await api('/api/qa/summary');const el=document.getElementById('model-diagnosis');if(!s||s.total_cases===0){el.innerHTML='<p style="font-size:13px;color:var(--text3)">No hay casos con validación para resumir.</p>';return;}const v=s.human_verdict_pct||{};el.innerHTML='<p style="margin-bottom:8px"><strong>Total casos:</strong> '+s.total_cases+' · <strong>Average score:</strong> '+fmt(s.human_score_mean)+'</p><p style="margin-bottom:8px;font-size:12px">Agree: '+v.agree+'% · Partial: '+v.partial+'% · Disagree: '+v.disagree+'%</p>'+(s.most_common_issues&&s.most_common_issues.length?'<p style="margin-bottom:4px;font-size:11px;font-weight:600;color:var(--text2)">Problemas más frecuentes:</p><ul style="margin:0 0 8px 20px;font-size:12px">'+s.most_common_issues.map(i=>'<li>'+i.label+' ('+i.count+')</li>').join('')+'</ul>':'')+(s.recommended_next_adjustment?'<p style="font-size:12px"><strong>Próximo ajuste recomendado:</strong> '+s.recommended_next_adjustment.label+'</p>':'');}
-
-async function saveValidation(){const jobId=document.getElementById('val-job-id').value;if(!jobId){toast('Ejecuta un análisis y espera a que termine para guardar validación','err');return;}const r=await api('/api/qa/save-validation','POST',{job_id:jobId,score:parseInt(document.getElementById('val-score').value,10),verdict:document.getElementById('val-verdict').value,feedback:document.getElementById('val-feedback').value,adjustment_decision:document.getElementById('val-adjustment').value});if(r.error){toast(r.error,'err');return;}toast('Validación guardada','ok');loadQA();loadModelDiagnosis();}
-
-function quickRun(name,city,id){api('/api/run-analysis','POST',{hotel_name:name,city,hotel_id:id}).then(r=>{toast(r.ok?'Análisis iniciado':r.error,'ok');nav('run');document.getElementById('run-hotel').value=name;document.getElementById('run-city').value=city;});}
-function openAddClient(){document.getElementById('modal-add').classList.add('open');}
-function closeM(id){document.getElementById(id).classList.remove('open');}
-async function addClient(){const r=await api('/api/add-client','POST',{name:document.getElementById('ac-name').value,city:document.getElementById('ac-city').value,email:document.getElementById('ac-email').value,plan:document.getElementById('ac-plan').value});toast(r.message||r.error,r.ok?'ok':'err');closeM('modal-add');loadAll();}
-function viewReport(id,subject){window.open('/api/report-html/'+id,'_blank');}
-
-async function runAnalysis(){
-  const hotel=document.getElementById('run-hotel').value.trim();const city=document.getElementById('run-city').value.trim();
-  const mode=document.getElementById('run-mode').value;const fastDemo=document.getElementById('run-fast-demo').checked;
-  if(!hotel){toast('Indica el nombre del hotel','err');return;}
-  const btn=document.getElementById('run-btn');const btxt=document.getElementById('run-btn-txt');
-  btn.disabled=true;btxt.innerHTML='<span class="spin"></span> Analizando...';
-  const status=document.getElementById('run-status');status.style.display='block';status.textContent=fastDemo?'Demo rápido...':'Iniciando...';
-  const r=await api('/api/run-analysis','POST',{hotel_name:hotel,city,hotel_id:1,send_email:mode==='send',fast_demo:fastDemo});
-  if(!r.ok){toast(r.error||'Error','err');btn.disabled=false;btxt.textContent='Generar análisis';return;}
-  const jobId=r.job_id;toast(r.ok?'Análisis iniciado':'Error',r.ok?'ok':'err');
-  const poll=setInterval(async()=>{
-    const jR=await fetch('/api/job-status/'+jobId).catch(()=>null);
-    if(!jR||!jR.ok)return;
-    const job=await jR.json();
-    renderProgressSteps(job.progress_steps||[]);
-    status.textContent=(STAGE_MSG[job.stage]||job.stage)+(job.progress_pct!=null?' · '+job.progress_pct+'%':'');
-    const durEl=document.getElementById('run-duration');if(job.analysis_timing&&job.analysis_timing.total_duration!=null)durEl.textContent='Duración: '+Math.round(job.analysis_timing.total_duration)+' s';
-    if(job.status==='completed'){clearInterval(poll);btn.disabled=false;btxt.textContent='Generar análisis';if(durEl&&job.analysis_timing)durEl.textContent='Completado · '+Math.round(job.analysis_timing.total_duration||0)+' s';renderResult(job);toast('Análisis completado','ok');loadAll();loadQA();loadModelDiagnosis();return;}
-    if(job.status==='failed'){clearInterval(poll);btn.disabled=false;btxt.textContent='Generar análisis';status.style.color='var(--red)';status.textContent='Error: '+(job.error_message||'Unknown');renderProgressSteps(job.progress_steps||[]);if(job.evidence_found||job.analysis_quality)renderResult(job);toast('Análisis falló','err');return;}
-    if(job.status==='stalled'||job.status==='cancelled'){clearInterval(poll);btn.disabled=false;btxt.textContent='Generar análisis';status.textContent=job.status==='stalled'?'Job colgado': 'Cancelado';toast(job.status==='stalled'?'Job colgado':'Cancelado','err');return;}
-  },2000);
-  setTimeout(()=>{if(btn.disabled){clearInterval(poll);btn.disabled=false;btxt.textContent='Generar análisis';status.textContent='Tiempo agotado. Comprueba el estado más tarde.';toast('Timeout','err');}},600000);
+function fmt(v) {
+  return (v === undefined || v === null || v === '' || String(v).trim() === '') ? '—' : String(v);
 }
 
-window.onload=()=>{nav('run');loadAll();loadQA();loadModelDiagnosis();setInterval(loadAll,60000);};
+var STAGE_MSG = { starting: 'Iniciando...', discovery: 'Identificando hotel', compset: 'Detectando comp set', parallel: 'Análisis en paralelo', pricing: 'Pricing', demand: 'Demand', reputation: 'Reputation', distribution: 'Distribution', consolidate: 'Consolidando', report: 'Generando informe', done: 'Completado', error: 'Error' };
+
+function renderProgressSteps(steps) {
+  var el = document.getElementById('run-progress-steps');
+  var block = document.getElementById('run-progress-block');
+  var idle = document.getElementById('run-progress-idle');
+  if (!steps || !steps.length) {
+        if (block) block.style.display = 'none';
+        if (idle) idle.style.display = 'block';
+        el.innerHTML = '';
+        return;
+      }
+  if (block) block.style.display = 'block';
+  if (idle) idle.style.display = 'none';
+  function icon(s) {
+    if (s === 'done') return '<i data-lucide="check" class="lucide" style="width:18px;height:18px;"></i>';
+    if (s === 'active') return '<span class="spin"></span>';
+    if (s === 'warning') return '<i data-lucide="alert-triangle" class="lucide" style="width:18px;height:18px;"></i>';
+    if (s === 'error') return '<i data-lucide="x" class="lucide" style="width:18px;height:18px;"></i>';
+    return '<i data-lucide="circle" class="lucide" style="width:18px;height:18px;"></i>';
+  }
+  el.innerHTML = steps.map(function(s) {
+    return '<li class="' + s.status + '"><span class="step-icon">' + icon(s.status) + '</span><span>' + s.label + '</span></li>';
+  }).join('');
+  initLucide();
+}
+
+function renderResult(job) {
+  var sum = job.result_summary || {};
+  var ev = job.evidence_found || {};
+  var q = job.analysis_quality || {};
+  var action = (sum.consolidated_action || 'hold').toLowerCase();
+  var actionLabel = action === 'raise' ? 'RAISE PRICE' : action === 'lower' ? 'LOWER PRICE' : 'HOLD PRICE';
+  document.getElementById('block-decision').style.display = 'block';
+  var hero = document.getElementById('decision-hero');
+  hero.className = 'hero-decision ' + action;
+  document.getElementById('decision-action').textContent = actionLabel;
+  document.getElementById('decision-meta').textContent = 'Confidence ' + (sum.confidence_pct != null ? sum.confidence_pct : '—') + '%';
+  document.getElementById('decision-explain').textContent = sum.executive_summary ? (sum.executive_summary.slice(0, 120) + (sum.executive_summary.length > 120 ? '…' : '')) : '';
+
+  document.getElementById('block-snapshot').style.display = 'block';
+  var snap = [
+    ['Your price', ev.own_price],
+    ['Market average', ev.compset_avg],
+    ['Price position', ev.price_position],
+    ['Demand index', ev.demand_score],
+    ['Reputation score', ev.gri],
+    ['Visibility', ev.visibility]
+  ];
+  document.getElementById('snapshot-grid').innerHTML = snap.map(function(x) {
+    return '<div class="snapshot-item"><div class="k">' + x[0] + '</div><div class="v">' + fmt(x[1]) + '</div></div>';
+  }).join('');
+
+  document.getElementById('block-context').style.display = 'block';
+  document.getElementById('context-text').textContent = sum.executive_summary || 'Sin resumen.';
+
+  document.getElementById('block-events').style.display = 'block';
+  var events = ev.events_detected || [];
+  if (!Array.isArray(events)) events = [];
+  var eventsList = document.getElementById('events-list');
+  var eventsEmpty = document.getElementById('events-empty');
+  if (events.length) {
+    eventsEmpty.style.display = 'none';
+    eventsList.innerHTML = events.map(function(e) { return '<li>' + (typeof e === 'string' ? e : (e && (e.name || e.title)) || '—') + '</li>'; }).join('');
+  } else {
+    eventsList.innerHTML = '';
+    eventsEmpty.style.display = 'block';
+  }
+
+  document.getElementById('block-actions').style.display = 'block';
+  var actions = (sum.recommended_actions || []).slice(0, 5);
+  if (!actions.length) actions = [{ action_hint: 'Revisar informe completo.' }];
+  document.getElementById('actions-list').innerHTML = actions.map(function(a) {
+    var text = a.action_hint || a.title || a.action || '—';
+    return '<li><span class="bullet"></span><span>' + text + '</span></li>';
+  }).join('');
+
+  _compsetList = Array.isArray(ev.top_3_competitors) ? ev.top_3_competitors.slice() : (ev.top_3_competitors ? [ev.top_3_competitors] : []);
+  renderCompsetList();
+
+  document.getElementById('block-summary').style.display = 'block';
+  document.getElementById('exec-summary-text').textContent = fmt(sum.executive_summary);
+  document.getElementById('block-evidence').style.display = 'block';
+  document.getElementById('evidence-degraded').style.display = (ev.is_degraded ? 'block' : 'none');
+  var keys = [['Hotel', 'hotel_detected'], ['Ciudad', 'city'], ['Precio propio', 'own_price'], ['Media compset', 'compset_avg'], ['Posición', 'price_position'], ['GRI', 'gri'], ['Visibilidad', 'visibility'], ['Demand score', 'demand_score']];
+  document.getElementById('evidence-grid').innerHTML = keys.map(function(kv) {
+    return '<div class="snapshot-item"><div class="k">' + kv[0] + '</div><div class="v">' + fmt(ev[kv[1]]) + '</div></div>';
+  }).join('');
+
+  document.getElementById('block-health').style.display = 'block';
+  var qLabel = (q.label || 'good').toUpperCase();
+  document.getElementById('quality-badge').textContent = qLabel;
+  document.getElementById('quality-badge').className = 'quality-badge quality-' + (q.label || 'good');
+  document.getElementById('quality-summary').textContent = 'Score ' + fmt(q.score) + ' · ' + fmt(q.agents_ok) + '/' + fmt(q.agents_total) + ' agentes OK' + (q.fallback_count > 0 ? ' · ' + q.fallback_count + ' fallback' : '');
+  document.getElementById('quality-detail').textContent = fmt(q.summary);
+  document.getElementById('val-job-id').value = job.job_id || '';
+  document.getElementById('block-preview').style.display = 'block';
+  var iframe = document.getElementById('run-preview-iframe');
+  iframe.src = job.job_id ? ('/api/preview/job/' + encodeURIComponent(job.job_id) + '?t=' + Date.now()) : '';
+}
+
+function renderCompsetList() {
+  var ul = document.getElementById('compset-list');
+  ul.innerHTML = _compsetList.map(function(name, i) {
+    return '<li><span>' + fmt(name) + '</span><button type="button" class="remove-btn" onclick="removeCompset(' + i + ')">Remove</button></li>';
+  }).join('');
+}
+function addCompset() {
+  var input = document.getElementById('compset-add-input');
+  var name = (input && input.value || '').trim();
+  if (!name) return;
+  _compsetList.push(name);
+  input.value = '';
+  renderCompsetList();
+}
+function removeCompset(i) {
+  _compsetList.splice(i, 1);
+  renderCompsetList();
+}
+
+function renderDashboard() {
+  var grid = document.getElementById('stats-grid');
+  if (!grid) return;
+  var stats = [
+    { label: 'Analyses today', value: _stats.reports_today != null ? _stats.reports_today : 0 },
+    { label: 'Average confidence', value: '—' },
+    { label: 'Revenue alerts', value: _stats.alerts_today != null ? _stats.alerts_today : 0 },
+    { label: 'Market anomalies', value: _stats.alerts_today != null ? _stats.alerts_today : 0 }
+  ];
+  grid.innerHTML = stats.map(function(s) {
+    return '<div class="stat-card"><div class="label">' + s.label + '</div><div class="value">' + s.value + '</div></div>';
+  }).join('');
+}
+
+async function loadAll() {
+  var r = await Promise.all([api('/api/stats'), api('/api/clients'), api('/api/reports'), api('/api/alerts')]);
+  _stats = r[0];
+  _clients = r[1];
+  _reports = r[2];
+  _alerts = r[3];
+  document.getElementById('last-refresh').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-ES');
+  var dashTs = document.getElementById('dash-ts');
+  if (dashTs) dashTs.textContent = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  var dashRep = document.getElementById('dash-rep');
+  if (dashRep) dashRep.innerHTML = (_reports.slice(0, 5).map(function(r) {
+    return '<tr onclick="viewReport(' + r.id + ',\'' + (r.subject || '').replace(/'/g, "\\'") + '\')"><td><strong>' + (r.subject || '—') + '</strong><br><span style="font-size:11px;color:var(--muted)">' + r.date + '</span></td><td>' + r.status + '</td></tr>';
+  }).join('')) || '<tr><td colspan="2" style="color:var(--muted);padding:12px">Sin informes</td></tr>';
+  var dashAlrt = document.getElementById('dash-alrt');
+  if (dashAlrt) dashAlrt.innerHTML = (_alerts.slice(0, 5).map(function(a) {
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:12px">' + a.title + ' · ' + (a.created_at || '').slice(0, 16) + '</div>';
+  }).join('')) || '<p style="color:var(--muted)">Sin alertas</p>';
+  renderClients();
+  renderReports();
+  renderAlerts();
+  renderDashboard();
+}
+
+function planBadge(p) { return p === 'premium' ? 'Premium' : p === 'pro' ? 'Pro' : 'Basic'; }
+function planClass(p) { return p === 'premium' ? 'plan-premium' : p === 'pro' ? 'plan-pro' : 'plan-basic'; }
+
+function renderClients() {
+  var grid = document.getElementById('clients-grid');
+  var tbody = document.getElementById('clients-body');
+  if (grid) {
+    grid.innerHTML = _clients.map(function(c) {
+      return '<div class="client-card"><h3>' + c.name + '</h3><div class="city">' + c.city + '</div><span class="plan-badge ' + planClass(c.plan) + '">' + planBadge(c.plan) + '</span><br><button class="btn btn-primary" style="margin-top:12px;" onclick="quickRun(\'' + c.name.replace(/'/g, "\\'") + '\',\'' + (c.city || '').replace(/'/g, "\\'") + '\',' + c.id + ')"><i data-lucide="play" class="lucide"></i> Analizar</button></div>';
+    }).join('') || '<div class="empty-state">Sin clientes</div>';
+    initLucide();
+  }
+  if (tbody) {
+    tbody.innerHTML = _clients.map(function(c) {
+      return '<tr><td><strong>' + c.name + '</strong></td><td>' + c.city + '</td><td style="font-size:12px">' + c.email + '</td><td>' + planBadge(c.plan) + '</td><td>' + (c.active ? 'Activo' : 'Pausado') + '</td><td><button class="btn btn-secondary" style="font-size:11px;padding:6px 10px" onclick="quickRun(\'' + c.name.replace(/'/g, "\\'") + '\',\'' + (c.city || '').replace(/'/g, "\\'") + '\',' + c.id + ')">Analizar</button></td></tr>';
+    }).join('') || '<tr><td colspan="6" style="padding:20px;color:var(--muted);text-align:center">Sin clientes</td></tr>';
+  }
+}
+
+function renderReports() {
+  var listEl = document.getElementById('reports-list');
+  var emptyEl = document.getElementById('reports-empty');
+  var name = function(id) { var c = _clients.find(function(x) { return x.id === id; }); return c ? c.name : '—'; };
+  if (listEl) {
+    listEl.innerHTML = _reports.map(function(r) {
+      var overall = (r.overall || 'stable').toLowerCase();
+      var action = overall === 'strong' ? 'raise' : overall === 'needs_attention' || overall === 'alert' ? 'lower' : 'hold';
+      return '<li><div><strong>' + name(r.hotel_id) + '</strong><br><span style="font-size:12px;color:var(--muted)">' + r.date + ' · ' + (r.subject || '') + '</span></div><span class="decision-badge decision-' + action + '">' + (action === 'raise' ? 'Raise' : action === 'lower' ? 'Lower' : 'Hold') + '</span><button class="btn btn-ghost" onclick="viewReport(' + r.id + ')"><i data-lucide="external-link" class="lucide"></i></button></li>';
+    }).join('');
+    if (emptyEl) emptyEl.style.display = _reports.length ? 'none' : 'block';
+    initLucide();
+  }
+  var reportsBody = document.getElementById('reports-body');
+  if (reportsBody) reportsBody.innerHTML = _reports.map(function(r) {
+    return '<tr><td>' + name(r.hotel_id) + '</td><td>' + r.date + '</td><td>' + r.status + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">' + r.subject + '</td><td><button class="btn btn-secondary" style="font-size:11px;padding:6px 10px" onclick="viewReport(' + r.id + ')">Ver</button></td></tr>';
+  }).join('') || '<tr><td colspan="5" style="padding:20px;color:var(--muted)">Sin informes</td></tr>';
+}
+
+function renderAlerts() {
+  var el = document.getElementById('alerts-body');
+  if (el) el.innerHTML = _alerts.map(function(a) {
+    return '<div style="padding:12px 0;border-bottom:1px solid var(--border)"><strong>' + a.title + '</strong><br><span style="font-size:11px;color:var(--muted)">' + (a.hotel_name || '') + ' · ' + (a.created_at || '').slice(0, 16) + '</span></div>';
+  }).join('') || '<p style="color:var(--muted)">Sin alertas</p>';
+}
+
+async function renderConfig() {
+  var cfg = await api('/api/config');
+  document.getElementById('c-name').value = cfg.name || '';
+  document.getElementById('c-city').value = cfg.city || '';
+  document.getElementById('c-apikey').value = cfg.anthropic_api_key || '';
+  document.getElementById('c-recipient').value = cfg.report_recipient || '';
+}
+async function saveConfig() {
+  var cfg = { name: document.getElementById('c-name').value, city: document.getElementById('c-city').value, anthropic_api_key: document.getElementById('c-apikey').value, report_recipient: document.getElementById('c-recipient').value };
+  await api('/api/save-config', 'POST', cfg);
+  toast('Guardado', 'ok');
+}
+
+async function loadQA() {
+  var r = await api('/api/qa/cases');
+  var cases = r.cases || [];
+  var tbody = document.getElementById('qa-history');
+  tbody.innerHTML = cases.slice(0, 25).map(function(c) {
+    return '<tr><td>' + (c.timestamp || '').slice(0, 16) + '</td><td>' + c.hotel_name + '</td><td>' + fmt(c.human_score) + '</td><td>' + fmt(c.human_verdict) + '</td><td>' + fmt(c.adjustment_decision) + '</td></tr>';
+  }).join('') || '<tr><td colspan="5" style="padding:12px;color:var(--muted)">Sin casos</td></tr>';
+}
+async function loadModelDiagnosis() {
+  var s = await api('/api/qa/summary');
+  var el = document.getElementById('model-diagnosis');
+  if (!s || s.total_cases === 0) { el.innerHTML = '<p style="font-size:13px;color:var(--muted)">No hay casos con validación para resumir.</p>'; return; }
+  var v = s.human_verdict_pct || {};
+  el.innerHTML = '<p style="margin-bottom:8px"><strong>Total casos:</strong> ' + s.total_cases + ' · <strong>Average score:</strong> ' + fmt(s.human_score_mean) + '</p><p style="margin-bottom:8px;font-size:12px">Agree: ' + v.agree + '% · Partial: ' + v.partial + '% · Disagree: ' + v.disagree + '%</p>' + (s.most_common_issues && s.most_common_issues.length ? '<p style="margin-bottom:4px;font-size:11px;font-weight:600;color:var(--muted)">Problemas más frecuentes:</p><ul style="margin:0 0 8px 20px;font-size:12px">' + s.most_common_issues.map(function(i) { return '<li>' + i.label + ' (' + i.count + ')</li>'; }).join('') + '</ul>' : '') + (s.recommended_next_adjustment ? '<p style="font-size:12px"><strong>Próximo ajuste recomendado:</strong> ' + s.recommended_next_adjustment.label + '</p>' : '');
+}
+
+async function saveValidation() {
+  var jobId = document.getElementById('val-job-id').value;
+  if (!jobId) { toast('Ejecuta un análisis y espera a que termine para guardar validación', 'err'); return; }
+  var r = await api('/api/qa/save-validation', 'POST', { job_id: jobId, score: parseInt(document.getElementById('val-score').value, 10), verdict: document.getElementById('val-verdict').value, feedback: document.getElementById('val-feedback').value, adjustment_decision: document.getElementById('val-adjustment').value });
+  if (r.error) { toast(r.error, 'err'); return; }
+  toast('Validación guardada', 'ok');
+  loadQA();
+  loadModelDiagnosis();
+}
+
+function quickRun(name, city, id) {
+  api('/api/run-analysis', 'POST', { hotel_name: name, city: city, hotel_id: id }).then(function(r) {
+    toast(r.ok ? 'Análisis iniciado' : r.error, r.ok ? 'ok' : 'err');
+    nav('run');
+    document.getElementById('run-hotel').value = name;
+    document.getElementById('run-city').value = city;
+  });
+}
+function openAddClient() { document.getElementById('modal-add').classList.add('open'); }
+function closeM(id) { document.getElementById(id).classList.remove('open'); }
+async function addClient() {
+  var r = await api('/api/add-client', 'POST', { name: document.getElementById('ac-name').value, city: document.getElementById('ac-city').value, email: document.getElementById('ac-email').value, plan: document.getElementById('ac-plan').value });
+  toast(r.message || r.error, r.ok ? 'ok' : 'err');
+  closeM('modal-add');
+  loadAll();
+}
+function viewReport(id, subject) { window.open('/api/report-html/' + id, '_blank'); }
+
+document.querySelectorAll('.nav-item').forEach(function(el) {
+  el.addEventListener('click', function() { nav(el.getAttribute('data-page')); });
+});
+
+async function runAnalysis() {
+  var hotel = document.getElementById('run-hotel').value.trim();
+  var city = document.getElementById('run-city').value.trim();
+  var mode = document.getElementById('run-mode').value;
+  var fastDemo = document.getElementById('run-fast-demo').checked;
+  if (!hotel) { toast('Indica el nombre del hotel', 'err'); return; }
+  var btn = document.getElementById('run-btn');
+  var btxt = document.getElementById('run-btn-txt');
+  btn.disabled = true;
+  btxt.innerHTML = '<span class="spin"></span> Analizando...';
+  var status = document.getElementById('run-status');
+  status.style.display = 'block';
+  status.textContent = fastDemo ? 'Demo rápido...' : 'Iniciando...';
+  var r = await api('/api/run-analysis', 'POST', { hotel_name: hotel, city: city, hotel_id: 1, send_email: mode === 'send', fast_demo: fastDemo });
+  if (!r.ok) { toast(r.error || 'Error', 'err'); btn.disabled = false; btxt.textContent = 'Run analysis'; return; }
+  var jobId = r.job_id;
+  toast(r.ok ? 'Análisis iniciado' : 'Error', r.ok ? 'ok' : 'err');
+  var poll = setInterval(async function() {
+    var jR = await fetch('/api/job-status/' + jobId).catch(function() { return null; });
+    if (!jR || !jR.ok) return;
+    var job = await jR.json();
+    renderProgressSteps(job.progress_steps || []);
+    status.textContent = (STAGE_MSG[job.stage] || job.stage) + (job.progress_pct != null ? ' · ' + job.progress_pct + '%' : '');
+    var durEl = document.getElementById('run-duration');
+    if (job.analysis_timing && job.analysis_timing.total_duration != null) durEl.textContent = 'Duración: ' + Math.round(job.analysis_timing.total_duration) + ' s';
+    if (job.status === 'completed') {
+      clearInterval(poll);
+      btn.disabled = false;
+      btxt.textContent = 'Run analysis';
+      if (durEl && job.analysis_timing) durEl.textContent = 'Completado · ' + Math.round(job.analysis_timing.total_duration || 0) + ' s';
+      renderResult(job);
+      toast('Análisis completado', 'ok');
+      loadAll();
+      loadQA();
+      loadModelDiagnosis();
+      initLucide();
+      return;
+    }
+    if (job.status === 'failed') {
+      clearInterval(poll);
+      btn.disabled = false;
+      btxt.textContent = 'Run analysis';
+      status.style.color = 'var(--error)';
+      status.textContent = 'Error: ' + (job.error_message || 'Unknown');
+      renderProgressSteps(job.progress_steps || []);
+      if (job.evidence_found || job.analysis_quality) renderResult(job);
+      toast('Análisis falló', 'err');
+      return;
+    }
+    if (job.status === 'stalled' || job.status === 'cancelled') {
+      clearInterval(poll);
+      btn.disabled = false;
+      btxt.textContent = 'Run analysis';
+      status.textContent = job.status === 'stalled' ? 'Job colgado' : 'Cancelado';
+      toast(job.status === 'stalled' ? 'Job colgado' : 'Cancelado', 'err');
+      return;
+    }
+  }, 2000);
+  setTimeout(function() {
+    if (btn.disabled) {
+      clearInterval(poll);
+      btn.disabled = false;
+      btxt.textContent = 'Run analysis';
+      status.textContent = 'Tiempo agotado. Comprueba el estado más tarde.';
+      toast('Timeout', 'err');
+    }
+  }, 600000);
+}
+
+window.onload = function() {
+  nav('run');
+  loadAll();
+  loadQA();
+  loadModelDiagnosis();
+  setInterval(loadAll, 60000);
+  setTimeout(initLucide, 100);
+};
 </script>
 </body>
 </html>
