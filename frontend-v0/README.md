@@ -1,20 +1,28 @@
-# RevMax Frontend (v0 export) — Candidato principal
+# RevMax — Frontend principal oficial (frontend-v0)
 
-Frontend exportado desde v0, conectado al backend real RevMax. **La pantalla Analysis usa datos reales** (POST /api/run-analysis y GET /api/job-status/{job_id}). El resto de pantallas (Dashboard, Clients, Reports, Alerts, Dojo, Settings) siguen usando mocks por ahora.
+**Este es el frontend principal y oficial de RevMax.** Desarrollo y UX se hacen aquí.
 
-## Cómo arrancar
+- **Puerto:** 3000 → **http://localhost:3000**
+- **Backend:** 8001 (FastAPI). Las peticiones `/api/*` se reenvían al backend vía rewrites (ver `next.config.mjs`).
+- **Analysis:** Conectada al backend real (POST /api/run-analysis, GET /api/job-status/{job_id}).
 
-### Backend (puerto 8001)
+## Arranque rápido (recomendado)
 
-En la **raíz del proyecto RevMax** (no dentro de frontend-v0):
+En la **raíz del proyecto** (no aquí), doble clic en **`start_revmax.command`** para levantar backend + frontend-v0 y abrir el navegador. Primero: `chmod +x start_revmax.command stop_revmax.command`.
+
+## Arranque manual
+
+### 1. Backend (puerto 8001)
+
+En la **raíz del proyecto RevMax**:
 
 ```bash
 python -m uvicorn admin_panel:app --host 127.0.0.1 --port 8001
 ```
 
-### Frontend (puerto 3000)
+### 2. Frontend (puerto 3000)
 
-En esta carpeta:
+En esta carpeta (`frontend-v0/`):
 
 ```bash
 npm install
@@ -23,9 +31,9 @@ npm run dev
 
 Abre **http://localhost:3000**. La ruta `/` es la pantalla Analysis.
 
-### Conexión al backend
+### Variable de entorno (opcional)
 
-En desarrollo, las peticiones a `/api/*` se reenvían al backend mediante **rewrites** de Next.js (ver `next.config.mjs`). Por defecto el destino es `http://127.0.0.1:8001`. Si tu backend está en otra URL, crea un `.env.local` en esta carpeta:
+Por defecto los rewrites apuntan a `http://127.0.0.1:8001`. Si el backend está en otra URL, crea `.env.local` (o copia `.env.example`):
 
 ```
 NEXT_PUBLIC_REVMAX_API_URL=http://localhost:8001

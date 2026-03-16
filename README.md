@@ -1,4 +1,30 @@
-# RevMax Daily — Tu director de revenue virtual
+# RevMax — Revenue Intelligence for Hotels
+
+---
+
+## UI principal: frontend-v0 (doble clic)
+
+**FRONTEND PRINCIPAL OFICIAL:** `frontend-v0/` (Next.js, export v0).  
+La pantalla Analysis está conectada al backend real (run-analysis, job-status).
+
+**Arrancar todo con doble clic (macOS):**
+
+1. Dar permisos de ejecución **una vez** (en Terminal, dentro de la carpeta del proyecto):
+   ```bash
+   chmod +x start_revmax.command stop_revmax.command
+   ```
+2. Doble clic en **`start_revmax.command`**: arranca backend (puerto 8001) + frontend-v0 (puerto 3000) y abre el navegador en **http://localhost:3000**.
+3. Para parar: doble clic en **`stop_revmax.command`** o, en la ventana que abrió el launcher, pulsar **Enter** (si configuraste el launcher para que Enter detenga los servicios).
+
+**Puertos:** Backend = **8001**. Frontend principal = **3000**.
+
+**Requisitos:** Python 3 con dependencias del proyecto (`.venv` recomendado), Node.js/npm para frontend-v0. El launcher activa `.venv` y, si hace falta, ejecuta `npm install` en frontend-v0 la primera vez.
+
+Otras UIs (operator_console, frontend/) son **legacy/fallback**; ver **FRONTENDS.md**.
+
+---
+
+## RevMax Daily — Informe por email
 
 Recibe cada mañana un informe por email con:
 - Tu posición en Booking vs la competencia

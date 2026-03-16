@@ -538,22 +538,32 @@ async def api_toggle_client(request: Request):
 
 
 # ─────────────────────────────────────────────────────────
-# FRONTEND — Única UI de la aplicación (pantalla Analysis y resto)
+# FRONTEND — UI principal = frontend-v0 (puerto 3000). GET / = legacy.
 # ─────────────────────────────────────────────────────────
 #
-# La pantalla que ves al abrir http://localhost:8001 es SIEMPRE este archivo:
-#   operator_console/operator_ui.html
+# UI PRINCIPAL OFICIAL: frontend-v0 (Next.js). Arrancar con start_revmax.command
+# o "npm run dev" en frontend-v0/ → http://localhost:3000
 #
-# Ruta que entrega la UI: GET /
-# No existe otra plantilla ni UI paralela para la consola.
-# Esta UI incluye: Hero decision, Market snapshot, Context, Events, Distribution,
-# Compset, Recommended action, Confidence, Progress y Setup laterales.
+# GET / (puerto 8001) sirve operator_console/operator_ui.html = LEGACY / fallback.
+# No eliminar mientras no se sirva el build de frontend-v0 desde aquí.
+#
+# Para servir en el futuro el build de frontend-v0 desde FastAPI:
+#   1. En frontend-v0: npm run build → genera frontend-v0/out o frontend-v0/.next
+#   2. Para Next.js standalone/export: configurar next.config export y destino estático.
+#   3. En admin_panel: montar StaticFiles en "/" desde la carpeta del build (ej. BASE_DIR/frontend-v0/out)
+#      y registrar las rutas API antes del catch-all para que /api/* sigan siendo del backend.
+#   Bloque de ejemplo (descomentar y ajustar rutas cuando se use):
+#   from fastapi.staticfiles import StaticFiles
+#   _FRONTEND_BUILD = os.path.join(BASE_DIR, "frontend_v0_build")  # carpeta con index.html del build
+#   if os.path.isdir(_FRONTEND_BUILD):
+#       app.mount("/", StaticFiles(directory=_FRONTEND_BUILD, html=True), name="frontend")
+#   (Nota: montar "/" después de definir todas las rutas /api para no pisar APIs.)
 
 _OPERATOR_UI_PATH = os.path.join(BASE_DIR, "operator_console", "operator_ui.html")
 
 
 def _load_operator_ui() -> str:
-    """Carga el HTML de la consola operativa (única UI principal)."""
+    """Carga el HTML de la consola legacy (operator_console). UI principal = frontend-v0."""
     if os.path.isfile(_OPERATOR_UI_PATH):
         with open(_OPERATOR_UI_PATH, encoding="utf-8") as f:
             return f.read()
@@ -562,7 +572,7 @@ def _load_operator_ui() -> str:
 
 @app.get("/", response_class=HTMLResponse)
 def serve_admin():
-    """Sirve la única pantalla de la aplicación: operator_console/operator_ui.html (Analysis, Dashboard, Clients, etc.)."""
+    """Sirve la UI legacy (operator_console). UI principal es frontend-v0 en puerto 3000."""
     return HTMLResponse(_load_operator_ui())
 
 

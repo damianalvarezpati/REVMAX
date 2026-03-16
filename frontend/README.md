@@ -1,4 +1,13 @@
-# RevMax Frontend (v0-style)
+# frontend/ — Fallback técnico / experimental
+
+**No es la UI principal.** Frontend Vite + React; Analysis conectada al backend.
+
+- **UI principal oficial:** `frontend-v0/` → http://localhost:3000 (arrancar con `start_revmax.command` o `npm run dev` en frontend-v0).
+- Esta carpeta es **fallback** por si necesitas una UI mínima sin Next.js. Ver **FRONTENDS.md** en la raíz.
+
+---
+
+## RevMax Frontend (Vite + React)
 
 Frontend React que conecta la pantalla **Analysis** al backend real RevMax.
 
