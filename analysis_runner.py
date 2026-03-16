@@ -7,10 +7,12 @@ Heartbeat actualiza updated_at durante la ejecución; se cancela al terminar o a
 import asyncio
 import json
 import os
+import time
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import job_state
+from debug_runs import get_debug_dir, save_debug_artifact, write_summary as write_debug_summary
 from error_utils import get_error_source
 from report_artifacts import write_preview, write_result_report
 
@@ -150,10 +152,12 @@ async def run_pipeline(
     api_key: str,
     fast_demo: bool,
     progress_callback: Callable[..., None],
+    debug_dir: Optional[str] = None,
 ) -> dict:
     """
     Ejecuta el pipeline de análisis (completo o demo).
     Devuelve el resultado full_analysis con report.
+    debug_dir: si se pasa, se guardan artefactos en data/debug_runs/<job_id>/.
     """
     if fast_demo:
         from orchestrator import run_fast_demo
@@ -169,6 +173,7 @@ async def run_pipeline(
         city_hint=city,
         api_key=api_key,
         progress_callback=progress_callback,
+        debug_dir=debug_dir,
     )
 
 
@@ -385,6 +390,15 @@ async def run_analysis_job(
 
     progress_cb = _make_progress_callback(base_dir, job_id)
     heartbeat_task: Optional[asyncio.Task] = None
+    debug_dir: Optional[str] = None
+    if not fast_demo:
+        debug_dir = get_debug_dir(base_dir, job_id)
+        try:
+            os.makedirs(debug_dir, exist_ok=True)
+            print(f"[RevMax] job_id={job_id} debug_dir={debug_dir}", flush=True)
+        except Exception as e:
+            print(f"[RevMax] job_id={job_id} failed to create debug_dir: {e}", flush=True)
+            debug_dir = None
 
     try:
         heartbeat_task = asyncio.create_task(_heartbeat_loop(base_dir, job_id))
@@ -396,15 +410,24 @@ async def run_analysis_job(
                     api_key=api_key,
                     fast_demo=fast_demo,
                     progress_callback=progress_cb,
+                    debug_dir=debug_dir,
                 ),
                 timeout=float(timeout),
             )
         except asyncio.TimeoutError:
-            mark_job_failed(
-                base_dir,
-                job_id,
-                f"Pipeline superó el tiempo límite ({timeout} s). Revisa datos o aumenta pipeline_timeout_seconds.",
-            )
+            err_msg = f"Pipeline superó el tiempo límite ({timeout} s). Revisa datos o aumenta pipeline_timeout_seconds."
+            mark_job_failed(base_dir, job_id, err_msg)
+            if debug_dir:
+                write_debug_summary(
+                    debug_dir,
+                    job_id=job_id,
+                    hotel_name=hotel_name,
+                    status="failed",
+                    failed_phase="timeout",
+                    error_message=err_msg,
+                    exception_type="TimeoutError",
+                    total_duration=float(timeout),
+                )
             if on_legacy_error:
                 on_legacy_error(
                     f"Timeout {timeout}s",
@@ -417,6 +440,7 @@ async def run_analysis_job(
 
         job_state.update_job(base_dir, job_id, status="rendering", stage="rendering", progress_pct=88)
         warning_message: Optional[str] = None
+        t_render0 = time.time()
         try:
             preview_rel, result_rel, html = render_artifacts(base_dir, job_id, hotel_name, result)
         except Exception as e:
@@ -425,6 +449,31 @@ async def run_analysis_job(
             html = _error_html(hotel_name, f"Error al renderizar el informe: {err_msg}")
             preview_rel = write_preview(base_dir, job_id, html)
             result_rel = write_result_report(base_dir, hotel_name, html)
+        render_duration = time.time() - t_render0
+        if debug_dir:
+            try:
+                save_debug_artifact(debug_dir, "report_html", html, as_json=False)
+            except Exception:
+                pass
+            timing = result.get("analysis_timing") or {}
+            write_debug_summary(
+                debug_dir,
+                job_id=job_id,
+                hotel_name=hotel_name,
+                status="completed",
+                failed_phase=None,
+                discovery_duration=timing.get("discovery_duration"),
+                compset_duration=timing.get("compset_duration"),
+                pricing_duration=timing.get("pricing_duration"),
+                demand_duration=timing.get("demand_duration"),
+                reputation_duration=timing.get("reputation_duration"),
+                distribution_duration=timing.get("distribution_duration"),
+                consolidate_duration=timing.get("consolidate_duration"),
+                report_duration=timing.get("report_duration"),
+                render_duration=round(render_duration, 2),
+                total_duration=round((timing.get("total_duration") or 0) + render_duration, 2),
+                fallback_count=result.get("analysis_quality", {}).get("fallback_count"),
+            )
 
         job_state.update_job(
             base_dir,
@@ -497,7 +546,24 @@ async def run_analysis_job(
     except Exception as e:
         err_msg = _normalize_error_message(e)
         mark_job_failed(base_dir, job_id, err_msg)
-        print(f"[RevMax] job_id={job_id} analysis failed: {err_msg}", flush=True)
+        failed_phase = "unknown"
+        try:
+            job = job_state.get_job(base_dir, job_id)
+            if job:
+                failed_phase = job.get("stage") or "starting"
+        except Exception:
+            pass
+        print(f"[RevMax] job_id={job_id} analysis failed phase={failed_phase}: {err_msg}", flush=True)
+        if debug_dir:
+            write_debug_summary(
+                debug_dir,
+                job_id=job_id,
+                hotel_name=hotel_name,
+                status="failed",
+                failed_phase=failed_phase,
+                error_message=err_msg,
+                exception_type=type(e).__name__,
+            )
         # Marcar el paso actual como error para que la UI muestre en qué paso falló
         try:
             job = job_state.get_job(base_dir, job_id)

@@ -26,3 +26,6 @@ config.json
 *.log
 *.tmp
 .cache/
+
+# Debug por corrida (artefactos grandes)
+data/debug_runs/

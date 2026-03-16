@@ -107,6 +107,8 @@ import re
 import asyncio
 import os
 import sys
+from typing import Optional
+
 from anthropic import AsyncAnthropic
 from datetime import datetime
 
@@ -260,18 +262,26 @@ async def run_report_agent(
     full_analysis: dict,
     api_key: str,
     model: str = "claude-opus-4-5",
+    debug_dir: Optional[str] = None,
 ) -> dict:
     """
     Recibe el análisis completo del orquestador y genera el informe.
     Siempre devuelve un dict válido (éxito, parse parcial o fallback mínimo).
     Nunca lanza por JSON inválido o truncado.
+    Si debug_dir está definido, guarda report_prompt, report_raw y report_normalized.
     """
     client = AsyncAnthropic(api_key=api_key)
     user_prompt = _build_report_prompt(full_analysis)
     prompt_len = len(user_prompt)
+    if debug_dir:
+        try:
+            from debug_runs import save_debug_artifact
+            save_debug_artifact(debug_dir, "report_prompt", user_prompt, as_json=False)
+        except Exception:
+            pass
 
     hotel_name = full_analysis.get("hotel_name", "el hotel")
-    print(f"  [Agente Report] Redactando informe ejecutivo para {hotel_name}...")
+    print(f"  [Agente Report] Redactando informe ejecutivo para {hotel_name}... (prompt_len={prompt_len})", flush=True)
 
     raw = ""
     response_len = 0
@@ -287,6 +297,12 @@ async def run_report_agent(
         raw = (response.content[0].text if response.content else "") or ""
         raw = raw.strip()
         response_len = len(raw)
+        if debug_dir and raw:
+            try:
+                from debug_runs import save_debug_artifact
+                save_debug_artifact(debug_dir, "report_raw", raw, as_json=False)
+            except Exception:
+                pass
     except Exception as e:
         parse_error_log = f"API exception: {e}"
         _log_report_failure(
@@ -321,7 +337,13 @@ async def run_report_agent(
             "parse failed; returned minimal report",
         )
 
-    print(f"  [Agente Report] OK Informe generado — asunto: {(result.get('email_subject') or '?')[:60]}")
+    if debug_dir:
+        try:
+            from debug_runs import save_debug_artifact
+            save_debug_artifact(debug_dir, "report_normalized", result, as_json=True)
+        except Exception:
+            pass
+    print(f"  [Agente Report] OK Informe generado — asunto: {(result.get('email_subject') or '?')[:60]} response_len={response_len}", flush=True)
     return result
 
 

@@ -628,6 +628,26 @@ def _save(name: str, data: dict):
         pass
 
 
+def _save_debug(debug_dir: Optional[str], name: str, data: Any, as_json: bool = True):
+    if not debug_dir:
+        return
+    try:
+        from debug_runs import save_debug_artifact
+        save_debug_artifact(debug_dir, name, data, as_json=as_json)
+    except Exception as e:
+        print(f"  [orchestrator] debug save {name} failed: {e}", flush=True)
+
+
+def _write_debug_summary(debug_dir: Optional[str], **kwargs):
+    if not debug_dir:
+        return
+    try:
+        from debug_runs import write_summary
+        write_summary(debug_dir, **kwargs)
+    except Exception as e:
+        print(f"  [orchestrator] debug summary failed: {e}", flush=True)
+
+
 def _noop_progress(stage: str, progress_pct: int, steps: Optional[List[Dict[str, Any]]] = None) -> None:
     pass
 
@@ -639,6 +659,7 @@ async def run_full_analysis(
     scraped_data: dict = None,
     market_candidates: dict = None,
     progress_callback: Optional[Callable[..., None]] = None,
+    debug_dir: Optional[str] = None,
 ) -> dict:
     if progress_callback is None:
         progress_callback = _noop_progress
@@ -647,10 +668,11 @@ async def run_full_analysis(
     analysis_timing = {}
     fallback_agents = []
     report_used_fallback = False
+    job_id = os.path.basename(debug_dir) if debug_dir else ""
 
     steps = _build_progress_steps("starting", 5, fallback_agents, report_used_fallback)
     progress_callback("starting", 5, steps)
-    print(f"\n[orchestrator] Fase iniciada: starting")
+    print(f"\n[orchestrator] job_id={job_id} START phase=starting", flush=True)
     print(f"\n{'='*55}")
     print(f"  RevMax Orchestrator v2  ·  {hotel_name}")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -660,35 +682,51 @@ async def run_full_analysis(
 
     # Fase 1 — Discovery
     t0 = time.time()
-    print("▶ Fase 1/5 — Discovery")
+    print(f"[orchestrator] job_id={job_id} START phase=discovery", flush=True)
     steps = _build_progress_steps("discovery", 10, fallback_agents, report_used_fallback)
     progress_callback("discovery", 10, steps)
-    outputs["discovery"] = await run_discovery_agent(hotel_name, city_hint, api_key, scraped_data)
+    try:
+        outputs["discovery"] = await run_discovery_agent(hotel_name, city_hint, api_key, scraped_data)
+    except Exception as e:
+        analysis_timing["discovery_duration"] = round(time.time() - t0, 2)
+        _save_debug(debug_dir, "discovery_raw", {"error": str(e), "exception_type": type(e).__name__})
+        _write_debug_summary(debug_dir, job_id=job_id, hotel_name=hotel_name, status="failed", failed_phase="discovery", error_message=str(e), exception_type=type(e).__name__, discovery_duration=analysis_timing["discovery_duration"], total_duration=round(time.time() - start, 2))
+        print(f"[orchestrator] job_id={job_id} END phase=discovery FAILED after {analysis_timing['discovery_duration']}s: {e}", flush=True)
+        raise
     if _is_fallback(outputs["discovery"]):
         fallback_agents.append("discovery")
-        print(f"  [orchestrator] Fallback usado: discovery")
+        print(f"  [orchestrator] Fallback usado: discovery", flush=True)
     _save("discovery", outputs["discovery"])
+    _save_debug(debug_dir, "discovery_raw", outputs["discovery"])
     analysis_timing["discovery_duration"] = round(time.time() - t0, 2)
-    print(f"  [orchestrator] Fase completada: discovery (duración {analysis_timing['discovery_duration']}s)")
+    print(f"[orchestrator] job_id={job_id} END phase=discovery duration={analysis_timing['discovery_duration']}s fallback={('discovery' in fallback_agents)}", flush=True)
 
     # Fase 2 — Compset
     t0 = time.time()
-    print("\n▶ Fase 2/5 — Compset")
+    print(f"[orchestrator] job_id={job_id} START phase=compset", flush=True)
     steps = _build_progress_steps("compset", 25, fallback_agents, report_used_fallback)
     progress_callback("compset", 25, steps)
-    outputs["compset"] = await run_compset_agent(
-        outputs["discovery"], market_candidates or {"candidates": []}, api_key
-    )
+    try:
+        outputs["compset"] = await run_compset_agent(
+            outputs["discovery"], market_candidates or {"candidates": []}, api_key
+        )
+    except Exception as e:
+        analysis_timing["compset_duration"] = round(time.time() - t0, 2)
+        _save_debug(debug_dir, "compset_raw", {"error": str(e), "exception_type": type(e).__name__})
+        _write_debug_summary(debug_dir, job_id=job_id, hotel_name=hotel_name, status="failed", failed_phase="compset", error_message=str(e), exception_type=type(e).__name__, discovery_duration=analysis_timing.get("discovery_duration"), compset_duration=analysis_timing["compset_duration"], total_duration=round(time.time() - start, 2))
+        print(f"[orchestrator] job_id={job_id} END phase=compset FAILED after {analysis_timing['compset_duration']}s: {e}", flush=True)
+        raise
     if _is_fallback(outputs["compset"]):
         fallback_agents.append("compset")
-        print(f"  [orchestrator] Fallback usado: compset")
+        print(f"  [orchestrator] Fallback usado: compset", flush=True)
     _save("compset", outputs["compset"])
+    _save_debug(debug_dir, "compset_raw", outputs["compset"])
     analysis_timing["compset_duration"] = round(time.time() - t0, 2)
-    print(f"  [orchestrator] Fase completada: compset (duración {analysis_timing['compset_duration']}s)")
+    print(f"[orchestrator] job_id={job_id} END phase=compset duration={analysis_timing['compset_duration']}s fallback={('compset' in fallback_agents)}", flush=True)
 
     # Fase 3 — Paralelo
     t0 = time.time()
-    print("\n▶ Fase 3/5 — Paralelo [Pricing · Demand · Reputation · Distribution]")
+    print(f"[orchestrator] job_id={job_id} START phase=parallel", flush=True)
     steps = _build_progress_steps("parallel", 40, fallback_agents, report_used_fallback)
     progress_callback("parallel", 40, steps)
     demand_stub = {"demand_index": {"signal": "medium", "score": 55}, "events_detected": []}
@@ -701,97 +739,102 @@ async def run_full_analysis(
         return_exceptions=True
     )
 
+    parallel_dur = round(time.time() - t0, 2)
+    analysis_timing["pricing_duration"] = analysis_timing["demand_duration"] = analysis_timing["reputation_duration"] = analysis_timing["distribution_duration"] = round(parallel_dur / 4, 2)
     keys = ["pricing", "demand", "reputation", "distribution"]
     for idx, (key, result) in enumerate(zip(keys, results)):
         outputs[key] = result if not isinstance(result, Exception) \
             else {"error": str(result), "confidence_score": 0.3}
         if _is_fallback(outputs[key]):
             fallback_agents.append(key)
-            print(f"  [orchestrator] Fallback usado: {key}")
+            print(f"  [orchestrator] Fallback usado: {key}", flush=True)
         _save(key, outputs[key])
+        _save_debug(debug_dir, f"{key}_raw", outputs[key])
         steps = _build_progress_steps(key, 40 + (idx + 1) * 2, fallback_agents, report_used_fallback)
         progress_callback(key, 40 + (idx + 1) * 2, steps)
-    analysis_timing["pricing_duration"] = analysis_timing["demand_duration"] = analysis_timing["reputation_duration"] = analysis_timing["distribution_duration"] = round((time.time() - t0) / 4, 2)
-    print(f"  ✓ Pricing  ·  ✓ Demand  ·  ✓ Reputation  ·  ✓ Distribution (paralelo: {round(time.time() - t0, 1)}s)")
+    print(f"[orchestrator] job_id={job_id} END phase=parallel duration={parallel_dur}s fallbacks={[k for k in keys if k in fallback_agents]}", flush=True)
 
     # Fase 4 — Consolidar
     t0 = time.time()
-    print("\n▶ Fase 4/5 — Consolidando")
+    print(f"[orchestrator] job_id={job_id} START phase=consolidate", flush=True)
     steps = _build_progress_steps("consolidate", 60, fallback_agents, report_used_fallback)
     progress_callback("consolidate", 60, steps)
-    conflicts = detect_conflicts(outputs)
-    for c in conflicts:
-        print(f"  ! [{c['severity'].upper()}] {c['description']}")
-    briefing = consolidate(outputs, conflicts)
-    engine_alerts = detect_alerts(outputs, conflicts, briefing)
-    briefing["alerts"] = engine_alerts
-    briefing["alert_summary"] = build_alert_summary(engine_alerts)
-    briefing["alert_high_count"] = count_alert_severity(engine_alerts, "high")
-    briefing["alert_critical_count"] = count_alert_severity(engine_alerts, "critical")
-    if engine_alerts:
-        for a in engine_alerts:
-            if a.get("severity") in ("high", "critical"):
-                print(f"  ⚠ [{a.get('severity', '?').upper()}] {a.get('type', '?')}: {a.get('message', '')[:60]}")
-    market_signals = detect_market_signals(outputs, conflicts, briefing)
-    briefing["market_signals"] = market_signals
-    briefing["market_signal_summary"] = build_market_signal_summary(market_signals)
-    briefing["market_raise_signal_count"] = count_market_signals_by_effect(market_signals, "raise")
-    briefing["market_lower_signal_count"] = count_market_signals_by_effect(market_signals, "lower")
-    briefing["market_caution_signal_count"] = count_market_signals_by_effect(market_signals, "caution")
-    recommended_actions = build_recommended_actions(outputs, conflicts, briefing)
-    briefing["recommended_actions"] = recommended_actions
-    briefing["recommended_action_summary"] = build_recommended_action_summary(recommended_actions)
-    briefing["urgent_action_count"] = count_actions_by_priority(recommended_actions, "urgent")
-    briefing["high_priority_action_count"] = count_actions_by_priority(recommended_actions, "high")
-    briefing["recommended_priority_actions_seed"] = [
-        {
-            "urgency": a.get("horizon", "this_week"),
-            "reason_source": ", ".join(a.get("source_signals", [])),
-            "action_hint": f"{a.get('title', '')} — {a.get('rationale', '')}",
-        }
-        for a in recommended_actions
-    ]
-    notification_bundle = build_notification_bundle(briefing)
-    briefing["notification_candidates"] = notification_bundle["notification_candidates"]
-    briefing["top_notifications"] = notification_bundle["top_notifications"]
-    briefing["notification_summary"] = notification_bundle["notification_summary"]
-    briefing["notification_priority_counts"] = notification_bundle["notification_priority_counts"]
-    memory_bundle = build_memory_bundle(briefing, hotel_name, _ORCH_BASE_DIR)
-    briefing["memory_summary"] = memory_bundle["memory_summary"]
-    briefing["repeated_alerts"] = memory_bundle["repeated_alerts"]
-    briefing["new_alerts"] = memory_bundle["new_alerts"]
-    briefing["resolved_alerts"] = memory_bundle["resolved_alerts"]
-    briefing["strategy_changed"] = memory_bundle["strategy_changed"]
-    briefing["overall_status_changed"] = memory_bundle["overall_status_changed"]
-    briefing["attention_trend"] = memory_bundle["attention_trend"]
-    briefing["previous_snapshot_found"] = memory_bundle["previous_snapshot_found"]
-    briefing["action_shift"] = memory_bundle.get("action_shift")
-    opportunities = build_opportunities(briefing)
-    briefing["opportunities"] = opportunities
-    briefing["opportunity_summary"] = build_opportunity_summary(opportunities)
-    briefing["high_opportunity_count"] = count_high_opportunities(opportunities)
-    briefing["opportunity_types"] = get_opportunity_types(opportunities)
-    demand = outputs.get("demand", {})
-    pricing = outputs.get("pricing", {})
-    reputation = outputs.get("reputation", {})
-    briefing["demand_score"] = (demand.get("demand_index") or {}).get("score", 50)
-    briefing["demand_signal"] = (demand.get("demand_index") or {}).get("signal", "medium")
-    briefing["gri_value"] = (reputation.get("gri") or {}).get("value") or 0
-    briefing["your_rank"] = (pricing.get("market_context") or {}).get("your_position_rank")
-    briefing["total_compset"] = (pricing.get("market_context") or {}).get("total_compset", 10)
-    impact_results = build_impact_estimates(briefing)
-    briefing.update(impact_results)
-    value_results = build_value_prioritization(briefing)
-    briefing.update(value_results)
-    scenario_results = build_scenario_assessment(briefing)
-    briefing.update(scenario_results)
-    exec_briefing = build_executive_briefing(briefing)
-    briefing.update(exec_briefing)
-    change_results = build_change_detection(briefing, memory_bundle.get("previous_snapshot"))
-    briefing.update(change_results)
-    update_latest_snapshot(briefing, hotel_name, _ORCH_BASE_DIR)
+    try:
+        conflicts = detect_conflicts(outputs)
+        for c in conflicts:
+            print(f"  ! [{c['severity'].upper()}] {c['description']}")
+        briefing = consolidate(outputs, conflicts)
+        engine_alerts = detect_alerts(outputs, conflicts, briefing)
+        briefing["alerts"] = engine_alerts
+        briefing["alert_summary"] = build_alert_summary(engine_alerts)
+        briefing["alert_high_count"] = count_alert_severity(engine_alerts, "high")
+        briefing["alert_critical_count"] = count_alert_severity(engine_alerts, "critical")
+        if engine_alerts:
+            for a in engine_alerts:
+                if a.get("severity") in ("high", "critical"):
+                    print(f"  ⚠ [{a.get('severity', '?').upper()}] {a.get('type', '?')}: {a.get('message', '')[:60]}")
+        market_signals = detect_market_signals(outputs, conflicts, briefing)
+        briefing["market_signals"] = market_signals
+        briefing["market_signal_summary"] = build_market_signal_summary(market_signals)
+        briefing["market_raise_signal_count"] = count_market_signals_by_effect(market_signals, "raise")
+        briefing["market_lower_signal_count"] = count_market_signals_by_effect(market_signals, "lower")
+        briefing["market_caution_signal_count"] = count_market_signals_by_effect(market_signals, "caution")
+        recommended_actions = build_recommended_actions(outputs, conflicts, briefing)
+        briefing["recommended_actions"] = recommended_actions
+        briefing["recommended_action_summary"] = build_recommended_action_summary(recommended_actions)
+        briefing["urgent_action_count"] = count_actions_by_priority(recommended_actions, "urgent")
+        briefing["high_priority_action_count"] = count_actions_by_priority(recommended_actions, "high")
+        briefing["recommended_priority_actions_seed"] = [
+            {"urgency": a.get("horizon", "this_week"), "reason_source": ", ".join(a.get("source_signals", [])), "action_hint": f"{a.get('title', '')} — {a.get('rationale', '')}"}
+            for a in recommended_actions
+        ]
+        notification_bundle = build_notification_bundle(briefing)
+        briefing["notification_candidates"] = notification_bundle["notification_candidates"]
+        briefing["top_notifications"] = notification_bundle["top_notifications"]
+        briefing["notification_summary"] = notification_bundle["notification_summary"]
+        briefing["notification_priority_counts"] = notification_bundle["notification_priority_counts"]
+        memory_bundle = build_memory_bundle(briefing, hotel_name, _ORCH_BASE_DIR)
+        briefing["memory_summary"] = memory_bundle["memory_summary"]
+        briefing["repeated_alerts"] = memory_bundle["repeated_alerts"]
+        briefing["new_alerts"] = memory_bundle["new_alerts"]
+        briefing["resolved_alerts"] = memory_bundle["resolved_alerts"]
+        briefing["strategy_changed"] = memory_bundle["strategy_changed"]
+        briefing["overall_status_changed"] = memory_bundle["overall_status_changed"]
+        briefing["attention_trend"] = memory_bundle["attention_trend"]
+        briefing["previous_snapshot_found"] = memory_bundle["previous_snapshot_found"]
+        briefing["action_shift"] = memory_bundle.get("action_shift")
+        opportunities = build_opportunities(briefing)
+        briefing["opportunities"] = opportunities
+        briefing["opportunity_summary"] = build_opportunity_summary(opportunities)
+        briefing["high_opportunity_count"] = count_high_opportunities(opportunities)
+        briefing["opportunity_types"] = get_opportunity_types(opportunities)
+        demand = outputs.get("demand", {})
+        pricing = outputs.get("pricing", {})
+        reputation = outputs.get("reputation", {})
+        briefing["demand_score"] = (demand.get("demand_index") or {}).get("score", 50)
+        briefing["demand_signal"] = (demand.get("demand_index") or {}).get("signal", "medium")
+        briefing["gri_value"] = (reputation.get("gri") or {}).get("value") or 0
+        briefing["your_rank"] = (pricing.get("market_context") or {}).get("your_position_rank")
+        briefing["total_compset"] = (pricing.get("market_context") or {}).get("total_compset", 10)
+        impact_results = build_impact_estimates(briefing)
+        briefing.update(impact_results)
+        value_results = build_value_prioritization(briefing)
+        briefing.update(value_results)
+        scenario_results = build_scenario_assessment(briefing)
+        briefing.update(scenario_results)
+        exec_briefing = build_executive_briefing(briefing)
+        briefing.update(exec_briefing)
+        change_results = build_change_detection(briefing, memory_bundle.get("previous_snapshot"))
+        briefing.update(change_results)
+        update_latest_snapshot(briefing, hotel_name, _ORCH_BASE_DIR)
+    except Exception as e:
+        analysis_timing["consolidate_duration"] = round(time.time() - t0, 2)
+        _write_debug_summary(debug_dir, job_id=job_id, hotel_name=hotel_name, status="failed", failed_phase="consolidate", error_message=str(e), exception_type=type(e).__name__, discovery_duration=analysis_timing.get("discovery_duration"), compset_duration=analysis_timing.get("compset_duration"), pricing_duration=analysis_timing.get("pricing_duration"), demand_duration=analysis_timing.get("demand_duration"), reputation_duration=analysis_timing.get("reputation_duration"), distribution_duration=analysis_timing.get("distribution_duration"), consolidate_duration=analysis_timing["consolidate_duration"], total_duration=round(time.time() - start, 2))
+        print(f"[orchestrator] job_id={job_id} END phase=consolidate FAILED after {analysis_timing['consolidate_duration']}s: {e}", flush=True)
+        raise
     analysis_timing["consolidate_duration"] = round(time.time() - t0, 2)
-    print(f"  [orchestrator] Fase completada: consolidate (duración {analysis_timing['consolidate_duration']}s)")
+    _save_debug(debug_dir, "briefing_before_report", briefing)
+    print(f"[orchestrator] job_id={job_id} END phase=consolidate duration={analysis_timing['consolidate_duration']}s", flush=True)
     print(f"  Acción: {briefing['consolidated_price_action'].upper()} · Estado: {briefing.get('derived_overall_status', '?')} · Estrategia: {briefing.get('strategy_label', '?')} · Acciones: {len(briefing['recommended_actions'])} · Notif: {len(briefing['top_notifications'])} · Memoria: {'prev' if memory_bundle['previous_snapshot_found'] else 'primera'} · Oportunidades: {len(briefing['opportunities'])}")
 
     full_analysis = {
@@ -803,11 +846,11 @@ async def run_full_analysis(
 
     # Fase 5 — Report Writer
     t0 = time.time()
-    print("\n▶ Fase 5/5 — Report Writer")
+    print(f"[orchestrator] job_id={job_id} START phase=report", flush=True)
     steps = _build_progress_steps("report", 75, fallback_agents, report_used_fallback)
     progress_callback("report", 75, steps)
     try:
-        report = await run_report_agent(full_analysis, api_key)
+        report = await run_report_agent(full_analysis, api_key, debug_dir=debug_dir)
     except Exception as e:
         _report_error = str(e)
         report_used_fallback = True
@@ -819,9 +862,10 @@ async def run_full_analysis(
         report["overall_status"] = "needs_attention"
         report["report_error"] = _report_error
     _save("report", report)
+    _save_debug(debug_dir, "report_output", report)
     full_analysis["report"] = report
     analysis_timing["report_duration"] = round(time.time() - t0, 2)
-    print(f"  [orchestrator] Fase completada: report (duración {analysis_timing['report_duration']}s)")
+    print(f"[orchestrator] job_id={job_id} END phase=report duration={analysis_timing['report_duration']}s report_fallback={report_used_fallback}", flush=True)
 
     elapsed = round(time.time() - start, 1)
     analysis_timing["total_duration"] = elapsed
@@ -840,7 +884,9 @@ async def run_full_analysis(
     progress_callback("report", 85, steps)
     _save("full_analysis", full_analysis)
 
-    print(f"\n[orchestrator] total_duration={elapsed}s | quality={analysis_quality.get('label')} | fallbacks={analysis_quality.get('fallback_count')}")
+    _write_debug_summary(debug_dir, job_id=job_id, hotel_name=hotel_name, status="pipeline_ok", failed_phase=None, discovery_duration=analysis_timing.get("discovery_duration"), compset_duration=analysis_timing.get("compset_duration"), pricing_duration=analysis_timing.get("pricing_duration"), demand_duration=analysis_timing.get("demand_duration"), reputation_duration=analysis_timing.get("reputation_duration"), distribution_duration=analysis_timing.get("distribution_duration"), consolidate_duration=analysis_timing.get("consolidate_duration"), report_duration=analysis_timing.get("report_duration"), total_duration=elapsed, fallback_count=analysis_quality.get("fallback_count"))
+
+    print(f"\n[orchestrator] total_duration={elapsed}s | quality={analysis_quality.get('label')} | fallbacks={analysis_quality.get('fallback_count')}", flush=True)
     print(f"\n{'='*55}")
     print(f"  ✓ Completado en {elapsed}s")
     print(f"  Estado: {report.get('overall_status','?').upper()}")
