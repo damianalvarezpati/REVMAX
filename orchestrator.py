@@ -724,35 +724,63 @@ async def run_full_analysis(
     analysis_timing["compset_duration"] = round(time.time() - t0, 2)
     print(f"[orchestrator] job_id={job_id} END phase=compset duration={analysis_timing['compset_duration']}s fallback={('compset' in fallback_agents)}", flush=True)
 
-    # Fase 3 — Paralelo
-    t0 = time.time()
+    # Fase 3 — Paralelo (cada subagente con timeout e instrumentación)
+    PARALLEL_AGENT_TIMEOUT = 90.0
+    demand_stub = {"demand_index": {"signal": "medium", "score": 55}, "events_detected": []}
+
+    async def _run_one_parallel(name: str, coro):
+        t0 = time.time()
+        print(f"[parallel] START {name}", flush=True)
+        try:
+            out = await asyncio.wait_for(coro, timeout=PARALLEL_AGENT_TIMEOUT)
+            dur = round(time.time() - t0, 2)
+            fb = _is_fallback(out)
+            _save_debug(debug_dir, f"{name}_raw", out)
+            _save_debug(debug_dir, f"{name}_parsed", out)
+            print(f"[parallel] END {name} {dur}s fallback={fb}", flush=True)
+            return (name, dur, out, None)
+        except asyncio.TimeoutError as e:
+            dur = round(time.time() - t0, 2)
+            fallback_out = {"error": f"Timeout after {dur}s", "confidence_score": 0.3}
+            _save_debug(debug_dir, f"{name}_raw", {"error": "timeout", "duration_s": dur})
+            _save_debug(debug_dir, f"{name}_parsed", fallback_out)
+            print(f"[parallel] FAILED {name} after {dur}s: timeout", flush=True)
+            return (name, dur, fallback_out, e)
+        except Exception as e:
+            dur = round(time.time() - t0, 2)
+            fallback_out = {"error": str(e), "confidence_score": 0.3}
+            _save_debug(debug_dir, f"{name}_raw", {"error": str(e), "exception_type": type(e).__name__})
+            _save_debug(debug_dir, f"{name}_parsed", fallback_out)
+            print(f"[parallel] FAILED {name} after {dur}s: {e}", flush=True)
+            return (name, dur, fallback_out, e)
+
+    t0_parallel = time.time()
     print(f"[orchestrator] job_id={job_id} START phase=parallel", flush=True)
     steps = _build_progress_steps("parallel", 40, fallback_agents, report_used_fallback)
     progress_callback("parallel", 40, steps)
-    demand_stub = {"demand_index": {"signal": "medium", "score": 55}, "events_detected": []}
 
-    results = await asyncio.gather(
-        run_pricing_agent(outputs["discovery"], outputs["compset"], demand_stub, api_key),
-        run_demand_agent(outputs["discovery"], outputs["compset"], api_key),
-        run_reputation_agent(outputs["discovery"], outputs["compset"], api_key),
-        run_distribution_agent(outputs["discovery"], outputs["compset"], api_key),
-        return_exceptions=True
+    parallel_results = await asyncio.gather(
+        _run_one_parallel("pricing", run_pricing_agent(outputs["discovery"], outputs["compset"], demand_stub, api_key)),
+        _run_one_parallel("demand", run_demand_agent(outputs["discovery"], outputs["compset"], api_key)),
+        _run_one_parallel("reputation", run_reputation_agent(outputs["discovery"], outputs["compset"], api_key)),
+        _run_one_parallel("distribution", run_distribution_agent(outputs["discovery"], outputs["compset"], api_key)),
     )
 
-    parallel_dur = round(time.time() - t0, 2)
-    analysis_timing["pricing_duration"] = analysis_timing["demand_duration"] = analysis_timing["reputation_duration"] = analysis_timing["distribution_duration"] = round(parallel_dur / 4, 2)
-    keys = ["pricing", "demand", "reputation", "distribution"]
-    for idx, (key, result) in enumerate(zip(keys, results)):
-        outputs[key] = result if not isinstance(result, Exception) \
-            else {"error": str(result), "confidence_score": 0.3}
-        if _is_fallback(outputs[key]):
-            fallback_agents.append(key)
-            print(f"  [orchestrator] Fallback usado: {key}", flush=True)
-        _save(key, outputs[key])
-        _save_debug(debug_dir, f"{key}_raw", outputs[key])
-        steps = _build_progress_steps(key, 40 + (idx + 1) * 2, fallback_agents, report_used_fallback)
-        progress_callback(key, 40 + (idx + 1) * 2, steps)
-    print(f"[orchestrator] job_id={job_id} END phase=parallel duration={parallel_dur}s fallbacks={[k for k in keys if k in fallback_agents]}", flush=True)
+    failed_subphase = None
+    for name, dur, out, exc in parallel_results:
+        analysis_timing[f"{name}_duration"] = dur
+        outputs[name] = out
+        if exc is not None and failed_subphase is None:
+            failed_subphase = name
+        if _is_fallback(out):
+            fallback_agents.append(name)
+            print(f"  [orchestrator] Fallback usado: {name}", flush=True)
+        _save(name, out)
+        steps = _build_progress_steps(name, 40 + (["pricing", "demand", "reputation", "distribution"].index(name) + 1) * 2, fallback_agents, report_used_fallback)
+        progress_callback(name, 40 + (["pricing", "demand", "reputation", "distribution"].index(name) + 1) * 2, steps)
+
+    parallel_dur = round(time.time() - t0_parallel, 2)
+    print(f"[orchestrator] job_id={job_id} END phase=parallel duration={parallel_dur}s pricing={analysis_timing.get('pricing_duration')}s demand={analysis_timing.get('demand_duration')}s reputation={analysis_timing.get('reputation_duration')}s distribution={analysis_timing.get('distribution_duration')}s fallbacks={[k for k in ['pricing','demand','reputation','distribution'] if k in fallback_agents]}", flush=True)
 
     # Fase 4 — Consolidar
     t0 = time.time()
@@ -829,7 +857,7 @@ async def run_full_analysis(
         update_latest_snapshot(briefing, hotel_name, _ORCH_BASE_DIR)
     except Exception as e:
         analysis_timing["consolidate_duration"] = round(time.time() - t0, 2)
-        _write_debug_summary(debug_dir, job_id=job_id, hotel_name=hotel_name, status="failed", failed_phase="consolidate", error_message=str(e), exception_type=type(e).__name__, discovery_duration=analysis_timing.get("discovery_duration"), compset_duration=analysis_timing.get("compset_duration"), pricing_duration=analysis_timing.get("pricing_duration"), demand_duration=analysis_timing.get("demand_duration"), reputation_duration=analysis_timing.get("reputation_duration"), distribution_duration=analysis_timing.get("distribution_duration"), consolidate_duration=analysis_timing["consolidate_duration"], total_duration=round(time.time() - start, 2))
+        _write_debug_summary(debug_dir, job_id=job_id, hotel_name=hotel_name, status="failed", failed_phase="consolidate", failed_subphase=failed_subphase, error_message=str(e), exception_type=type(e).__name__, discovery_duration=analysis_timing.get("discovery_duration"), compset_duration=analysis_timing.get("compset_duration"), pricing_duration=analysis_timing.get("pricing_duration"), demand_duration=analysis_timing.get("demand_duration"), reputation_duration=analysis_timing.get("reputation_duration"), distribution_duration=analysis_timing.get("distribution_duration"), consolidate_duration=analysis_timing["consolidate_duration"], total_duration=round(time.time() - start, 2))
         print(f"[orchestrator] job_id={job_id} END phase=consolidate FAILED after {analysis_timing['consolidate_duration']}s: {e}", flush=True)
         raise
     analysis_timing["consolidate_duration"] = round(time.time() - t0, 2)
@@ -884,7 +912,7 @@ async def run_full_analysis(
     progress_callback("report", 85, steps)
     _save("full_analysis", full_analysis)
 
-    _write_debug_summary(debug_dir, job_id=job_id, hotel_name=hotel_name, status="pipeline_ok", failed_phase=None, discovery_duration=analysis_timing.get("discovery_duration"), compset_duration=analysis_timing.get("compset_duration"), pricing_duration=analysis_timing.get("pricing_duration"), demand_duration=analysis_timing.get("demand_duration"), reputation_duration=analysis_timing.get("reputation_duration"), distribution_duration=analysis_timing.get("distribution_duration"), consolidate_duration=analysis_timing.get("consolidate_duration"), report_duration=analysis_timing.get("report_duration"), total_duration=elapsed, fallback_count=analysis_quality.get("fallback_count"))
+    _write_debug_summary(debug_dir, job_id=job_id, hotel_name=hotel_name, status="pipeline_ok", failed_phase=None, failed_subphase=failed_subphase, discovery_duration=analysis_timing.get("discovery_duration"), compset_duration=analysis_timing.get("compset_duration"), pricing_duration=analysis_timing.get("pricing_duration"), demand_duration=analysis_timing.get("demand_duration"), reputation_duration=analysis_timing.get("reputation_duration"), distribution_duration=analysis_timing.get("distribution_duration"), consolidate_duration=analysis_timing.get("consolidate_duration"), report_duration=analysis_timing.get("report_duration"), total_duration=elapsed, fallback_count=analysis_quality.get("fallback_count"))
 
     print(f"\n[orchestrator] total_duration={elapsed}s | quality={analysis_quality.get('label')} | fallbacks={analysis_quality.get('fallback_count')}", flush=True)
     print(f"\n{'='*55}")

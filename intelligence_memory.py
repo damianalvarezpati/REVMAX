@@ -54,13 +54,13 @@ def _snapshot_from_briefing(briefing: dict, hotel_name: str) -> dict:
     recommended_actions = briefing.get("recommended_actions", [])
     top_notifications = briefing.get("top_notifications", [])
 
-    alert_types = sorted({a.get("type") for a in alerts if a.get("type")})
-    critical_alert_types = sorted({a.get("type") for a in alerts if a.get("type") and a.get("severity") == "critical"})
-    high_alert_types = sorted({a.get("type") for a in alerts if a.get("type") and a.get("severity") == "high"})
-    market_signal_types = sorted({s.get("type") for s in market_signals if s.get("type")})
-    recommended_action_types = sorted({a.get("type") for a in recommended_actions if a.get("type")})
-    top_notification_types = sorted({n.get("type") for n in top_notifications if n.get("type")})
-    opportunity_types = sorted({o.get("type") for o in briefing.get("opportunities", []) if o.get("type")})
+    alert_types = sorted({a.get("type") for a in alerts if isinstance(a, dict) and a.get("type")})
+    critical_alert_types = sorted({a.get("type") for a in alerts if isinstance(a, dict) and a.get("type") and a.get("severity") == "critical"})
+    high_alert_types = sorted({a.get("type") for a in alerts if isinstance(a, dict) and a.get("type") and a.get("severity") == "high"})
+    market_signal_types = sorted({s.get("type") for s in market_signals if isinstance(s, dict) and s.get("type")})
+    recommended_action_types = sorted({a.get("type") for a in recommended_actions if isinstance(a, dict) and a.get("type")})
+    top_notification_types = sorted({n.get("type") for n in top_notifications if isinstance(n, dict) and n.get("type")})
+    opportunity_types = sorted({o.get("type") for o in briefing.get("opportunities", []) if isinstance(o, dict) and o.get("type")})
 
     top_priority = briefing.get("top_priority_item")
     top_priority_item_type = top_priority.get("type") if isinstance(top_priority, dict) else None
