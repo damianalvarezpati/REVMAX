@@ -538,24 +538,31 @@ async def api_toggle_client(request: Request):
 
 
 # ─────────────────────────────────────────────────────────
-# FRONTEND — Consola operativa (operator_console/operator_ui.html)
+# FRONTEND — Única UI de la aplicación (pantalla Analysis y resto)
 # ─────────────────────────────────────────────────────────
+#
+# La pantalla que ves al abrir http://localhost:8001 es SIEMPRE este archivo:
+#   operator_console/operator_ui.html
+#
+# Ruta que entrega la UI: GET /
+# No existe otra plantilla ni UI paralela para la consola.
+# Esta UI incluye: Hero decision, Market snapshot, Context, Events, Distribution,
+# Compset, Recommended action, Confidence, Progress y Setup laterales.
 
 _OPERATOR_UI_PATH = os.path.join(BASE_DIR, "operator_console", "operator_ui.html")
 
 
 def _load_operator_ui() -> str:
-    """Carga el HTML de la consola operativa."""
+    """Carga el HTML de la consola operativa (única UI principal)."""
     if os.path.isfile(_OPERATOR_UI_PATH):
         with open(_OPERATOR_UI_PATH, encoding="utf-8") as f:
             return f.read()
     return "<!DOCTYPE html><html><body><p>operator_ui.html no encontrado.</p></body></html>"
 
 
-
-
 @app.get("/", response_class=HTMLResponse)
 def serve_admin():
+    """Sirve la única pantalla de la aplicación: operator_console/operator_ui.html (Analysis, Dashboard, Clients, etc.)."""
     return HTMLResponse(_load_operator_ui())
 
 
