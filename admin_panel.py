@@ -538,895 +538,124 @@ async def api_toggle_client(request: Request):
 
 
 # ─────────────────────────────────────────────────────────
-# FRONTEND — PANEL DE ADMIN COMPLETO
+# FRONTEND — Consola operativa (operator_console/operator_ui.html)
 # ─────────────────────────────────────────────────────────
 
-HTML = r"""<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RevMax Admin</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#f8f9fb;
-  --surface:#ffffff;
-  --border:#e5e7eb;
-  --text:#111827;
-  --text2:#6b7280;
-  --text3:#9ca3af;
-  --green:#059669;
-  --green-bg:#ecfdf5;
-  --amber:#d97706;
-  --amber-bg:#fffbeb;
-  --red:#dc2626;
-  --red-bg:#fef2f2;
-  --radius:12px;
-  --shadow:0 1px 3px rgba(0,0,0,.06);
-  --side-bg:#111827;
-  --side-text:rgba(255,255,255,.7);
-  --side-active:#fff;
-  --g:var(--green);--a:var(--amber);--r:var(--red);
-  --s2:#f3f4f6;--ab:var(--amber-bg);--bl:#2563eb;--blb:#eff6ff;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
-.layout{display:flex;min-height:100vh;}
-.side{width:220px;background:var(--side-bg);flex-shrink:0;display:flex;flex-direction:column;padding:24px 0;position:fixed;top:0;left:0;height:100vh;}
-.main{margin-left:220px;padding:32px;flex:1;min-width:0;}
-.logo{padding:0 20px 24px;border-bottom:1px solid rgba(255,255,255,.08);}
-.logo-t{font-size:18px;font-weight:700;color:var(--side-active);letter-spacing:-0.02em;}
-.logo-s{font-size:11px;color:var(--side-text);margin-top:2px;}
-.nav{padding:20px 0;flex:1;}
-.ni{display:flex;align-items:center;gap:10px;padding:10px 20px;color:var(--side-text);cursor:pointer;font-size:13px;font-weight:500;border-radius:8px;margin:0 8px;transition:color .15s,background .15s;}
-.ni:hover{color:var(--side-active);background:rgba(255,255,255,.06);}
-.ni.on{color:var(--side-active);background:rgba(255,255,255,.08);}
-.ni .ico{width:18px;text-align:center;font-size:14px;opacity:.9;}
-.badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:600;}
-.side-foot{padding:12px 20px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:var(--side-text);}
-.mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px;}
-.mc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);}
-.ml{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
-.mv{font-size:24px;font-weight:700;color:var(--text);letter-spacing:-0.02em;}
-.ms{font-size:12px;color:var(--text3);margin-top:2px;}
-.mc.hi .mv{color:var(--green);}
-.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
-.pt{font-size:20px;font-weight:700;letter-spacing:-0.02em;}
-.ps{font-size:13px;color:var(--text2);margin-top:2px;}
-.btn{padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
-.bp{background:var(--text);color:#fff;}
-.bp:hover{background:#1f2937;}
-.bs{background:var(--surface);color:var(--text);border:1px solid var(--border);}
-.bs:hover{background:#f9fafb;}
-.br{background:var(--red-bg);color:var(--red);border:1px solid #fecaca;}
-.btn:disabled{opacity:.5;cursor:not-allowed;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);}
-.ct{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px;}
-.tbl{width:100%;border-collapse:collapse;font-size:13px;}
-.tbl th{padding:10px 14px;text-align:left;font-size:11px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);background:var(--bg);}
-.tbl td{padding:12px 14px;border-bottom:1px solid var(--border);color:var(--text);}
-.tbl tr:last-child td{border-bottom:none;}
-.tbl tr:hover td{background:var(--bg);}
-.bpro{background:#EEEDFE;color:#4f46e5;border-radius:8px;font-size:11px;padding:4px 10px;font-weight:600;}
-.bbasic{background:var(--bg);color:var(--text2);border-radius:8px;font-size:11px;padding:4px 10px;}
-.bprem{background:#FCE7F3;color:#be185d;border-radius:8px;font-size:11px;padding:4px 10px;font-weight:600;}
-.bon{background:var(--green-bg);color:var(--green);border-radius:8px;font-size:11px;padding:4px 10px;}
-.boff{background:var(--red-bg);color:var(--red);border-radius:8px;font-size:11px;padding:4px 10px;}
-.bhigh{background:var(--red-bg);color:var(--red);border-radius:8px;font-size:11px;padding:4px 10px;font-weight:600;}
-.bmed{background:var(--amber-bg);color:var(--amber);border-radius:8px;font-size:11px;padding:4px 10px;}
-.blow{background:var(--green-bg);color:var(--green);border-radius:8px;font-size:11px;padding:4px 10px;}
-.bdone{background:var(--green-bg);color:var(--green);border-radius:8px;font-size:11px;padding:4px 10px;}
-.berr{background:var(--red-bg);color:var(--red);border-radius:8px;font-size:11px;padding:4px 10px;}
-.brun{background:#eff6ff;color:#2563eb;border-radius:8px;font-size:11px;padding:4px 10px;}
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center;}
-.overlay.open{display:flex;}
-.modal{background:var(--surface);border-radius:var(--radius);padding:28px;width:92%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 25px -5px rgba(0,0,0,.1);}
-.mttl{font-size:17px;font-weight:700;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;}
-.mclose{cursor:pointer;color:var(--text3);font-size:22px;line-height:1;}
-.fg{margin-bottom:16px;}
-.fl{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px;}
-.fi{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text);background:var(--surface);outline:none;}
-.fi:focus{border-color:var(--text2);box-shadow:0 0 0 3px rgba(0,0,0,.04);}
-select.fi{cursor:pointer;}
-.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;display:none;box-shadow:var(--shadow);}
-.toast.ok{background:var(--green);color:#fff;}
-.toast.err{background:var(--red);color:#fff;}
-.iframe-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
-iframe{width:100%;border:none;}
-.logitem{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border);}
-.logitem:last-child{border-bottom:none;}
-.logdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
-.logtxt{font-size:13px;color:var(--text);flex:1;}
-.logdate{font-size:11px;color:var(--text3);}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--text);border-radius:50%;animation:sp .6s linear infinite;}
-@keyframes sp{to{transform:rotate(360deg)}}
-.sbar{background:var(--side-bg);color:var(--side-text);font-size:11px;padding:8px 20px;text-align:right;}
-/* Run page: three panels */
-.run-layout{display:grid;grid-template-columns:280px 340px 1fr;gap:24px;min-height:calc(100vh - 120px);align-items:start;}
-@media (max-width:1200px){.run-layout{grid-template-columns:1fr 1fr;}}
-@media (max-width:768px){.run-layout{grid-template-columns:1fr;}}
-.run-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);}
-.run-panel h3{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px;}
-.run-decision{text-align:center;padding:32px 24px;background:var(--bg);border-radius:var(--radius);margin:20px 0;border:1px solid var(--border);}
-.run-decision .label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;}
-.run-decision .action{font-size:28px;font-weight:700;letter-spacing:-0.03em;}
-.run-decision.raise .action{color:var(--green);}
-.run-decision.hold .action{color:var(--amber);}
-.run-decision.lower .action{color:var(--red);}
-.metric-card{background:var(--bg);border-radius:10px;padding:14px 16px;border:1px solid var(--border);}
-.metric-card .k{font-size:11px;color:var(--text2);font-weight:500;margin-bottom:4px;}
-.metric-card .v{font-size:15px;font-weight:600;color:var(--text);}
-.result-placeholder{color:var(--text3);font-size:14px;text-align:center;padding:48px 24px;}
-.step-row{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:13px;}
-.step-row .icon{width:20px;text-align:center;}
-.step-row.done .icon{color:var(--green);}
-.step-row.active .icon{color:var(--text);}
-.step-row.warning .icon{color:var(--amber);}
-.step-row.error .icon{color:var(--red);}
-</style>
-</head>
-<body>
-<div class="layout">
-<nav class="side">
-  <div class="logo"><div class="logo-t">RevMax</div><div class="logo-s">Admin</div></div>
-  <div class="nav">
-    <div class="ni on" onclick="nav('dash')" id="nav-dash"><span class="ico">◈</span>Dashboard</div>
-    <div class="ni" onclick="nav('clients')" id="nav-clients"><span class="ico">◉</span>Clientes</div>
-    <div class="ni" onclick="nav('reports')" id="nav-reports"><span class="ico">◎</span>Informes</div>
-    <div class="ni" onclick="nav('alerts')" id="nav-alerts"><span class="ico">◌</span>Alertas<span class="badge" id="ab" style="display:none">0</span></div>
-    <div class="ni" onclick="nav('run')" id="nav-run"><span class="ico">▷</span>Análisis</div>
-    <div class="ni" onclick="nav('config')" id="nav-config"><span class="ico">◇</span>Config</div>
-  </div>
-  <div class="side-foot" id="last-refresh"></div>
-</nav>
+_OPERATOR_UI_PATH = os.path.join(BASE_DIR, "operator_console", "operator_ui.html")
 
-<main class="main">
 
-<!-- DASHBOARD -->
-<div id="pg-dash">
-  <div class="ph"><div><div class="pt">Dashboard</div><div class="ps" id="dash-ts">—</div></div>
-    <button class="btn bs" onclick="loadAll()">↺ Refrescar</button></div>
-  <div class="card" style="margin-bottom:14px;background:linear-gradient(135deg, var(--blb) 0%, rgba(30,80,120,.15) 100%);border:1px solid rgba(30,120,180,.3);">
-    <div class="ct">Pruebas y envío manual</div>
-    <p style="color:var(--tx2);font-size:13px;margin:0 0 12px 0;">Los informes a clientes se generan y envían solos (programación diaria). Aquí puedes <strong>probar</strong> el sistema o mandar un <strong>informe extra</strong> cuando quieras.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn bp" onclick="nav('run'); document.getElementById('run-mode').value='preview';" style="flex:1;min-width:160px;">◇ Probar (solo preview)</button>
-      <button class="btn bp" onclick="nav('run'); document.getElementById('run-mode').value='send';" style="flex:1;min-width:160px;">✉ Enviar informe ahora</button>
-    </div>
-  </div>
-  <div class="mrow" id="mrow"></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-    <div class="card"><div class="ct">Últimos informes</div>
-      <table class="tbl"><tbody id="dash-rep"></tbody></table></div>
-    <div class="card"><div class="ct">Últimas alertas</div>
-      <div id="dash-alrt"></div></div>
-  </div>
-</div>
+def _load_operator_ui() -> str:
+    """Carga el HTML de la consola operativa."""
+    if os.path.isfile(_OPERATOR_UI_PATH):
+        with open(_OPERATOR_UI_PATH, encoding="utf-8") as f:
+            return f.read()
+    return "<!DOCTYPE html><html><body><p>operator_ui.html no encontrado.</p></body></html>"
 
-<!-- CLIENTES -->
-<div id="pg-clients" style="display:none">
-  <div class="ph">
-    <div><div class="pt">Clientes</div><div class="ps">Gestión de hoteles suscritos</div></div>
-    <button class="btn bp" onclick="openAddClient()">+ Añadir cliente</button>
-  </div>
-  <div class="card" style="padding:0;overflow:hidden">
-    <table class="tbl">
-      <thead><tr><th>Hotel</th><th>Ciudad</th><th>Email</th><th>Plan</th>
-        <th>Estado</th><th>Creado</th><th>Acciones</th></tr></thead>
-      <tbody id="clients-body"></tbody>
-    </table>
-  </div>
-</div>
 
-<!-- INFORMES -->
-<div id="pg-reports" style="display:none">
-  <div class="ph"><div><div class="pt">Informes</div>
-    <div class="ps">Historial de todos los análisis enviados</div></div></div>
-  <div class="card" style="padding:0;overflow:hidden">
-    <table class="tbl">
-      <thead><tr><th>Hotel</th><th>Fecha</th><th>Estado</th>
-        <th>Resumen</th><th>Ver</th></tr></thead>
-      <tbody id="reports-body"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ALERTAS -->
-<div id="pg-alerts" style="display:none">
-  <div class="ph"><div><div class="pt">Log de alertas</div>
-    <div class="ps">Todas las alertas generadas por el motor</div></div></div>
-  <div class="card">
-    <div id="alerts-body"></div>
-  </div>
-</div>
-
-<!-- LANZAR ANÁLISIS -->
-<div id="pg-run" style="display:none">
-  <div class="ph"><div><div class="pt">Análisis</div>
-    <div class="ps">Configuración, progreso y resultado del análisis.</div></div></div>
-  <div class="run-layout">
-    <div class="run-panel">
-      <h3>Configuración</h3>
-      <div class="fg"><label class="fl">Hotel</label>
-        <input class="fi" id="run-hotel" placeholder="ej: Hotel Arts Barcelona"></div>
-      <div class="fg"><label class="fl">Ciudad</label>
-        <input class="fi" id="run-city" placeholder="ej: Barcelona"></div>
-      <div class="fg"><label class="fl">Email destino</label>
-        <input class="fi" id="run-email" placeholder="director@hotel.com" type="email"></div>
-      <div class="fg"><label class="fl">Modo</label>
-        <select class="fi" id="run-mode">
-          <option value="preview">Solo preview (no envía email)</option>
-          <option value="send">Generar y enviar por email</option>
-        </select></div>
-      <div class="fg" style="display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" id="run-fast-demo" style="width:18px;height:18px;" onchange="toggleDemoWarning()">
-        <label class="fl" for="run-fast-demo" style="margin:0;">Demo rápido (~20 s)</label>
-      </div>
-      <div id="run-demo-warning" style="display:none;margin-bottom:10px;padding:12px;background:var(--amber-bg);border:1px solid #fcd34d;border-radius:10px;font-size:12px;color:var(--amber);">
-        Modo demo: sin scraping ni agentes completos. Solo informe de prueba.
-      </div>
-      <button class="btn bp" style="width:100%;justify-content:center;margin-top:8px;padding:14px;"
-        id="run-btn" onclick="runAnalysis()">
-        <span id="run-btn-txt">Generar análisis</span>
-      </button>
-      <div id="run-sys-status" style="margin-top:14px;font-size:11px;color:var(--text3);"></div>
-    </div>
-    <div class="run-panel">
-      <h3>Progreso</h3>
-      <div id="run-progress-block" style="display:none">
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:12px;letter-spacing:.04em">ANÁLISIS EN PROGRESO</div>
-        <div id="run-progress-steps"></div>
-        <div id="run-duration" style="margin-top:16px;font-size:12px;color:var(--text2);"></div>
-        <div id="run-status" style="margin-top:8px;font-size:11px;color:var(--text3);"></div>
-      </div>
-      <div id="run-progress-idle" style="color:var(--text3);font-size:13px;">Inicia un análisis para ver el progreso.</div>
-    </div>
-    <div class="run-panel">
-      <h3>Resultado</h3>
-      <div id="run-result-area">
-        <div id="run-result-content" style="display:none"></div>
-        <div id="run-result-empty" class="result-placeholder">El resultado aparecerá aquí al completar el análisis.</div>
-      </div>
-      <div id="run-preview-wrap" style="margin-top:24px;display:none">
-        <div class="ct">Vista previa del informe</div>
-        <div class="iframe-wrap" style="height:480px"><iframe id="run-preview-iframe" title="Vista previa"></iframe></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- CONFIG -->
-<div id="pg-config" style="display:none">
-  <div class="ph"><div><div class="pt">Configuración del sistema</div></div>
-    <button class="btn bp" onclick="saveConfig()">Guardar</button></div>
-  <div style="display:flex;flex-direction:column;gap:14px;">
-    <div class="card">
-      <div class="ct">Hotel principal (config.json)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="fg"><label class="fl">Nombre del hotel</label>
-          <input class="fi" id="c-name"></div>
-        <div class="fg"><label class="fl">Ciudad</label>
-          <input class="fi" id="c-city"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="ct">API y email</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="fg"><label class="fl">Anthropic API Key</label>
-          <input class="fi" id="c-apikey" type="password" placeholder="sk-ant-..."></div>
-        <div class="fg"><label class="fl">Email SMTP (Gmail)</label>
-          <input class="fi" id="c-smtp"></div>
-        <div class="fg"><label class="fl">Contraseña aplicación Gmail</label>
-          <input class="fi" id="c-smtppass" type="password"></div>
-        <div class="fg"><label class="fl">Destinatario informes</label>
-          <input class="fi" id="c-recipient"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="ct">config.json completo (raw)</div>
-      <textarea class="fi" id="c-raw" rows="10" style="font-family:monospace;font-size:12px;"></textarea>
-    </div>
-  </div>
-</div>
-
-</main>
-</div>
-
-<!-- MODAL ADD CLIENT -->
-<div class="overlay" id="modal-add" onclick="closeModal(event,'modal-add')">
-  <div class="modal">
-    <div class="mttl">Añadir cliente <span class="mclose" onclick="closeM('modal-add')">×</span></div>
-    <div class="fg"><label class="fl">Nombre del hotel</label>
-      <input class="fi" id="ac-name" placeholder="Hotel Ejemplo Barcelona"></div>
-    <div class="fg"><label class="fl">Ciudad</label>
-      <input class="fi" id="ac-city" placeholder="Barcelona"></div>
-    <div class="fg"><label class="fl">Email del director</label>
-      <input class="fi" id="ac-email" type="email" placeholder="director@hotel.com"></div>
-    <div class="fg"><label class="fl">Plan</label>
-      <select class="fi" id="ac-plan">
-        <option value="basic">Basic · 79€/mes</option>
-        <option value="pro" selected>Pro · 149€/mes</option>
-        <option value="premium">Premium · 299€/mes</option>
-      </select></div>
-    <button class="btn bp" style="width:100%;justify-content:center;" onclick="addClient()">
-      Añadir cliente</button>
-  </div>
-</div>
-
-<!-- MODAL REPORT VIEWER -->
-<div class="overlay" id="modal-report" onclick="closeModal(event,'modal-report')">
-  <div class="modal" style="max-width:800px;width:96%;">
-    <div class="mttl" id="modal-report-title">Informe
-      <span class="mclose" onclick="closeM('modal-report')">×</span></div>
-    <div id="modal-report-body"></div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const API = '';
-let _stats={}, _clients=[], _reports=[], _alerts=[], _cfg={};
-
-async function api(path, method='GET', body=null){
-  const o={method,headers:{'Content-Type':'application/json'}};
-  if(body) o.body=JSON.stringify(body);
-  const r=await fetch(API+path,o);
-  return r.json();
-}
-
-function toast(msg,type=''){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.className='toast '+(type==='ok'?'ok':type==='err'?'err':'');
-  t.style.display='block'; setTimeout(()=>t.style.display='none',3500);
-}
-
-function nav(page){
-  document.querySelectorAll('[id^="pg-"]').forEach(p=>p.style.display='none');
-  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
-  document.getElementById('pg-'+page).style.display='block';
-  document.getElementById('nav-'+page).classList.add('on');
-  if(page==='clients') renderClients();
-  if(page==='reports') renderReports();
-  if(page==='alerts')  renderAlerts();
-  if(page==='config')  renderConfig();
-  if(page==='run') toggleDemoWarning();
-}
-
-async function loadAll(){
-  const [stats,clients,reports,alerts] = await Promise.all([
-    api('/api/stats'), api('/api/clients'), api('/api/reports'), api('/api/alerts')
-  ]);
-  _stats=stats; _clients=clients; _reports=reports; _alerts=alerts;
-  renderDash(); renderClients(); renderReports(); renderAlerts();
-  document.getElementById('last-refresh').textContent=
-    'Actualizado '+new Date().toLocaleTimeString('es-ES');
-  document.getElementById('dash-ts').textContent=
-    new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
-
-  // badge alertas hoy
-  const today=new Date().toISOString().slice(0,10);
-  const todayAlerts=alerts.filter(a=>a.created_at&&a.created_at.startsWith(today));
-  const ab=document.getElementById('ab');
-  if(todayAlerts.length){ab.textContent=todayAlerts.length;ab.style.display='inline';}
-  else ab.style.display='none';
-}
-
-// ── DASHBOARD ──
-function renderDash(){
-  const s=_stats;
-  document.getElementById('mrow').innerHTML=`
-    <div class="mc hi"><div class="ml">Clientes activos</div>
-      <div class="mv">${s.active_clients||0}</div>
-      <div class="ms">de ${s.total_clients||0} registrados</div></div>
-    <div class="mc"><div class="ml">Informes hoy</div>
-      <div class="mv">${s.reports_today||0}</div>
-      <div class="ms">${s.total_reports||0} total</div></div>
-    <div class="mc"><div class="ml">Alertas hoy</div>
-      <div class="mv">${s.alerts_today||0}</div>
-      <div class="ms">${s.total_alerts||0} total</div></div>
-    <div class="mc"><div class="ml">Planes</div>
-      <div style="font-size:12px;margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-        <span class="bbasic">Basic ${s.plans?.basic||0}</span>
-        <span class="bpro">Pro ${s.plans?.pro||0}</span>
-        <span class="bprem">Prem ${s.plans?.premium||0}</span>
-      </div></div>`;
-
-  // últimos 5 informes
-  document.getElementById('dash-rep').innerHTML=
-    (_reports.slice(0,5).map(r=>`
-      <tr style="cursor:pointer" onclick="viewReport(${r.id},'${r.subject||''}')">
-        <td><strong>${r.subject||'—'}</strong><br>
-          <span style="font-size:11px;color:var(--tx3)">${r.date||'—'}</span></td>
-        <td><span class="b${r.status||'done'}">${r.status||'—'}</span></td>
-      </tr>`).join('')) || '<tr><td colspan="2" style="color:var(--tx3);padding:12px">Sin informes</td></tr>';
-
-  // últimas 5 alertas
-  const dotColors={high:'var(--r)',medium:'var(--a)',low:'var(--g)'};
-  document.getElementById('dash-alrt').innerHTML=
-    (_alerts.slice(0,5).map(a=>`
-      <div class="logitem">
-        <div class="logdot" style="background:${dotColors[a.priority]||'var(--tx3)'}"></div>
-        <div>
-          <div class="logtxt">${a.title||a.trigger_type}</div>
-          <div class="logdate">${(a.created_at||'').slice(0,16).replace('T',' ')} · ${a.hotel_name||''}</div>
-        </div>
-      </div>`).join('')) ||
-    '<div style="color:var(--tx3);font-size:13px;padding:8px 0">Sin alertas registradas</div>';
-}
-
-// ── CLIENTS ──
-function renderClients(){
-  const planBadge=p=>p==='premium'?`<span class="bprem">Premium</span>`:
-    p==='pro'?`<span class="bpro">Pro</span>`:`<span class="bbasic">Basic</span>`;
-  document.getElementById('clients-body').innerHTML=
-    _clients.map(c=>`
-      <tr>
-        <td><strong>${c.name}</strong></td>
-        <td>${c.city||'—'}</td>
-        <td style="font-size:12px;color:var(--tx2)">${c.email}</td>
-        <td>${planBadge(c.plan)}</td>
-        <td><span class="${c.active?'bon':'boff'}">${c.active?'Activo':'Pausado'}</span></td>
-        <td style="font-size:12px;color:var(--tx3)">${(c.created_at||'').slice(0,10)}</td>
-        <td>
-          <button class="btn bs" style="font-size:11px;padding:4px 10px"
-            onclick="quickRun('${c.name}','${c.city||''}',${c.id})">▷ Analizar</button>
-          <select style="font-size:11px;padding:4px 6px;border:1px solid var(--b);
-                         border-radius:6px;background:var(--s);cursor:pointer;margin-left:4px;"
-            onchange="changePlan(${c.id},this.value)">
-            <option ${c.plan==='basic'?'selected':''} value="basic">Basic</option>
-            <option ${c.plan==='pro'?'selected':''} value="pro">Pro</option>
-            <option ${c.plan==='premium'?'selected':''} value="premium">Premium</option>
-          </select>
-        </td>
-      </tr>`).join('') ||
-    '<tr><td colspan="7" style="padding:20px;color:var(--tx3);text-align:center">Sin clientes. Añade el primero.</td></tr>';
-}
-
-// ── REPORTS ──
-function renderReports(){
-  const clientName=id=>{const c=_clients.find(x=>x.id===id);return c?c.name:'-';};
-  document.getElementById('reports-body').innerHTML=
-    _reports.map(r=>`
-      <tr>
-        <td><strong>${clientName(r.hotel_id)}</strong></td>
-        <td>${r.date||'—'}</td>
-        <td><span class="b${r.status||'done'}">${r.status||'—'}</span></td>
-        <td style="font-size:12px;color:var(--tx2);max-width:280px;
-                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-          ${r.subject||'—'}</td>
-        <td><button class="btn bs" style="font-size:11px;padding:4px 10px"
-          onclick="viewReport(${r.id},'${(r.subject||'').replace(/'/g,"\\'")}')">Ver email</button></td>
-      </tr>`).join('') ||
-    '<tr><td colspan="5" style="padding:20px;color:var(--tx3);text-align:center">Sin informes aún</td></tr>';
-}
-
-// ── ALERTS ──
-function renderAlerts(){
-  const dotColors={high:'var(--r)',medium:'var(--a)',low:'var(--g)'};
-  const pLabels={high:'Urgente',medium:'Importante',low:'Info'};
-  document.getElementById('alerts-body').innerHTML=
-    _alerts.map(a=>`
-      <div class="logitem">
-        <div class="logdot" style="background:${dotColors[a.priority||'medium']||'var(--tx3)'}"></div>
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-            <span class="b${a.priority||'med'}">${pLabels[a.priority]||a.priority}</span>
-            <span style="font-size:13px;font-weight:500">${a.title||a.trigger_type}</span>
-          </div>
-          <div style="font-size:12px;color:var(--tx2)">${a.hotel_name||''} · ${a.trigger_type||''}</div>
-          ${a.recommendation?`<div style="font-size:12px;color:var(--g);margin-top:3px">→ ${a.recommendation}</div>`:''}
-        </div>
-        <div style="font-size:11px;color:var(--tx3);white-space:nowrap">
-          ${(a.created_at||'').slice(0,16).replace('T',' ')}</div>
-      </div>`).join('') ||
-    '<div style="color:var(--tx3);font-size:13px;padding:8px 0">Sin alertas registradas</div>';
-}
-
-// ── CONFIG ──
-async function renderConfig(){
-  const r=await fetch('/api/preview/config.json').catch(()=>null);
-  let cfg={};
-  try{const raw=await fetch('/api/stats');cfg=await raw.json();} catch(e){}
-
-  try{
-    const rr=await fetch('/'+CONFIG_FILE).catch(()=>null);
-    if(rr&&rr.ok) cfg=await rr.json();
-  }catch(e){}
-
-  // Leer config.json directamente via endpoint dedicado
-  try{
-    const cr=await api('/api/config');
-    if(cr&&!cr.error) cfg=cr;
-  }catch(e){}
-
-  document.getElementById('c-name').value=cfg.name||'';
-  document.getElementById('c-city').value=cfg.city||'';
-  document.getElementById('c-apikey').value=cfg.anthropic_api_key||'';
-  document.getElementById('c-smtp').value=cfg.smtp_email||'';
-  document.getElementById('c-smtppass').value=cfg.smtp_password||'';
-  document.getElementById('c-recipient').value=cfg.report_recipient||'';
-  document.getElementById('c-raw').value=JSON.stringify(cfg,null,2);
-  _cfg=cfg;
-}
-
-async function saveConfig(){
-  let cfg;
-  try{cfg=JSON.parse(document.getElementById('c-raw').value);}
-  catch(e){toast('JSON inválido','err');return;}
-  cfg.name=document.getElementById('c-name').value||cfg.name;
-  cfg.city=document.getElementById('c-city').value||cfg.city;
-  cfg.anthropic_api_key=document.getElementById('c-apikey').value||cfg.anthropic_api_key;
-  cfg.smtp_email=document.getElementById('c-smtp').value||cfg.smtp_email;
-  cfg.smtp_password=document.getElementById('c-smtppass').value||cfg.smtp_password;
-  cfg.report_recipient=document.getElementById('c-recipient').value||cfg.report_recipient;
-  const r=await api('/api/save-config','POST',cfg);
-  toast(r.ok?'Configuración guardada':'Error guardando',r.ok?'ok':'err');
-}
-
-// ── ACTIONS ──
-async function quickRun(name,city,id){
-  const r=await api('/api/run-analysis','POST',{hotel_name:name,city,hotel_id:id});
-  toast(r.ok?`Análisis iniciado para ${name} (~90s)`:(r.error||'Error'),r.ok?'ok':'err');
-  nav('run');
-  document.getElementById('run-hotel').value=name;
-  document.getElementById('run-city').value=city;
-}
-
-function showPreviewAndDone(btn,btxt,status,jobId,job){
-  btn.disabled=false; btxt.textContent='Generar análisis';
-  if(status){ status.style.display='none'; status.style.background=''; status.style.color=''; }
-  toast('¡Análisis completado!','ok');
-  const resultContent=document.getElementById('run-result-content');
-  const resultEmpty=document.getElementById('run-result-empty');
-  const previewWrap=document.getElementById('run-preview-wrap');
-  const previewIframe=document.getElementById('run-preview-iframe');
-  if(resultContent) resultContent.style.display='block';
-  if(resultEmpty) resultEmpty.style.display='none';
-  if(job) renderResultPanel(job);
-  else if(jobId){
-    fetch('/api/job-status/'+jobId).then(r=>r.ok?r.json():null).then(j=>{ if(j) renderResultPanel(j); });
-  }
-  const src=jobId ? ('/api/preview/job/'+encodeURIComponent(jobId)+'?t='+Date.now()) : ('/api/preview/report_preview.html?t='+Date.now());
-  if(previewWrap){ previewWrap.style.display='block'; }
-  if(previewIframe){ previewIframe.src=src; }
-  loadAll();
-}
-
-function fmt(v){ return v===undefined||v===null||v===''||String(v).trim()===''||String(v)==='—' ? 'No encontrado' : String(v); }
-
-function renderResultPanel(job){
-  const el=document.getElementById('run-result-content');
-  if(!el) return;
-  const ev=job.evidence_found||{};
-  const q=job.analysis_quality||{};
-  const sum=job.result_summary||{};
-  const action=(sum.consolidated_action||'hold').toLowerCase();
-  const actionLabel=action==='raise'?'RAISE PRICE':action==='lower'?'LOWER PRICE':'HOLD PRICE';
-  const confidence=sum.confidence_pct!=null?sum.confidence_pct:70;
-  const execSummary=fmt(sum.executive_summary);
-  const analysisDate=fmt(sum.analysis_date)||new Date().toISOString().slice(0,10);
-  const hotelName=fmt(ev.hotel_detected)||fmt(job.hotel_name)||'Hotel';
-  const qualityLabel=(q.label||'good').toUpperCase();
-  const qualityClass=q.label==='excellent'||q.label==='good'?'bdone':q.label==='degraded'?'bmed':'bhigh';
-  const comps=(ev.top_3_competitors||[]).slice(0,5);
-  const timing=job.analysis_timing||{};
-  const totalSec=timing.total_seconds!=null?Math.round(timing.total_seconds):null;
-  let html='<div style="margin-bottom:20px"><div style="font-size:16px;font-weight:700;color:var(--text);">'+hotelName+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+analysisDate+'</div><span class="'+qualityClass+'" style="margin-top:6px;display:inline-block">'+qualityLabel+'</span></div>';
-  html+='<div class="run-decision '+action+'"><div class="label">REVMAX RECOMIENDA</div><div class="action">'+actionLabel+'</div><div style="margin-top:12px;font-size:13px;color:var(--text2)">Confidence: '+confidence+'%</div></div>';
-  html+='<div style="margin-bottom:20px"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Resumen ejecutivo</div><p style="margin:0;font-size:13px;color:var(--text);line-height:1.5">'+execSummary+'</p></div>';
-  html+='<div style="margin-bottom:20px"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Datos observados</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">';
-  ['Precio propio','Media compset','Posición precio','GRI reputación','Visibilidad','Paridad','Demand score'].forEach(function(k,i){
-    const keys=['own_price','compset_avg','price_position','gri','visibility','parity_status','demand_score'];
-    const key=keys[i]||k.toLowerCase();
-    const val=ev[key]!=null?ev[key]:ev[key.replace('_','')];
-    html+='<div class="metric-card"><div class="k">'+k+'</div><div class="v">'+fmt(val)+'</div></div>';
-  });
-  html+='</div></div>';
-  if(comps.length){ html+='<div style="margin-bottom:20px"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Competidores detectados</div><ul style="margin:0;padding:0;list-style:none;font-size:13px">'; comps.forEach(function(c){ html+='<li style="padding:4px 0;border-bottom:1px solid var(--border)">'+fmt(c)+'</li>'; }); html+='</ul></div>'; }
-  html+='<div class="metric-card" style="margin-bottom:20px"><div class="k">Salud del análisis</div><div style="margin-bottom:6px"><span class="'+qualityClass+'">Analysis quality: '+qualityLabel+'</span></div><div style="font-size:12px;color:var(--text2)">Agentes OK: '+(q.agents_ok!=null?q.agents_ok:fmt(null))+' / '+(q.agents_total!=null?q.agents_total:fmt(null))+(q.fallback_count>0 ? ' · Fallbacks: '+q.fallback_count : '')+'</div><p style="margin:8px 0 0;font-size:12px;color:var(--text2)">'+fmt(q.summary)+'</p></div>';
-  html+='<div><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Qué ha encontrado RevMax</div><table class="tbl" style="font-size:12px"><tbody>';
-  [['Hotel',ev.hotel_detected],['Ciudad',ev.city],['Precio propio',ev.own_price],['Media compset',ev.compset_avg],['Posición precio',ev.price_position],['GRI / Reputación',ev.gri],['Visibilidad',ev.visibility],['Paridad',ev.parity_status],['Demand score',ev.demand_score],['Top 3 competidores',(ev.top_3_competitors||[]).join(', ')]].forEach(function(r){ html+='<tr><td style="color:var(--text2);width:140px">'+r[0]+'</td><td>'+fmt(r[1])+'</td></tr>'; });
-  html+='</tbody></table></div>';
-  el.innerHTML=html;
-}
-
-// Mensajes por fase (progreso real)
-const STAGE_MESSAGES={
-  created:'Preparando...',
-  starting:'Iniciando análisis...',
-  discovery:'Identificando hotel...',
-  compset:'Detectando comp set...',
-  parallel:'Revisando precios y disponibilidad...',
-  pricing:'Revisando precios y disponibilidad...',
-  demand:'Analizando demanda...',
-  reputation:'Analizando reputación...',
-  distribution:'Revisando distribución y paridad...',
-  consolidate:'Calculando estrategia, alertas y oportunidades...',
-  report:'Generando informe final...',
-  rendering:'Generando vista previa del informe...',
-  persisting:'Guardando informe...',
-  notifying:'Enviando email...',
-  done:'Completado.',
-  error:'Error.'
-};
-
-function toggleDemoWarning(){
-  const w=document.getElementById('run-demo-warning');
-  const c=document.getElementById('run-fast-demo');
-  w.style.display=c&&c.checked?'block':'none';
-}
-
-function renderProgressSteps(steps){
-  const el=document.getElementById('run-progress-steps');
-  const block=document.getElementById('run-progress-block');
-  const idle=document.getElementById('run-progress-idle');
-  if(!el) return;
-  if(!steps||!steps.length){
-    el.innerHTML='';
-    if(block) block.style.display='none';
-    if(idle) idle.style.display='block';
-    return;
-  }
-  if(block) block.style.display='block';
-  if(idle) idle.style.display='none';
-  const statusIcon=s=>{
-    if(s==='done') return '<span style="color:var(--green)">✓</span>';
-    if(s==='active') return '<span class="spin"></span>';
-    if(s==='warning') return '<span style="color:var(--amber)">⚠</span>';
-    if(s==='error') return '<span style="color:var(--red)">✗</span>';
-    return '<span style="color:var(--text3)">○</span>';
-  };
-  const rowClass=s=>'step-row '+(s.status==='done'?'done':s.status==='active'?'active':s.status==='warning'?'warning':s.status==='error'?'error':'');
-  el.innerHTML=steps.map(s=>'<div class="'+rowClass(s)+'"><span class="icon">'+statusIcon(s.status)+'</span><span>'+s.label+'</span></div>').join('');
-}
-
-function renderEvidence(ev){
-  const el=document.getElementById('run-evidence');
-  if(!el) return;
-  if(!ev){ el.style.display='none'; return; }
-  el.style.display='block';
-  const row=(label,val)=>'<tr><td style="color:var(--tx2);width:140px">'+label+'</td><td>'+val+'</td></tr>';
-  el.innerHTML='<div class="card" style="margin-top:0"><div class="ct">Qué ha encontrado RevMax</div>'+
-    '<table class="tbl" style="font-size:12px"><tbody>'+
-    row('Hotel', ev.hotel_detected||'No encontrado')+
-    row('Ciudad', ev.city||'No encontrado')+
-    row('Precio propio', ev.own_price||'No encontrado')+
-    row('Media compset', ev.compset_avg||'No encontrado')+
-    row('Posición precio', ev.price_position||'No encontrado')+
-    row('GRI / Reputación', ev.gri||'No encontrado')+
-    row('Visibilidad', ev.visibility||'No encontrado')+
-    row('Paridad', ev.parity_status||'No encontrado')+
-    row('Demand score', ev.demand_score||'No encontrado')+
-    row('Top 3 competidores', (ev.top_3_competitors||[]).join(', ')||'No encontrados')+
-    row('Análisis', ev.is_degraded?'Degradado (algunos datos por fallback)':'Completo')+
-    '</tbody></table></div>';
-}
-
-function renderQuality(q){
-  const el=document.getElementById('run-quality');
-  if(!el) return;
-  if(!q){ el.style.display='none'; return; }
-  el.style.display='block';
-  const labelClass=q.label==='excellent'?'bdone':q.label==='good'?'bdone':q.label==='degraded'?'bmed':'bhigh';
-  el.innerHTML='<div class="card" style="margin-top:0"><div class="ct">Salud del análisis</div>'+
-    '<p style="margin:0 0 8px 0"><span class="'+labelClass+'">'+q.label.toUpperCase()+'</span> '+
-    'Score: '+q.score+' · Agentes OK: '+q.agents_ok+'/'+q.agents_total+
-    (q.fallback_count>0 ? ' · Fallbacks: '+q.fallback_count : '')+'</p>'+
-    '<p style="margin:0;font-size:12px;color:var(--tx2)">'+q.summary+'</p></div>';
-}
-
-async function runAnalysis(){
-  const hotel=document.getElementById('run-hotel').value.trim();
-  const city=document.getElementById('run-city').value.trim();
-  const mode=document.getElementById('run-mode').value;
-  const fastDemo=document.getElementById('run-fast-demo').checked;
-  if(!hotel){toast('Escribe el nombre del hotel','err');return;}
-
-  const btn=document.getElementById('run-btn');
-  const btxt=document.getElementById('run-btn-txt');
-  btn.disabled=true;
-  btxt.innerHTML='<span class="spin"></span> Analizando...';
-
-  const status=document.getElementById('run-status');
-  status.style.display='block';
-  status.style.background='var(--blb);color:var(--bl);';
-  status.textContent=fastDemo ? 'Demo rápido: preparando...' : 'Iniciando análisis...';
-
-  const r=await api('/api/run-analysis','POST',{
-    hotel_name:hotel, city, hotel_id:1,
-    send_email: mode==='send',
-    fast_demo: fastDemo
-  });
-
-  if(!r.ok){
-    toast(r.error||'Error','err');
-    btn.disabled=false; btxt.textContent='▷ Generar informe';
-    status.style.display='none'; return;
-  }
-
-  const jobId=r.job_id||null;
-  const FRONTEND_ANALYSIS_TIMEOUT_SECONDS=600;
-  const FRONTEND_ANALYSIS_POLL_INTERVAL_MS=2000;
-  const FRONTEND_ANALYSIS_MAX_POLLS=Math.ceil(FRONTEND_ANALYSIS_TIMEOUT_SECONDS*1000/FRONTEND_ANALYSIS_POLL_INTERVAL_MS);
-  if(typeof console!=='undefined'&&console.log) console.log('[RevMax] run-analysis response: ok=',r.ok,' job_id=',jobId,' frontend timeout=',FRONTEND_ANALYSIS_TIMEOUT_SECONDS,'s maxPolls=',FRONTEND_ANALYSIS_MAX_POLLS);
-  toast(fastDemo ? 'Demo iniciado (~20 s)' : 'Análisis iniciado (1–2 min)','ok');
-  const progressBlock=document.getElementById('run-progress-block');
-  const progressIdle=document.getElementById('run-progress-idle');
-  if(progressBlock) progressBlock.style.display='block';
-  if(progressIdle) progressIdle.style.display='none';
-
-  let polls=0;
-  const poll=setInterval(async()=>{
-    polls++;
-    if(polls>FRONTEND_ANALYSIS_MAX_POLLS){
-      clearInterval(poll);
-      btn.disabled=false; btxt.textContent='Generar análisis';
-      if(progressBlock) progressBlock.style.display='block';
-      if(progressIdle) progressIdle.style.display='none';
-      status.style.display='block';
-      status.style.background='var(--amber-bg)'; status.style.color='var(--amber)';
-      status.style.whiteSpace='normal'; status.style.textAlign='left';
-      status.style.padding='12px'; status.style.maxHeight='none';
-      status.textContent='El análisis sigue tardando más de lo habitual. Puede seguir en curso en el servidor. Comprueba más tarde el estado o data/admin_errors.log.';
-      (async function(){
-        if(jobId){
-          try{
-            const jR=await fetch('/api/job-status/'+jobId);
-            if(jR&&jR.ok){ const job=await jR.json(); renderProgressSteps(job.progress_steps||[]); var prefix=(job.stage?(STAGE_MESSAGES[job.stage]||job.stage)+(job.progress_pct!=null?' · '+job.progress_pct+'%':'')+' — ':'');
-              status.textContent=prefix+status.textContent;
-              var durEl=document.getElementById('run-duration'); if(job.analysis_timing&&job.analysis_timing.total_seconds!=null&&durEl) durEl.textContent='Duración: '+Math.round(job.analysis_timing.total_seconds)+' s';
-              if((job.evidence_found||job.analysis_quality)&&typeof renderResultPanel==='function'){ var rc=document.getElementById('run-result-content'); var re=document.getElementById('run-result-empty'); if(rc) rc.style.display='block'; if(re) re.style.display='none'; renderResultPanel(job); } }
-          }catch(e){}
-        }
-        if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] frontend timeout after',polls,'polls (timeout=',FRONTEND_ANALYSIS_TIMEOUT_SECONDS,'s), progress panel remains visible');
-      })();
-      loadAll();
-      return;
-    }
-    if(jobId){
-      const url='/api/job-status/'+jobId;
-      if(polls===1&&typeof console!=='undefined'&&console.log) console.log('[RevMax] polling endpoint:',url);
-      const jR=await fetch(url).catch(function(e){ if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] job-status fetch failed',e); return null; });
-      if(jR&&jR.ok){
-        const job=await jR.json();
-        const steps=job.progress_steps;
-        if(typeof console!=='undefined'&&console.log&&polls<=3) console.log('[RevMax] job-status poll #'+polls+' steps=',steps?steps.length:0,' stage=',job.stage,' status=',job.status);
-        renderProgressSteps(job.progress_steps||[]);
-        if(job.stage) status.textContent=(STAGE_MESSAGES[job.stage]||job.stage)+(job.progress_pct!=null?' · '+job.progress_pct+'%':'');
-        const durEl=document.getElementById('run-duration');
-        if(job.analysis_timing&&job.analysis_timing.total_seconds!=null&&durEl) durEl.textContent='Duración: '+Math.round(job.analysis_timing.total_seconds)+' s';
-        if(job.status==='completed'){
-          clearInterval(poll);
-          if(durEl&&job.analysis_timing&&job.analysis_timing.total_seconds!=null) durEl.textContent='Completado · '+Math.round(job.analysis_timing.total_seconds)+' s';
-          showPreviewAndDone(btn,btxt,status,jobId,job);
-          return;
-        }
-        if(job.status==='failed'){
-          clearInterval(poll);
-          btn.disabled=false; btxt.textContent='Generar análisis';
-          renderProgressSteps(job.progress_steps||[]);
-          if(progressBlock) progressBlock.style.display='block';
-          if(progressIdle) progressIdle.style.display='none';
-          status.style.display='block';
-          status.style.background='var(--red-bg)'; status.style.color='var(--red)';
-          status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
-          status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
-          status.textContent='Error: '+(job.error_message||'Unknown');
-          if((job.evidence_found||job.analysis_quality)&&typeof renderResultPanel==='function'){ var rc=document.getElementById('run-result-content'); var re=document.getElementById('run-result-empty'); if(rc){ rc.style.display='block'; } if(re){ re.style.display='none'; } renderResultPanel(job); }
-          if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] final state: failed, progress panel remains visible',job.error_message);
-          toast('Análisis falló','err');
-          return;
-        }
-        if(job.status==='stalled'){
-          clearInterval(poll);
-          btn.disabled=false; btxt.textContent='Generar análisis';
-          renderProgressSteps(job.progress_steps||[]);
-          if(progressBlock) progressBlock.style.display='block';
-          if(progressIdle) progressIdle.style.display='none';
-          status.style.display='block';
-          status.style.background='var(--red-bg)'; status.style.color='var(--red)';
-          status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
-          status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
-          status.textContent='Job colgado: '+(job.error_message||'Sin actualización en el tiempo límite.');
-          if((job.evidence_found||job.analysis_quality)&&typeof renderResultPanel==='function'){ var rc=document.getElementById('run-result-content'); var re=document.getElementById('run-result-empty'); if(rc){ rc.style.display='block'; } if(re){ re.style.display='none'; } renderResultPanel(job); }
-          if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] final state: stalled, progress panel remains visible');
-          toast('Análisis colgado','err');
-          return;
-        }
-        if(job.status==='cancelled'){
-          clearInterval(poll);
-          btn.disabled=false; btxt.textContent='Generar análisis';
-          renderProgressSteps(job.progress_steps||[]);
-          if(progressBlock) progressBlock.style.display='block';
-          if(progressIdle) progressIdle.style.display='none';
-          status.style.display='block';
-          status.style.background='var(--s2)'; status.style.color='var(--text2)';
-          status.textContent='Análisis cancelado.';
-          if(typeof console!=='undefined'&&console.log) console.log('[RevMax] final state: cancelled, progress panel remains visible');
-          toast('Análisis cancelado','err');
-          return;
-        }
-        return;
-      }
-      if(jR&&!jR.ok&&typeof console!=='undefined'&&console.warn) console.warn('[RevMax] job-status non-ok',jR.status,jobId);
-      return;
-    }
-    if(!jobId){
-      const stR=await fetch('/api/analysis-status').catch(()=>null);
-      if(!stR||!stR.ok) return;
-      const st=await stR.json();
-      if(st.status==='success'){
-        clearInterval(poll);
-        showPreviewAndDone(btn,btxt,status,null,null);
-        return;
-      }
-      if(st.status==='error'){
-        clearInterval(poll);
-        btn.disabled=false; btxt.textContent='Generar análisis';
-        if(progressBlock) progressBlock.style.display='block';
-        if(progressIdle) progressIdle.style.display='none';
-        status.style.display='block';
-        status.style.background='var(--red-bg)'; status.style.color='var(--red)';
-        status.style.whiteSpace='pre-wrap'; status.style.textAlign='left';
-        status.style.padding='12px'; status.style.maxHeight='220px'; status.style.overflowY='auto';
-        status.textContent='Error: '+(st.error||'Unknown')+(st.source?'\n\nOrigen: '+st.source:'')+(st.exc_type?'\nTipo: '+st.exc_type:'');
-        if(typeof console!=='undefined'&&console.warn) console.warn('[RevMax] final state: legacy error, progress panel remains visible');
-        toast('Análisis falló','err');
-      }
-    }
-  },2000);
-}
-
-async function viewReport(id,subject){
-  document.getElementById('modal-report-title').innerHTML=
-    `${subject||'Informe'} <span class="mclose" onclick="closeM('modal-report')">×</span>`;
-  document.getElementById('modal-report-body').innerHTML=
-    `<div class="iframe-wrap"><iframe src="/api/report-html/${id}"
-       height="600" onload="this.style.height=(this.contentWindow.document.body.scrollHeight+20)+'px'">
-     </iframe></div>`;
-  document.getElementById('modal-report').classList.add('open');
-}
-
-async function changePlan(id,plan){
-  await api('/api/update-plan','POST',{hotel_id:id,plan});
-  toast(`Plan actualizado a ${plan}`,'ok');
-  await loadAll();
-}
-
-function openAddClient(){document.getElementById('modal-add').classList.add('open');}
-function closeM(id){document.getElementById(id).classList.remove('open');}
-function closeModal(e,id){if(e.target.id===id)closeM(id);}
-
-async function addClient(){
-  const r=await api('/api/add-client','POST',{
-    name:document.getElementById('ac-name').value,
-    city:document.getElementById('ac-city').value,
-    email:document.getElementById('ac-email').value,
-    plan:document.getElementById('ac-plan').value,
-  });
-  toast(r.message||r.error, r.ok?'ok':'err');
-  closeM('modal-add');
-  await loadAll();
-}
-
-// ── INIT ──
-window.onload=()=>{loadAll();setInterval(loadAll,60000);};
-</script>
-</body></html>"""
 
 
 @app.get("/", response_class=HTMLResponse)
 def serve_admin():
-    return HTML
+    return HTMLResponse(_load_operator_ui())
 
 
 @app.get("/api/config")
 def api_get_config():
     return load_config()
+
+
+# ─────────────────────────────────────────────────────────
+# QA LAYER — validación humana e historial
+# ─────────────────────────────────────────────────────────
+
+QA_RUNS_DIR = os.path.join(BASE_DIR, "data", "qa_runs")
+
+
+def _load_qa_cases(limit: int = 100):
+    try:
+        from qa_registry import load_validation_cases
+        return load_validation_cases(base_dir=BASE_DIR, limit=limit)
+    except Exception:
+        return []
+
+
+def _build_qa_decision_summary(cases: list):
+    try:
+        from qa_registry import build_qa_decision_summary
+        return build_qa_decision_summary(cases)
+    except Exception:
+        return {"total_cases": 0, "human_score_mean": None, "human_verdict_pct": None, "most_common_issues": [], "recommended_next_adjustment": None}
+
+
+@app.get("/api/qa/cases")
+def api_qa_cases(limit: int = 100):
+    """Lista casos de validación en data/qa_runs/."""
+    return {"cases": _load_qa_cases(limit=min(limit, 200))}
+
+
+@app.get("/api/qa/summary")
+def api_qa_summary():
+    """Resumen para diagnóstico del modelo: build_qa_decision_summary()."""
+    cases = _load_qa_cases(limit=200)
+    return _build_qa_decision_summary(cases)
+
+
+@app.post("/api/qa/save-validation")
+async def api_qa_save_validation(request: Request):
+    """
+    Crea o actualiza un caso de validación a partir del job actual.
+    Body: { job_id, score (1-5), verdict (agree|partial|disagree), feedback (str), adjustment_decision (str) }.
+    """
+    data = await request.json()
+    job_id = data.get("job_id")
+    score = data.get("score")
+    verdict = data.get("verdict")
+    feedback = (data.get("feedback") or "").strip()
+    adjustment_decision = (data.get("adjustment_decision") or "").strip()
+    if not job_id:
+        return JSONResponse({"error": "Falta job_id"}, status_code=400)
+    if score is not None and (not isinstance(score, int) or not 1 <= score <= 5):
+        return JSONResponse({"error": "score debe ser un entero entre 1 y 5"}, status_code=400)
+    if verdict is not None and verdict not in ("agree", "partial", "disagree"):
+        return JSONResponse({"error": "verdict debe ser agree, partial o disagree"}, status_code=400)
+
+    job = job_state.get_job(BASE_DIR, job_id)
+    if job is None:
+        return JSONResponse({"error": "Job no encontrado"}, status_code=404)
+    meta = analysis_runner.read_job_meta(BASE_DIR, job_id)
+    if not meta:
+        return JSONResponse({"error": "No hay meta de análisis para este job (¿completado?)"}, status_code=400)
+
+    result_summary = meta.get("result_summary") or {}
+    evidence = meta.get("evidence_found") or {}
+    quality = meta.get("analysis_quality") or {}
+    completed = job.get("completed_at") or datetime.utcnow().isoformat() + "Z"
+    ts = completed[:19].replace("T", " ").replace("Z", "") if isinstance(completed, str) else datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    case = {
+        "hotel_name": job.get("hotel_name") or "Unknown",
+        "city": job.get("city") or "",
+        "timestamp": completed,
+        "job_id": job_id,
+        "consolidated_action": result_summary.get("consolidated_action", "hold"),
+        "confidence_pct": result_summary.get("confidence_pct"),
+        "executive_summary": result_summary.get("executive_summary", ""),
+        "evidence_found": evidence,
+        "analysis_quality": quality,
+    }
+    try:
+        from qa_registry import save_validation_case, apply_human_review
+        path = save_validation_case(case, base_dir=BASE_DIR)
+        updated = apply_human_review(
+            path,
+            score=score,
+            feedback=feedback or None,
+            verdict=verdict,
+            adjustment_decision=adjustment_decision or None,
+        )
+        return {"ok": True, "path": path, "case": updated}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/api/save-config")
