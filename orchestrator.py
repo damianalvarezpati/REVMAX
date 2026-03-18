@@ -25,6 +25,7 @@ from decision_rules import (
 
 from decision_rules_v2 import build_deterministic_decision_v2
 from decision_rules_pro import build_deterministic_decision_pro
+from decision_comparison import build_decision_comparison
 
 # Pasos de progreso visibles en la UI (9 pasos)
 PROGRESS_STEP_LABELS = [
@@ -929,6 +930,9 @@ async def run_full_analysis(
     # Núcleo determinista PRO (primer corte profesional): convive para comparación.
     full_analysis["deterministic_decision_pro"] = build_deterministic_decision_pro(full_analysis)
 
+    # Bloque audit-able: comparar decisión legacy vs PRO determinista.
+    full_analysis["decision_comparison"] = build_decision_comparison(full_analysis)
+
     steps = _build_progress_steps("report", 100, fallback_agents, report_used_fallback)
     for s in steps:
         s["status"] = "done" if s["status"] == "active" else s["status"]
@@ -1084,6 +1088,9 @@ async def run_fast_demo(
 
     # Núcleo determinista PRO (primer corte profesional): convive para comparación.
     full_analysis["deterministic_decision_pro"] = build_deterministic_decision_pro(full_analysis)
+
+    # Bloque audit-able: comparar decisión legacy vs PRO determinista.
+    full_analysis["decision_comparison"] = build_decision_comparison(full_analysis)
 
     steps = _build_progress_steps("consolidate", 50, [], False)
     progress_callback("consolidate", 50, steps)
