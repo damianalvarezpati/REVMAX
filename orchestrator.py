@@ -16,6 +16,13 @@ from typing import Any, Callable, Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from decision_rules import (
+    build_signals_from_pipeline,
+    normalize_signals,
+    decide as deterministic_decide,
+    build_reasons as deterministic_build_reasons,
+)
+
 # Pasos de progreso visibles en la UI (9 pasos)
 PROGRESS_STEP_LABELS = [
     (1, "discovery", "Identificando hotel"),
@@ -905,6 +912,14 @@ async def run_full_analysis(
     evidence_found = _build_evidence_found(full_analysis)
     full_analysis["evidence_found"] = evidence_found
 
+    # Núcleo determinista (primer corte): convive con la lógica actual.
+    deterministic_signals = build_signals_from_pipeline(full_analysis)
+    normalized_deterministic_signals = normalize_signals(deterministic_signals)
+    det_decision = deterministic_decide(normalized_deterministic_signals)
+    det_decision["reasons"] = deterministic_build_reasons(normalized_deterministic_signals, det_decision["decision"])
+    full_analysis["deterministic_signals"] = deterministic_signals
+    full_analysis["deterministic_decision"] = det_decision
+
     steps = _build_progress_steps("report", 100, fallback_agents, report_used_fallback)
     for s in steps:
         s["status"] = "done" if s["status"] == "active" else s["status"]
@@ -1044,6 +1059,17 @@ async def run_fast_demo(
         "agent_outputs": outputs,
         "briefing": briefing,
     }
+
+    # Núcleo determinista (primer corte): convive con la lógica actual.
+    # En fast_demo no se construye evidence_found; build_signals_from_pipeline
+    # cae automáticamente a agent_outputs.*.
+    deterministic_signals = build_signals_from_pipeline(full_analysis)
+    normalized_deterministic_signals = normalize_signals(deterministic_signals)
+    det_decision = deterministic_decide(normalized_deterministic_signals)
+    det_decision["reasons"] = deterministic_build_reasons(normalized_deterministic_signals, det_decision["decision"])
+    full_analysis["deterministic_signals"] = deterministic_signals
+    full_analysis["deterministic_decision"] = det_decision
+
     steps = _build_progress_steps("consolidate", 50, [], False)
     progress_callback("consolidate", 50, steps)
     steps = _build_progress_steps("report", 60, [], False)
