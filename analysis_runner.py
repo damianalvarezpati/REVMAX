@@ -525,6 +525,13 @@ async def run_analysis_job(
                 "executive_summary": exec_summary.strip() or "No summary available.",
                 "analysis_date": result.get("analysis_date", datetime.now().strftime("%Y-%m-%d")),
             }
+            # Auditoría interna: comparación legacy vs deterministic_decision_pro
+            try:
+                decision_comparison = result.get("decision_comparison")
+                if decision_comparison:
+                    result_summary["decision_comparison"] = decision_comparison
+            except Exception:
+                pass
             write_job_meta(
                 base_dir,
                 job_id,

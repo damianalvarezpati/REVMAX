@@ -27,6 +27,19 @@ export interface ResultSummary {
   confidence_pct?: number | null;
   executive_summary?: string;
   analysis_date?: string;
+  decision_comparison?: DecisionComparison;
+}
+
+export interface DecisionComparison {
+  legacy_decision?: 'raise' | 'hold' | 'lower' | 'unknown';
+  deterministic_pro_decision?: 'raise' | 'hold' | 'lower' | 'unknown';
+  match?: boolean;
+  difference_type?: string;
+  comment?: string;
+  legacy_reasons?: string[];
+  pro_reasons?: string[];
+  constraints_applied?: string[];
+  missing_data?: string[];
 }
 
 export interface EvidenceFound {

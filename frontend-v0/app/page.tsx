@@ -11,6 +11,7 @@ import { RecommendedAction } from '@/components/analysis/recommended-action';
 import { ConfidenceQuality } from '@/components/analysis/confidence-quality';
 import { ProgressPanel } from '@/components/analysis/progress-panel';
 import { SetupPanel } from '@/components/analysis/setup-panel';
+import { DecisionComparisonPanel } from '@/components/analysis/decision-comparison-panel';
 import { getJobStatus, runAnalysis } from '@/lib/revmax-api';
 import type { JobStatusResponse } from '@/lib/revmax-api';
 import { mapJobToAnalysis, getEmptyProgressSteps } from '@/lib/analysis-from-job';
@@ -129,6 +130,8 @@ export default function AnalysisPage() {
     ? job.progress_steps.map((s) => ({ id: s.id, name: s.label, status: s.status as 'done' | 'active' | 'warning' | 'error' | 'pending' }))
     : getEmptyProgressSteps();
 
+  const decisionComparison = job?.result_summary?.decision_comparison;
+
   return (
     <div className="flex gap-6">
       <div className="flex-1 max-w-4xl space-y-6">
@@ -181,6 +184,7 @@ export default function AnalysisPage() {
             />
             <CompSetEditor compSet={analysis.compSet} />
             <RecommendedAction summary={analysis.actionSummary} bullets={analysis.actionBullets} />
+          {decisionComparison && <DecisionComparisonPanel comparison={decisionComparison} />}
             <ConfidenceQuality
               quality={analysis.qualityLabel}
               confidence={analysis.confidence}
