@@ -23,6 +23,8 @@ from decision_rules import (
     build_reasons as deterministic_build_reasons,
 )
 
+from decision_rules_v2 import build_deterministic_decision_v2
+
 # Pasos de progreso visibles en la UI (9 pasos)
 PROGRESS_STEP_LABELS = [
     (1, "discovery", "Identificando hotel"),
@@ -920,6 +922,9 @@ async def run_full_analysis(
     full_analysis["deterministic_signals"] = deterministic_signals
     full_analysis["deterministic_decision"] = det_decision
 
+    # Núcleo determinista v2 (primer corte): convive para comparación.
+    full_analysis["deterministic_decision_v2"] = build_deterministic_decision_v2(full_analysis)
+
     steps = _build_progress_steps("report", 100, fallback_agents, report_used_fallback)
     for s in steps:
         s["status"] = "done" if s["status"] == "active" else s["status"]
@@ -1069,6 +1074,9 @@ async def run_fast_demo(
     det_decision["reasons"] = deterministic_build_reasons(normalized_deterministic_signals, det_decision["decision"])
     full_analysis["deterministic_signals"] = deterministic_signals
     full_analysis["deterministic_decision"] = det_decision
+
+    # Núcleo determinista v2 (primer corte): convive para comparación.
+    full_analysis["deterministic_decision_v2"] = build_deterministic_decision_v2(full_analysis)
 
     steps = _build_progress_steps("consolidate", 50, [], False)
     progress_callback("consolidate", 50, steps)
