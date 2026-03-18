@@ -100,6 +100,7 @@ def test_v2_hold_senales_mixtas():
 
     out = decide(normalized)
     assert out["decision"] == "hold"
+    assert out["confidence"] >= 30
     assert 0 <= out["confidence"] <= 70
 
 
