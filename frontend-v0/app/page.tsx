@@ -184,7 +184,9 @@ export default function AnalysisPage() {
             />
             <CompSetEditor compSet={analysis.compSet} />
             <RecommendedAction summary={analysis.actionSummary} bullets={analysis.actionBullets} />
-          {decisionComparison && <DecisionComparisonPanel comparison={decisionComparison} />}
+            {decisionComparison && (
+              <DecisionComparisonPanel comparison={decisionComparison} />
+            )}
             <ConfidenceQuality
               quality={analysis.qualityLabel}
               confidence={analysis.confidence}
