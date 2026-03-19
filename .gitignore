@@ -29,3 +29,12 @@ config.json
 
 # Debug por corrida (artefactos grandes)
 data/debug_runs/
+
+# Public datasets: version docs/scripts/small metadata only.
+# Keep local raw data out of git (reconstructable via scripts).
+data/public_datasets/**/*.csv
+data/public_datasets/**/*.zip
+data/public_datasets/**/*.parquet
+data/public_datasets/**/*.xlsx
+data/public_datasets/**/*.feather
+data/public_datasets/**/*.gz
