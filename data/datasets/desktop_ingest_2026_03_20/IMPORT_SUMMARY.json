@@ -1,0 +1,8 @@
+{
+  "run_at": "2026-03-20T18:50:30.678996Z",
+  "source_root": "/Users/damian2/Desktop/datasets",
+  "target_root": "/Users/damian2/Downloads/revmax 3/data/datasets/desktop_ingest_2026_03_20",
+  "total_source_files": 37,
+  "imported_files": 34,
+  "duplicates_skipped": 3
+}
