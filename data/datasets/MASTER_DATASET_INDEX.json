@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-20T19:00:41.455500Z",
-  "total_datasets": 64,
+  "generated_at": "2026-03-20T21:11:16.655991Z",
+  "total_datasets": 63,
   "domains": [
     "airbnb",
     "airline",
@@ -10,34 +10,6 @@
     "reviews"
   ],
   "datasets": [
-    {
-      "name": "MASTER_DATASET_INDEX.json",
-      "path": "data/datasets/MASTER_DATASET_INDEX.json",
-      "domain": "other",
-      "source_type": "local_archive",
-      "utility": "Auxiliary context dataset.",
-      "priority": "useful",
-      "status": "ready",
-      "demand_relevant": false,
-      "pricing_relevant": false,
-      "compset_relevant": false,
-      "reputation_relevant": false,
-      "events_relevant": false,
-      "forecasting_relevant": false,
-      "city": null,
-      "country": null,
-      "rows": null,
-      "columns": 4,
-      "schema": [
-        "generated_at",
-        "total_datasets",
-        "domains",
-        "datasets"
-      ],
-      "size_bytes": 82772,
-      "duplicate": false,
-      "duplicate_of": null
-    },
     {
       "name": "Airbnb_Data.csv",
       "path": "data/datasets/desktop_ingest_2026_03_20/Airbnb_Data.csv",
@@ -89,7 +61,8 @@
       ],
       "size_bytes": 101546498,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "Airbnb_Open_Data.csv",
@@ -139,7 +112,8 @@
       ],
       "size_bytes": 35913454,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "Hotel Reservations.csv",
@@ -182,7 +156,8 @@
       ],
       "size_bytes": 3240604,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "amsterdam_weekdays.csv",
@@ -226,7 +201,8 @@
       ],
       "size_bytes": 226649,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "amsterdam_weekends.csv",
@@ -270,7 +246,8 @@
       ],
       "size_bytes": 200999,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "athens_weekdays.csv",
@@ -314,7 +291,8 @@
       ],
       "size_bytes": 554593,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "athens_weekends.csv",
@@ -358,7 +336,8 @@
       ],
       "size_bytes": 549401,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "barcelona_weekdays.csv",
@@ -402,7 +381,8 @@
       ],
       "size_bytes": 319677,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "barcelona_weekends.csv",
@@ -446,7 +426,8 @@
       ],
       "size_bytes": 262270,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "berlin_weekdays.csv",
@@ -490,7 +471,8 @@
       ],
       "size_bytes": 269841,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "berlin_weekends.csv",
@@ -534,7 +516,8 @@
       ],
       "size_bytes": 249378,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "budapest_weekdays.csv",
@@ -578,7 +561,8 @@
       ],
       "size_bytes": 434179,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "budapest_weekends.csv",
@@ -622,7 +606,8 @@
       ],
       "size_bytes": 407256,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "lisbon_weekdays.csv",
@@ -666,7 +651,8 @@
       ],
       "size_bytes": 593095,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "lisbon_weekends.csv",
@@ -710,7 +696,8 @@
       ],
       "size_bytes": 603366,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "london_weekdays.csv",
@@ -754,7 +741,8 @@
       ],
       "size_bytes": 960351,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "london_weekends.csv",
@@ -798,7 +786,8 @@
       ],
       "size_bytes": 1120236,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "paris_weekdays.csv",
@@ -842,7 +831,8 @@
       ],
       "size_bytes": 650063,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "paris_weekends.csv",
@@ -886,7 +876,8 @@
       ],
       "size_bytes": 740574,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "rome_weekdays.csv",
@@ -930,7 +921,8 @@
       ],
       "size_bytes": 933273,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "rome_weekends.csv",
@@ -974,7 +966,8 @@
       ],
       "size_bytes": 942795,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "vienna_weekdays.csv",
@@ -1018,7 +1011,8 @@
       ],
       "size_bytes": 362207,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "vienna_weekends.csv",
@@ -1062,7 +1056,8 @@
       ],
       "size_bytes": 374875,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "12month_flight_booking.csv",
@@ -1136,7 +1131,8 @@
       ],
       "size_bytes": 222752965,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "12months_flight_revenue.csv",
@@ -1210,7 +1206,8 @@
       ],
       "size_bytes": 258601837,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "3months_flight_booking_prediction.csv",
@@ -1284,7 +1281,8 @@
       ],
       "size_bytes": 19309049,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "3months_flight_revenue_prediction.csv",
@@ -1358,7 +1356,8 @@
       ],
       "size_bytes": 21690150,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "Schedule data.csv",
@@ -1394,7 +1393,8 @@
       ],
       "size_bytes": 1116223,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "hotel_bookings.csv",
@@ -1451,7 +1451,8 @@
       ],
       "size_bytes": 17421967,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "travel.csv",
@@ -1500,7 +1501,8 @@
       ],
       "size_bytes": 11691291,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "README.json",
@@ -1530,7 +1532,8 @@
       ],
       "size_bytes": 348,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "hotel_bookings.csv",
@@ -1586,7 +1589,8 @@
       ],
       "size_bytes": 16855599,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "README.json",
@@ -1616,7 +1620,8 @@
       ],
       "size_bytes": 385,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "hotel_bookings_updated_2024.csv",
@@ -1673,7 +1678,8 @@
       ],
       "size_bytes": 21279413,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "README.json",
@@ -1703,7 +1709,8 @@
       ],
       "size_bytes": 342,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "hotel_bookings.csv",
@@ -1711,7 +1718,7 @@
       "domain": "hotel_core",
       "source_type": "local_archive",
       "utility": "Core booking demand and reservation behavior signals.",
-      "priority": "high-value",
+      "priority": "redundant",
       "status": "ready",
       "demand_relevant": true,
       "pricing_relevant": false,
@@ -1759,7 +1766,8 @@
       ],
       "size_bytes": 16855599,
       "duplicate": true,
-      "duplicate_of": "data/datasets/kaggle_hotel_booking_demand/hotel_bookings.csv"
+      "duplicate_of": "data/datasets/kaggle_hotel_booking_demand/hotel_bookings.csv",
+      "redundancy_tier": "duplicate_copy"
     },
     {
       "name": "README.json",
@@ -1789,7 +1797,8 @@
       ],
       "size_bytes": 340,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "test.csv",
@@ -1863,7 +1872,8 @@
       ],
       "size_bytes": 1496916672,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "train.csv",
@@ -1937,7 +1947,8 @@
       ],
       "size_bytes": 2358114793,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "eurostat_sample_1.json",
@@ -1971,7 +1982,8 @@
       ],
       "size_bytes": 3459,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "hotel_bookings.csv",
@@ -1979,7 +1991,7 @@
       "domain": "hotel_core",
       "source_type": "local_archive",
       "utility": "Core booking demand and reservation behavior signals.",
-      "priority": "high-value",
+      "priority": "redundant",
       "status": "ready",
       "demand_relevant": true,
       "pricing_relevant": false,
@@ -2027,7 +2039,8 @@
       ],
       "size_bytes": 16855599,
       "duplicate": true,
-      "duplicate_of": "data/datasets/kaggle_hotel_booking_demand/hotel_bookings.csv"
+      "duplicate_of": "data/datasets/kaggle_hotel_booking_demand/hotel_bookings.csv",
+      "redundancy_tier": "duplicate_copy"
     },
     {
       "name": "booking_hotel.csv",
@@ -2060,7 +2073,8 @@
       ],
       "size_bytes": 416481,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "tripadvisor_room.csv",
@@ -2088,7 +2102,8 @@
       ],
       "size_bytes": 532410,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "Hotel_Reviews.csv",
@@ -2129,7 +2144,8 @@
       ],
       "size_bytes": 238154765,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "HotelFinalDataset.xlsx",
@@ -2161,7 +2177,8 @@
       ],
       "size_bytes": 44230,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "calendar.csv.gz",
@@ -2192,7 +2209,8 @@
       ],
       "size_bytes": 16600259,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "listings.csv.gz",
@@ -2266,7 +2284,8 @@
       ],
       "size_bytes": 9709188,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "reviews.csv.gz",
@@ -2296,7 +2315,8 @@
       ],
       "size_bytes": 131824512,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "calendar.csv.gz",
@@ -2327,7 +2347,8 @@
       ],
       "size_bytes": 12087243,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "listings.csv.gz",
@@ -2401,7 +2422,8 @@
       ],
       "size_bytes": 7263842,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "reviews.csv.gz",
@@ -2431,7 +2453,8 @@
       ],
       "size_bytes": 72609019,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "calendar.csv.gz",
@@ -2462,7 +2485,8 @@
       ],
       "size_bytes": 21718037,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "listings.csv.gz",
@@ -2536,7 +2560,8 @@
       ],
       "size_bytes": 14248985,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "reviews.csv.gz",
@@ -2566,7 +2591,8 @@
       ],
       "size_bytes": 235936413,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "calendar.csv.gz",
@@ -2597,7 +2623,8 @@
       ],
       "size_bytes": 21634243,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "listings.csv.gz",
@@ -2671,7 +2698,8 @@
       ],
       "size_bytes": 12322661,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "reviews.csv.gz",
@@ -2701,7 +2729,8 @@
       ],
       "size_bytes": 144462299,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "calendar.csv.gz",
@@ -2732,7 +2761,8 @@
       ],
       "size_bytes": 9522952,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "listings.csv.gz",
@@ -2806,7 +2836,8 @@
       ],
       "size_bytes": 5578702,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "reviews.csv.gz",
@@ -2836,7 +2867,8 @@
       ],
       "size_bytes": 101062206,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "tripadvisor_hotel_reviews.csv",
@@ -2862,7 +2894,8 @@
       ],
       "size_bytes": 14966021,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "Data collusion in the hotel industry.xlsx",
@@ -2908,7 +2941,8 @@
       ],
       "size_bytes": 305591,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     },
     {
       "name": "record_8175799.json",
@@ -2952,7 +2986,8 @@
       ],
       "size_bytes": 3750,
       "duplicate": false,
-      "duplicate_of": null
+      "duplicate_of": null,
+      "redundancy_tier": "primary"
     }
   ]
 }

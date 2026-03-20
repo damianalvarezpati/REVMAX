@@ -51,6 +51,7 @@ class DatasetMeta:
     size_bytes: Optional[int] = None
     duplicate: bool = False
     duplicate_of: Optional[str] = None
+    redundancy_tier: str = "primary"
 
 
 def hbytes(n: int) -> str:
@@ -138,6 +139,26 @@ def profile_file(path: Path) -> Tuple[Optional[int], Optional[int], List[str]]:
     return None, None, []
 
 
+def is_catalog_generated_artifact(path: Path) -> bool:
+    """
+    Exclude outputs of the catalog itself and ingest manifests from the dataset scan.
+    """
+    try:
+        rel = path.relative_to(ROOT)
+    except ValueError:
+        return False
+    parts = rel.parts
+    if len(parts) >= 3 and parts[0] == "data" and parts[1] == "datasets":
+        n = path.name.upper()
+        if n in {"MASTER_DATASET_INDEX.JSON", "MASTER_DATASET_INDEX.MD"}:
+            return True
+        if n.startswith("IMPORT_") and n.endswith(".JSON"):
+            return True
+        if n.startswith("IMPORT_") and n.endswith(".MD"):
+            return True
+    return False
+
+
 def all_data_files() -> List[Path]:
     files = []
     for base in [DATASETS_ROOT, PUBLIC_ROOT]:
@@ -145,6 +166,8 @@ def all_data_files() -> List[Path]:
             continue
         for p in base.rglob("*"):
             if p.is_file() and p.suffix.lower() in {".csv", ".gz", ".xlsx", ".json"}:
+                if is_catalog_generated_artifact(p):
+                    continue
                 if p.name.lower() in {"import_manifest.json", "import_summary.json"}:
                     continue
                 files.append(p)
@@ -324,13 +347,18 @@ def build() -> None:
         domain = infer_domain(p)
         tags = infer_tags(p)
         city, country = infer_city_country(p)
+        priority = infer_priority(p)
+        redundancy_tier = "primary"
+        if dup:
+            priority = "redundant"
+            redundancy_tier = "duplicate_copy"
         meta = DatasetMeta(
             name=p.name,
             path=rel,
             domain=domain,
             source_type=infer_source_type(p),
             utility=infer_utility(p, domain),
-            priority=infer_priority(p),
+            priority=priority,
             status="ready" if p.exists() else "missing",
             demand_relevant=tags["demand_relevant"],
             pricing_relevant=tags["pricing_relevant"],
@@ -346,6 +374,7 @@ def build() -> None:
             size_bytes=size,
             duplicate=dup,
             duplicate_of=dup_of,
+            redundancy_tier=redundancy_tier,
         )
         metas.append(meta)
 
@@ -364,8 +393,8 @@ def build() -> None:
         "",
         f"_Generated at {payload['generated_at']}_",
         "",
-        "| dataset | domain | source_type | size | rows | cols | priority | status | duplicate | relevance | path |",
-        "|---|---|---|---:|---:|---:|---|---|---|---|---|",
+        "| dataset | domain | source_type | size | rows | cols | priority | redundancy_tier | status | duplicate | relevance | path |",
+        "|---|---|---|---:|---:|---:|---|---|---|---|---|---|",
     ]
     for m in metas:
         rel = ",".join(
@@ -379,7 +408,7 @@ def build() -> None:
             ]
         )
         md.append(
-            f"| `{m.name}` | `{m.domain}` | `{m.source_type}` | {hbytes(m.size_bytes or 0)} | {m.rows if m.rows is not None else '-'} | {m.columns if m.columns is not None else '-'} | `{m.priority}` | `{m.status}` | `{m.duplicate}` | `{rel}` | `{m.path}` |"
+            f"| `{m.name}` | `{m.domain}` | `{m.source_type}` | {hbytes(m.size_bytes or 0)} | {m.rows if m.rows is not None else '-'} | {m.columns if m.columns is not None else '-'} | `{m.priority}` | `{m.redundancy_tier}` | `{m.status}` | `{m.duplicate}` | `{rel}` | `{m.path}` |"
         )
     (DATASETS_ROOT / "MASTER_DATASET_INDEX.md").write_text("\n".join(md) + "\n", encoding="utf-8")
 
