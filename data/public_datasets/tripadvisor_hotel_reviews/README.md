@@ -22,6 +22,4 @@
 
 ## Notes
 - Primary attempt uses andrewmvd/trip-advisor-hotel-reviews.
-- kaggle CLI NOT detected. Install with: python3 -m pip install kaggle
-- Kaggle credentials detected.
-- kagglehub cache source: /Users/damian2/.cache/kagglehub/datasets/andrewmvd/trip-advisor-hotel-reviews/versions/2
+- Existing files found in folder; skipped re-download to avoid duplication.

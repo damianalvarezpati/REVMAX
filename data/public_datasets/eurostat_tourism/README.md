@@ -3,7 +3,7 @@
 - **slug**: `eurostat_tourism`
 - **category**: macro turístico / ocupación
 - **utility_for_revmax**: Contexto macro de ocupación y pernoctaciones por región/periodo.
-- **status**: `api-based`
+- **status**: `downloaded`
 
 ## Source Links
 - https://ec.europa.eu/eurostat/web/tourism/database
@@ -23,6 +23,4 @@
 - Build ingestion/normalization notebook or script before training.
 
 ## Notes
-- Eurostat API sample JSON downloaded.
-- Use API/bulk for full extracts.
-- https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/tour_occ_ninc?geo=ES&unit=NR&time=2023 -> HTTP Error 400: Bad Request
+- Existing files found in folder; skipped re-download to avoid duplication.

@@ -22,6 +22,4 @@
 
 ## Notes
 - UCI + Kaggle variants available.
-- kaggle CLI NOT detected. Install with: python3 -m pip install kaggle
-- Kaggle credentials detected.
-- kagglehub cache source: /Users/damian2/.cache/kagglehub/datasets/jessemostipak/hotel-booking-demand/versions/1
+- Existing files found in folder; skipped re-download to avoid duplication.

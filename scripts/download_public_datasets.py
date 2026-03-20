@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import urllib.request
+import urllib.error
+import urllib.parse
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,6 +97,15 @@ def list_files_recursive(folder: Path) -> List[Path]:
         if p.is_file():
             out.append(p)
     return sorted(out)
+
+
+def list_payload_files(folder: Path) -> List[Path]:
+    payload: List[Path] = []
+    for p in list_files_recursive(folder):
+        if p.name.lower() in {"readme.md"}:
+            continue
+        payload.append(p)
+    return payload
 
 
 def copy_file(src: Path, dst: Path) -> Path:
@@ -308,7 +319,7 @@ def downloader_uci_hotel_booking(target_dir: Path) -> Dict:
 
 
 def downloader_inside_airbnb(target_dir: Path) -> Dict:
-    # insideairbnb provides city-specific snapshots via web selection.
+    # Legacy lightweight placeholder source.
     return {
         "status": STAT_MANUAL,
         "files": [],
@@ -374,6 +385,113 @@ def downloader_gdelt(target_dir: Path) -> Dict:
     }
 
 
+def _download_if_missing(url: str, dst: Path, timeout: int = 180) -> Path:
+    if dst.exists() and dst.stat().st_size > 0:
+        return dst
+    return download_url_to_file(url, dst, timeout=timeout)
+
+
+def downloader_inside_airbnb_official(target_dir: Path) -> Dict:
+    city_map = {
+        "berlin": {
+            "listings.csv.gz": "https://data.insideairbnb.com/germany/be/berlin/2025-09-23/data/listings.csv.gz",
+            "calendar.csv.gz": "https://data.insideairbnb.com/germany/be/berlin/2025-09-23/data/calendar.csv.gz",
+            "reviews.csv.gz": "https://data.insideairbnb.com/germany/be/berlin/2025-09-23/data/reviews.csv.gz",
+        },
+        "barcelona": {
+            "listings.csv.gz": "https://data.insideairbnb.com/spain/catalonia/barcelona/2025-09-14/data/listings.csv.gz",
+            "calendar.csv.gz": "https://data.insideairbnb.com/spain/catalonia/barcelona/2025-09-14/data/calendar.csv.gz",
+            "reviews.csv.gz": "https://data.insideairbnb.com/spain/catalonia/barcelona/2025-09-14/data/reviews.csv.gz",
+        },
+        "madrid": {
+            "listings.csv.gz": "https://data.insideairbnb.com/spain/comunidad-de-madrid/madrid/2025-09-14/data/listings.csv.gz",
+            "calendar.csv.gz": "https://data.insideairbnb.com/spain/comunidad-de-madrid/madrid/2025-09-14/data/calendar.csv.gz",
+            "reviews.csv.gz": "https://data.insideairbnb.com/spain/comunidad-de-madrid/madrid/2025-09-14/data/reviews.csv.gz",
+        },
+        "lisbon": {
+            "listings.csv.gz": "https://data.insideairbnb.com/portugal/lisbon/lisbon/2025-09-21/data/listings.csv.gz",
+            "calendar.csv.gz": "https://data.insideairbnb.com/portugal/lisbon/lisbon/2025-09-21/data/calendar.csv.gz",
+            "reviews.csv.gz": "https://data.insideairbnb.com/portugal/lisbon/lisbon/2025-09-21/data/reviews.csv.gz",
+        },
+        "prague": {
+            "listings.csv.gz": "https://data.insideairbnb.com/czech-republic/prague/prague/2025-09-23/data/listings.csv.gz",
+            "calendar.csv.gz": "https://data.insideairbnb.com/czech-republic/prague/prague/2025-09-23/data/calendar.csv.gz",
+            "reviews.csv.gz": "https://data.insideairbnb.com/czech-republic/prague/prague/2025-09-23/data/reviews.csv.gz",
+        },
+    }
+    downloaded: List[Path] = []
+    notes: List[str] = []
+    errors: List[str] = []
+
+    for city, files in city_map.items():
+        city_dir = target_dir / city
+        ensure_dir(city_dir)
+        for filename, url in files.items():
+            out = city_dir / filename
+            try:
+                downloaded.append(_download_if_missing(url, out, timeout=240))
+            except Exception as e:
+                errors.append(f"{city}/{filename}: {e}")
+    if downloaded:
+        status = STAT_DOWNLOADED
+    else:
+        status = STAT_MANUAL
+    notes.append("Target cities: Berlin, Barcelona, Madrid, Lisbon, Prague.")
+    if errors:
+        notes.append("Some city files failed; see error field.")
+    return {
+        "status": status,
+        "files": downloaded,
+        "notes": notes,
+        "error": "\n".join(errors) if errors else None,
+    }
+
+
+def downloader_zenodo_record_8175799(target_dir: Path) -> Dict:
+    api_url = "https://zenodo.org/api/records/8175799"
+    metadata_file = target_dir / "record_8175799.json"
+    files: List[Path] = []
+    notes: List[str] = []
+    try:
+        files.append(_download_if_missing(api_url, metadata_file, timeout=120))
+        notes.append("Zenodo record metadata downloaded.")
+        payload = json.loads(metadata_file.read_text(encoding="utf-8", errors="replace"))
+        file_entries = (payload.get("files") or [])
+        for entry in file_entries:
+            key = entry.get("key") or "zenodo_file"
+            links = entry.get("links") or {}
+            file_url = links.get("self")
+            if not file_url:
+                continue
+            file_url = file_url.replace(" ", "%20")
+            dst = target_dir / key
+            try:
+                files.append(_download_if_missing(file_url, dst, timeout=300))
+            except Exception as e:
+                notes.append(f"Failed file download {key}: {e}")
+        status = STAT_DOWNLOADED if len(files) > 1 else STAT_MANUAL
+        if status != STAT_DOWNLOADED:
+            notes.append("Record metadata fetched but attached files were not downloaded.")
+        return {"status": status, "files": files, "notes": notes}
+    except urllib.error.HTTPError as e:
+        return {
+            "status": STAT_MANUAL,
+            "files": [],
+            "notes": [
+                "Zenodo denied automated fetch from this environment (HTTP 403).",
+                "Use browser download from record page.",
+            ],
+            "error": str(e),
+        }
+    except Exception as e:
+        return {
+            "status": STAT_MANUAL,
+            "files": [],
+            "notes": ["Zenodo automatic download failed; manual retrieval required."],
+            "error": str(e),
+        }
+
+
 DATASETS: List[DatasetSpec] = [
     DatasetSpec(
         slug="hotel_booking_demand",
@@ -387,6 +505,46 @@ DATASETS: List[DatasetSpec] = [
         downloader=downloader_kaggle_dataset("jessemostipak/hotel-booking-demand"),
         default_status=STAT_DOWNLOADED,
         notes="UCI + Kaggle variants available.",
+    ),
+    DatasetSpec(
+        slug="inside_airbnb_official",
+        name="Inside Airbnb Official (Priority Cities)",
+        category="pricing/listings/compset proxy",
+        utility="Listing-level supply and price context by city for compset pressure analysis.",
+        links=[
+            "https://insideairbnb.com/get-the-data/",
+            "https://insideairbnb.com/explore/",
+        ],
+        downloader=downloader_inside_airbnb_official,
+        default_status=STAT_MANUAL,
+        notes="Priority cities: Berlin, Barcelona, Madrid, Lisbon, Prague.",
+    ),
+    DatasetSpec(
+        slug="zenodo_collusion_hotel_industry",
+        name="Zenodo Collusion Analysis Hotel Industry",
+        category="pricing behavior / market structure",
+        utility="Potential benchmark for anti-collusion and pricing pattern analysis.",
+        links=["https://zenodo.org/records/8175799"],
+        downloader=downloader_zenodo_record_8175799,
+        default_status=STAT_MANUAL,
+    ),
+    DatasetSpec(
+        slug="hotels_netherlands",
+        name="Hotels Netherlands",
+        category="pricing/listings/amenities",
+        utility="Hotel-level attributes and potential pricing benchmarks in NL market.",
+        links=["https://www.kaggle.com/datasets/mukuldeshantri/hotels-netherlands"],
+        downloader=downloader_kaggle_dataset("mukuldeshantri/hotels-netherlands"),
+        default_status=STAT_MANUAL,
+    ),
+    DatasetSpec(
+        slug="hotel_rates_reviews_amenities",
+        name="Hotel Dataset: Rates, Reviews & Amenities",
+        category="pricing + reputation + amenities",
+        utility="Joint pricing/review/amenities signals for recommendation features.",
+        links=["https://www.kaggle.com/datasets/joyshil0599/hotel-dataset-rates-reviews-and-amenities5k"],
+        downloader=downloader_kaggle_dataset("joyshil0599/hotel-dataset-rates-reviews-and-amenities5k"),
+        default_status=STAT_MANUAL,
     ),
     DatasetSpec(
         slug="expedia_hotel_recommendations",
@@ -603,6 +761,20 @@ def build_local_assets_manifest(results: List[DatasetResult], specs: Dict[str, D
 def run_dataset(spec: DatasetSpec) -> DatasetResult:
     folder = PUBLIC_DATASETS_DIR / spec.slug
     ensure_dir(folder)
+    existing_payload = list_payload_files(folder)
+    if existing_payload:
+        # Allow retry for Zenodo when only metadata JSON exists.
+        if spec.slug == "zenodo_collusion_hotel_industry":
+            names = {p.name for p in existing_payload}
+            if names == {"record_8175799.json"}:
+                existing_payload = []
+    if existing_payload:
+        return DatasetResult(
+            slug=spec.slug,
+            status=STAT_DOWNLOADED,
+            files=existing_payload,
+            notes=["Existing files found in folder; skipped re-download to avoid duplication."],
+        )
 
     if spec.downloader is None:
         return DatasetResult(

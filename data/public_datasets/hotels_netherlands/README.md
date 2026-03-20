@@ -1,15 +1,15 @@
-# 515K Hotel Reviews Data in Europe
+# Hotels Netherlands
 
-- **slug**: `hotel_reviews_europe_515k`
-- **category**: reputación / NLP reviews
-- **utility_for_revmax**: Entrenamiento de extracción de sentiment y price-perception.
+- **slug**: `hotels_netherlands`
+- **category**: pricing/listings/amenities
+- **utility_for_revmax**: Hotel-level attributes and potential pricing benchmarks in NL market.
 - **status**: `downloaded`
 
 ## Source Links
-- https://www.kaggle.com/datasets/jiashenliu/515k-hotel-reviews-data-in-europe
+- https://www.kaggle.com/datasets/mukuldeshantri/hotels-netherlands
 
 ## Files in this folder
-- `data/public_datasets/hotel_reviews_europe_515k/Hotel_Reviews.csv` (227.12 MB)
+- `data/public_datasets/hotels_netherlands/HotelFinalDataset.xlsx` (43.19 KB)
 
 ## Format
 - Mostly CSV/JSON/ZIP depending on source.
