@@ -1,0 +1,100 @@
+{
+  "generated_at": "2026-03-20T21:22:55.917974Z",
+  "city_weekday_weekend": {
+    "cities": [
+      {
+        "city_slug": "amsterdam",
+        "mean_realSum_weekday": 545.02,
+        "mean_realSum_weekend": 604.83,
+        "weekend_premium_ratio": 1.1097
+      },
+      {
+        "city_slug": "rome",
+        "mean_realSum_weekday": 201.62,
+        "mean_realSum_weekend": 209.13,
+        "weekend_premium_ratio": 1.0373
+      },
+      {
+        "city_slug": "berlin",
+        "mean_realSum_weekday": 240.22,
+        "mean_realSum_weekend": 249.25,
+        "weekend_premium_ratio": 1.0376
+      },
+      {
+        "city_slug": "budapest",
+        "mean_realSum_weekday": 168.43,
+        "mean_realSum_weekend": 185.12,
+        "weekend_premium_ratio": 1.0991
+      },
+      {
+        "city_slug": "vienna",
+        "mean_realSum_weekday": 240.38,
+        "mean_realSum_weekend": 242.74,
+        "weekend_premium_ratio": 1.0098
+      },
+      {
+        "city_slug": "london",
+        "mean_realSum_weekday": 360.23,
+        "mean_realSum_weekend": 364.39,
+        "weekend_premium_ratio": 1.0115
+      },
+      {
+        "city_slug": "barcelona",
+        "mean_realSum_weekday": 288.39,
+        "mean_realSum_weekend": 300.28,
+        "weekend_premium_ratio": 1.0412
+      },
+      {
+        "city_slug": "athens",
+        "mean_realSum_weekday": 155.87,
+        "mean_realSum_weekend": 147.58,
+        "weekend_premium_ratio": 0.9468
+      },
+      {
+        "city_slug": "paris",
+        "mean_realSum_weekday": 398.79,
+        "mean_realSum_weekend": 387.03,
+        "weekend_premium_ratio": 0.9705
+      },
+      {
+        "city_slug": "lisbon",
+        "mean_realSum_weekday": 236.35,
+        "mean_realSum_weekend": 240.04,
+        "weekend_premium_ratio": 1.0156
+      }
+    ],
+    "note": "Compares mean realSum weekday file vs weekend file per city.",
+    "summary": {
+      "n_cities": 10,
+      "median_weekend_premium_ratio": 1.0373,
+      "mean_weekend_premium_ratio": 1.0279
+    }
+  },
+  "airbnb_data": {
+    "source": "data/datasets/desktop_ingest_2026_03_20/Airbnb_Data.csv",
+    "rows_used": 74111,
+    "correlations": {
+      "log_price_vs_review_scores_rating_pearson": 0.09121863913645718,
+      "log_price_vs_log1p_number_of_reviews_pearson": -0.057592468762030384
+    }
+  },
+  "airbnb_open": {
+    "source": "data/datasets/desktop_ingest_2026_03_20/Airbnb_Open_Data.csv",
+    "rows_used": 79784,
+    "note": "capped_80000",
+    "correlations": {
+      "price_vs_number_of_reviews_pearson": 0.006306145762530604,
+      "price_vs_availability_365_pearson": -0.0016823267215241363
+    }
+  },
+  "proposed_buckets_pricing": {
+    "price_posture": {
+      "basis": "Use ADR or realSum vs city/month median once normalized; not computed globally here.",
+      "action": "Compute per-market median from inside_airbnb calendar + hotel ADR in ETL next phase."
+    },
+    "visibility_proxy": {
+      "basis": "Not directly observed in listed CSVs; proxy candidates: number_of_reviews, availability_365.",
+      "status": "hypothetical_until_mapped"
+    }
+  }
+}

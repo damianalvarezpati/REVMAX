@@ -1,0 +1,64 @@
+{
+  "generated_at": "2026-03-20T21:22:55.917974Z",
+  "travel_ota": {
+    "source": "data/datasets/desktop_ingest_2026_03_20/travel.csv",
+    "rows_used": 63915,
+    "correlations": {
+      "orig_destination_distance_vs_is_booking_pearson": -0.03348007143321071,
+      "is_mobile_vs_is_booking_pearson": -0.028406215673007978,
+      "is_package_vs_is_booking_pearson": -0.08205416723634155
+    },
+    "booking_rate_by_channel": [
+      {
+        "channel": "9",
+        "n": 55352,
+        "booking_rate": 0.0854
+      },
+      {
+        "channel": "0",
+        "n": 12523,
+        "booking_rate": 0.0719
+      },
+      {
+        "channel": "1",
+        "n": 10274,
+        "booking_rate": 0.0697
+      },
+      {
+        "channel": "2",
+        "n": 7836,
+        "booking_rate": 0.0605
+      },
+      {
+        "channel": "5",
+        "n": 6158,
+        "booking_rate": 0.0943
+      },
+      {
+        "channel": "3",
+        "n": 4404,
+        "booking_rate": 0.0604
+      },
+      {
+        "channel": "4",
+        "n": 2194,
+        "booking_rate": 0.1208
+      },
+      {
+        "channel": "7",
+        "n": 811,
+        "booking_rate": 0.0432
+      },
+      {
+        "channel": "8",
+        "n": 271,
+        "booking_rate": 0.0554
+      }
+    ]
+  },
+  "note": "OTA distance/channel effects as compset context features, not hotel-level compset prices.",
+  "proposed_buckets": {
+    "basis": "No event calendar joined; airline schedule duration\u2260events.",
+    "status": "hypothetical"
+  }
+}

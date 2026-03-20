@@ -1,0 +1,161 @@
+{
+  "generated_at": "2026-03-20T21:22:55.917974Z",
+  "rules": [
+    {
+      "id": "HB-001",
+      "statement": "Longer lead_time is associated with higher cancellation probability (hotel booking demand dataset).",
+      "support": "strong",
+      "evidence": {
+        "pearson_r": 0.2931,
+        "n": 119390
+      },
+      "applies_to": [
+        "demand_pipeline",
+        "confidence",
+        "dojo"
+      ]
+    },
+    {
+      "id": "AB-001",
+      "statement": "Higher review_scores_rating tends to associate with higher log_price (Airbnb listings sample).",
+      "support": "partial",
+      "evidence": {
+        "pearson_r": 0.0912,
+        "n": 74111
+      },
+      "applies_to": [
+        "pricing_context",
+        "reputation_guardrail",
+        "dojo"
+      ]
+    },
+    {
+      "id": "CT-001",
+      "statement": "Weekend nightly proxy (realSum) is typically above weekday in multi-city Airbnb-style city files.",
+      "support": "strong",
+      "evidence": {
+        "median_weekend_premium_ratio": 1.0373,
+        "n_cities": 10
+      },
+      "applies_to": [
+        "pricing_context",
+        "forecasting_features",
+        "dojo"
+      ]
+    },
+    {
+      "id": "OTA-001",
+      "statement": "Search distance proxy correlates weakly with booking outcome in Expedia-style travel sample; use as context feature, not standalone pricing driver.",
+      "support": "partial",
+      "evidence": {
+        "pearson_r": -0.0335,
+        "n": 63915
+      },
+      "applies_to": [
+        "compset_proxy",
+        "confidence_penalty",
+        "dojo"
+      ]
+    },
+    {
+      "id": "RV-001",
+      "statement": "Reviewer score tracks hotel average score; use divergence as data-quality / outlier flag for reputation signals.",
+      "support": "strong",
+      "evidence": {
+        "pearson_r": 0.4014,
+        "n": 120000
+      },
+      "applies_to": [
+        "reputation_pipeline",
+        "confidence",
+        "dojo"
+      ]
+    },
+    {
+      "id": "EVT-001",
+      "statement": "Event pressure proxy from airline schedule or GDELT is not validated in this extraction; keep hypothetical until joined to hotel markets.",
+      "support": "hypothetical",
+      "evidence": {},
+      "applies_to": [
+        "event_pressure",
+        "future_enrichment"
+      ]
+    }
+  ],
+  "proposed_buckets_summary": {
+    "demand_bucket": {
+      "basis": "hotel_bookings lead_time quartiles + cancellation_rate",
+      "suggested_labels": [
+        "very_low",
+        "low",
+        "medium",
+        "high",
+        "very_high"
+      ],
+      "empirical_lead_time_buckets_cancel_rate": [
+        {
+          "lead_time_range": [
+            0,
+            7
+          ],
+          "n": 19746,
+          "cancellation_rate": 0.0963
+        },
+        {
+          "lead_time_range": [
+            8,
+            30
+          ],
+          "n": 18960,
+          "cancellation_rate": 0.2786
+        },
+        {
+          "lead_time_range": [
+            31,
+            90
+          ],
+          "n": 29553,
+          "cancellation_rate": 0.377
+        },
+        {
+          "lead_time_range": [
+            91,
+            180
+          ],
+          "n": 26439,
+          "cancellation_rate": 0.4471
+        },
+        {
+          "lead_time_range": [
+            181,
+            9999
+          ],
+          "n": 24692,
+          "cancellation_rate": 0.5701
+        }
+      ]
+    },
+    "reputation_bucket": {
+      "basis": "515k reviewer_score histogram + tripadvisor rating spread",
+      "suggested_cutpoints_reviewer_score_0_10": [
+        5.0,
+        6.5,
+        7.5,
+        8.5,
+        9.2
+      ]
+    },
+    "price_posture_bucket": {
+      "basis": "Use ADR or realSum vs city/month median once normalized; not computed globally here.",
+      "action": "Compute per-market median from inside_airbnb calendar + hotel ADR in ETL next phase."
+    },
+    "visibility_proxy_bucket": {
+      "basis": "Not directly observed in listed CSVs; proxy candidates: number_of_reviews, availability_365.",
+      "status": "hypothetical_until_mapped"
+    },
+    "event_pressure_proxy": {
+      "basis": "No event calendar joined; airline schedule duration\u2260events.",
+      "status": "hypothetical"
+    }
+  }
+}

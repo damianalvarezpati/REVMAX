@@ -1,0 +1,303 @@
+{
+  "generated_at": "2026-03-20T21:22:55.917974Z",
+  "hotel_bookings": {
+    "source": "data/datasets/kaggle_hotel_booking_demand/hotel_bookings.csv",
+    "rows_used": 119390,
+    "correlations": {
+      "lead_time_vs_is_canceled_pearson": 0.29312335576042875,
+      "lead_time_vs_adr_pearson": -0.08696393202292418,
+      "special_requests_vs_is_canceled_pearson": -0.2346577739684344,
+      "n_pairs_lead_adr": 117430
+    },
+    "seasonality_by_arrival_month": [
+      {
+        "month": "January",
+        "n": 5929,
+        "cancellation_rate": 0.3048,
+        "mean_adr": 71.91
+      },
+      {
+        "month": "February",
+        "n": 8068,
+        "cancellation_rate": 0.3342,
+        "mean_adr": 74.95
+      },
+      {
+        "month": "March",
+        "n": 9794,
+        "cancellation_rate": 0.3215,
+        "mean_adr": 81.96
+      },
+      {
+        "month": "April",
+        "n": 11089,
+        "cancellation_rate": 0.408,
+        "mean_adr": 101.63
+      },
+      {
+        "month": "May",
+        "n": 11791,
+        "cancellation_rate": 0.3967,
+        "mean_adr": 110.38
+      },
+      {
+        "month": "June",
+        "n": 10939,
+        "cancellation_rate": 0.4146,
+        "mean_adr": 117.97
+      },
+      {
+        "month": "July",
+        "n": 12661,
+        "cancellation_rate": 0.3745,
+        "mean_adr": 128.51
+      },
+      {
+        "month": "August",
+        "n": 13877,
+        "cancellation_rate": 0.3775,
+        "mean_adr": 141.81
+      },
+      {
+        "month": "September",
+        "n": 10508,
+        "cancellation_rate": 0.3917,
+        "mean_adr": 106.64
+      },
+      {
+        "month": "October",
+        "n": 11160,
+        "cancellation_rate": 0.3805,
+        "mean_adr": 89.77
+      },
+      {
+        "month": "November",
+        "n": 6794,
+        "cancellation_rate": 0.3123,
+        "mean_adr": 75.5
+      },
+      {
+        "month": "December",
+        "n": 6780,
+        "cancellation_rate": 0.3497,
+        "mean_adr": 83.78
+      }
+    ],
+    "by_distribution_channel": [
+      {
+        "distribution_channel": "TA/TO",
+        "n": 97870,
+        "cancellation_rate": 0.4103,
+        "mean_adr": 104.31
+      },
+      {
+        "distribution_channel": "Direct",
+        "n": 14645,
+        "cancellation_rate": 0.1746,
+        "mean_adr": 112.88
+      },
+      {
+        "distribution_channel": "Corporate",
+        "n": 6677,
+        "cancellation_rate": 0.2208,
+        "mean_adr": 71.38
+      }
+    ],
+    "lead_time_bucket_cancellation": [
+      {
+        "lead_time_range": [
+          0,
+          7
+        ],
+        "n": 19746,
+        "cancellation_rate": 0.0963
+      },
+      {
+        "lead_time_range": [
+          8,
+          30
+        ],
+        "n": 18960,
+        "cancellation_rate": 0.2786
+      },
+      {
+        "lead_time_range": [
+          31,
+          90
+        ],
+        "n": 29553,
+        "cancellation_rate": 0.377
+      },
+      {
+        "lead_time_range": [
+          91,
+          180
+        ],
+        "n": 26439,
+        "cancellation_rate": 0.4471
+      },
+      {
+        "lead_time_range": [
+          181,
+          9999
+        ],
+        "n": 24692,
+        "cancellation_rate": 0.5701
+      }
+    ]
+  },
+  "hotel_reservations": {
+    "source": "data/datasets/desktop_ingest_2026_03_20/Hotel Reservations.csv",
+    "rows_used": 36275,
+    "correlations": {
+      "lead_time_vs_avg_price_pearson": -0.0625964654693634,
+      "lead_time_vs_canceled_pearson": null
+    },
+    "mean_price_by_market_segment": [
+      {
+        "segment": "Online",
+        "n": 23214,
+        "mean_price": 112.26
+      },
+      {
+        "segment": "Offline",
+        "n": 10528,
+        "mean_price": 91.63
+      },
+      {
+        "segment": "Corporate",
+        "n": 2017,
+        "mean_price": 82.91
+      },
+      {
+        "segment": "Complementary",
+        "n": 391,
+        "mean_price": 3.14
+      }
+    ]
+  },
+  "travel_ota": {
+    "source": "data/datasets/desktop_ingest_2026_03_20/travel.csv",
+    "rows_used": 63915,
+    "correlations": {
+      "orig_destination_distance_vs_is_booking_pearson": -0.03348007143321071,
+      "is_mobile_vs_is_booking_pearson": -0.028406215673007978,
+      "is_package_vs_is_booking_pearson": -0.08205416723634155
+    },
+    "booking_rate_by_channel": [
+      {
+        "channel": "9",
+        "n": 55352,
+        "booking_rate": 0.0854
+      },
+      {
+        "channel": "0",
+        "n": 12523,
+        "booking_rate": 0.0719
+      },
+      {
+        "channel": "1",
+        "n": 10274,
+        "booking_rate": 0.0697
+      },
+      {
+        "channel": "2",
+        "n": 7836,
+        "booking_rate": 0.0605
+      },
+      {
+        "channel": "5",
+        "n": 6158,
+        "booking_rate": 0.0943
+      },
+      {
+        "channel": "3",
+        "n": 4404,
+        "booking_rate": 0.0604
+      },
+      {
+        "channel": "4",
+        "n": 2194,
+        "booking_rate": 0.1208
+      },
+      {
+        "channel": "7",
+        "n": 811,
+        "booking_rate": 0.0432
+      },
+      {
+        "channel": "8",
+        "n": 271,
+        "booking_rate": 0.0554
+      }
+    ]
+  },
+  "airline_schedule": {
+    "source": "data/datasets/desktop_ingest_2026_03_20/archive (8)/airline_data/Schedule data.csv",
+    "rows_used": 17069,
+    "correlations": {
+      "flight_duration_vs_seats_per_dept_pearson": 0.3754206135621201
+    },
+    "disclaimer": "Airline schedule is not hotel demand; use only as weak macro/supply-capacity analogy for Dojo, not RevMax production rules."
+  },
+  "airline_booking_revenue_wide": {
+    "status": "not_processed_in_this_run",
+    "reason": "376-column airline booking/revenue extracts need explicit column mapping to hotel-demand proxies; schedule-level correlation included instead.",
+    "paths_checked": [
+      "data/datasets/desktop_ingest_2026_03_20/archive (8)/airline_data/12month_flight_booking.csv",
+      "data/datasets/desktop_ingest_2026_03_20/archive (8)/airline_data/12months_flight_revenue.csv"
+    ]
+  },
+  "proposed_buckets_demand": {
+    "basis": "hotel_bookings lead_time quartiles + cancellation_rate",
+    "suggested_labels": [
+      "very_low",
+      "low",
+      "medium",
+      "high",
+      "very_high"
+    ],
+    "empirical_lead_time_buckets_cancel_rate": [
+      {
+        "lead_time_range": [
+          0,
+          7
+        ],
+        "n": 19746,
+        "cancellation_rate": 0.0963
+      },
+      {
+        "lead_time_range": [
+          8,
+          30
+        ],
+        "n": 18960,
+        "cancellation_rate": 0.2786
+      },
+      {
+        "lead_time_range": [
+          31,
+          90
+        ],
+        "n": 29553,
+        "cancellation_rate": 0.377
+      },
+      {
+        "lead_time_range": [
+          91,
+          180
+        ],
+        "n": 26439,
+        "cancellation_rate": 0.4471
+      },
+      {
+        "lead_time_range": [
+          181,
+          9999
+        ],
+        "n": 24692,
+        "cancellation_rate": 0.5701
+      }
+    ]
+  }
+}

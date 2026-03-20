@@ -1,0 +1,85 @@
+{
+  "generated_at": "2026-03-20T21:22:55.917974Z",
+  "reviews_515k": {
+    "source": "data/public_datasets/hotel_reviews_europe_515k/Hotel_Reviews.csv",
+    "rows_used": 120000,
+    "note": "capped_first_120000_rows",
+    "correlations": {
+      "reviewer_score_vs_hotel_average_pearson": 0.4014272599582244,
+      "negative_word_count_vs_reviewer_score_pearson": -0.3824964965641481
+    },
+    "reviewer_score_distribution": [
+      {
+        "reviewer_score_range": [
+          0,
+          5
+        ],
+        "count": 5849,
+        "share": 0.0487
+      },
+      {
+        "reviewer_score_range": [
+          5,
+          6
+        ],
+        "count": 7701,
+        "share": 0.0642
+      },
+      {
+        "reviewer_score_range": [
+          6,
+          7
+        ],
+        "count": 8240,
+        "share": 0.0687
+      },
+      {
+        "reviewer_score_range": [
+          7,
+          8
+        ],
+        "count": 21727,
+        "share": 0.1811
+      },
+      {
+        "reviewer_score_range": [
+          8,
+          9
+        ],
+        "count": 19522,
+        "share": 0.1627
+      },
+      {
+        "reviewer_score_range": [
+          9,
+          10.1
+        ],
+        "count": 56961,
+        "share": 0.4747
+      }
+    ]
+  },
+  "tripadvisor": {
+    "source": "data/public_datasets/tripadvisor_hotel_reviews/tripadvisor_hotel_reviews.csv",
+    "rows_used": 20491,
+    "rating_mean": 3.952,
+    "rating_std": 1.233,
+    "rating_histogram_int": {
+      "1": 1421,
+      "2": 1793,
+      "3": 2184,
+      "4": 6039,
+      "5": 9054
+    }
+  },
+  "proposed_buckets_reputation": {
+    "basis": "515k reviewer_score histogram + tripadvisor rating spread",
+    "suggested_cutpoints_reviewer_score_0_10": [
+      5.0,
+      6.5,
+      7.5,
+      8.5,
+      9.2
+    ]
+  }
+}
