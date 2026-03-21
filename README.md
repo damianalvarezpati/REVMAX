@@ -197,4 +197,12 @@ Los campos más útiles:
 
 ---
 
+## Documentación (RevMax Intelligence / Dojo)
+
+- **[docs/DOJO_ROLE_AND_PRINCIPLES.md](docs/DOJO_ROLE_AND_PRINCIPLES.md)** — Rol del Dojo como sensei del conocimiento (normativo para diseño).
+- [docs/DOJO_DEFINITION_OF_DONE.md](docs/DOJO_DEFINITION_OF_DONE.md) — Definition of Done operativo.
+- [docs/KNOWLEDGE_INPUTS_DOJO.md](docs/KNOWLEDGE_INPUTS_DOJO.md) · [docs/KNOWLEDGE_REFRESH.md](docs/KNOWLEDGE_REFRESH.md) · [docs/KNOWLEDGE_BALANCING.md](docs/KNOWLEDGE_BALANCING.md) · [docs/DOJO_VALIDATION_DEBT.md](docs/DOJO_VALIDATION_DEBT.md)
+
+---
+
 *RevMax Daily — Versión 1.0*

@@ -1,5 +1,7 @@
 # Knowledge Balancing Engine
 
+> Dojo como sensei del conocimiento: [DOJO_ROLE_AND_PRINCIPLES.md](./DOJO_ROLE_AND_PRINCIPLES.md).
+
 ## Propósito
 
 Equilibrio **activo** del mapa de conocimiento del Dojo: no reparto uniforme. El sistema:

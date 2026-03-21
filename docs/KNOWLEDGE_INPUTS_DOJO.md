@@ -1,5 +1,7 @@
 # Dojo — Knowledge Inputs
 
+> **Rol del Dojo en RevMax:** ver [DOJO_ROLE_AND_PRINCIPLES.md](./DOJO_ROLE_AND_PRINCIPLES.md). Criterios de cierre: [DOJO_DEFINITION_OF_DONE.md](./DOJO_DEFINITION_OF_DONE.md).
+
 ## Modelo de datos (por área)
 
 Cada área expuesta en la API y en `knowledge_inputs_snapshot.json` incluye:

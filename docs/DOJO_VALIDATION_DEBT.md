@@ -1,5 +1,7 @@
 # Dojo — Deuda de validación (inbox operativo)
 
+> Marco general: [DOJO_ROLE_AND_PRINCIPLES.md](./DOJO_ROLE_AND_PRINCIPLES.md).
+
 ## Principio
 
 La validación humana **no** se modela como recomendación: es **deuda acumulada** y **trabajo pendiente obligatorio** en `data/dojo/validation_inbox.json`. El Dojo expone una bandeja con tareas concretas (`task_id`, tipo, prioridad, vínculos).

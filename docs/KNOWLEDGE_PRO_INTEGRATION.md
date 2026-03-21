@@ -1,5 +1,7 @@
 # Integración knowledge → motor determinista PRO
 
+> Gobernanza Dojo y límites: [DOJO_ROLE_AND_PRINCIPLES.md](./DOJO_ROLE_AND_PRINCIPLES.md).
+
 ## Reglas integradas (desde `data/knowledge/candidate_rules.json`)
 
 | ID | Soporte | Origen dataset / artefacto | Efecto en PRO |

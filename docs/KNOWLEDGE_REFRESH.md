@@ -1,5 +1,7 @@
 # Knowledge Refresh (daily / nightly)
 
+> Contexto Dojo: [DOJO_ROLE_AND_PRINCIPLES.md](./DOJO_ROLE_AND_PRINCIPLES.md) · Equilibrio: [KNOWLEDGE_BALANCING.md](./KNOWLEDGE_BALANCING.md).
+
 ## Qué hace
 
 - Calcula **Knowledge Inputs** antes y después del ciclo.
