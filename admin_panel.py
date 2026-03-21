@@ -687,28 +687,36 @@ def api_dojo_knowledge_refresh_latest():
     return s or {}
 
 
+@app.get("/api/dojo/knowledge-refresh/funnel")
+def api_dojo_knowledge_refresh_funnel():
+    """Métricas acumuladas del refresh (refresh_funnel_metrics.json)."""
+    from pathlib import Path
+
+    from knowledge_refresh import load_refresh_funnel_metrics
+
+    m = load_refresh_funnel_metrics(Path(BASE_DIR))
+    return m or {}
+
+
 @app.post("/api/dojo/knowledge-refresh/accept-observed")
 async def api_dojo_knowledge_refresh_accept(request: Request):
     """
-    Promueve observed → accepted_knowledge (dedup + reglas de calidad). No se llama desde el refresh automático.
-    Body: { observed_id, run_id?, summary, area_key, content_hash, accepted_by? }
+    Promueve observed → accepted_knowledge (dedup + trazabilidad obligatoria).
+    Body JSON mínimo: observed_id, area_key, source_reference, knowledge_type,
+    reason_for_acceptance, linked_rule_or_hypothesis, accepted_by, content_hash;
+    opcionales: run_id, accepted_at.
     """
     from pathlib import Path
 
     from knowledge_refresh import try_accept_observed
 
-    data = await request.json()
-    if not (data.get("observed_id") or "").strip():
-        return JSONResponse({"ok": False, "error": "Falta observed_id"}, status_code=400)
-    ok, msg = try_accept_observed(
-        Path(BASE_DIR),
-        observed_id=str(data.get("observed_id") or ""),
-        run_id=data.get("run_id"),
-        summary=str(data.get("summary") or ""),
-        area_key=str(data.get("area_key") or ""),
-        content_hash=str(data.get("content_hash") or ""),
-        accepted_by=str(data.get("accepted_by") or "operator"),
-    )
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Body JSON inválido"}, status_code=400)
+    if not isinstance(data, dict):
+        return JSONResponse({"ok": False, "error": "Body debe ser un objeto JSON"}, status_code=400)
+    ok, msg = try_accept_observed(Path(BASE_DIR), data)
     if not ok:
         return JSONResponse({"ok": False, "error": msg}, status_code=400)
     return {"ok": True, "message": msg}

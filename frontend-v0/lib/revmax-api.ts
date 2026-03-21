@@ -148,6 +148,21 @@ export interface KnowledgeInputArea {
   suggested_actions: string[];
 }
 
+/** Bloque funnel (run + lifetime) escrito por knowledge_refresh */
+export interface RefreshFunnelBlock {
+  this_run?: {
+    observed_count?: number;
+    accepted_count?: number;
+    dojo_candidates_generated?: number;
+    dojo_candidates_validated?: number;
+    runs_with_meaningful_output?: number;
+    runs_with_delta?: number;
+    area_score_changes_count?: number;
+    acceptance_rate?: number | null;
+  };
+  lifetime?: Record<string, number | string | null | undefined>;
+}
+
 /** Último knowledge refresh (GET knowledge-inputs lo incluye) */
 export interface KnowledgeRefreshSummary {
   run_id?: string;
@@ -162,6 +177,10 @@ export interface KnowledgeRefreshSummary {
     { before?: number; after?: number; delta_area_score?: number | null }
   >;
   hypothesis_events_count?: number;
+  funnel?: RefreshFunnelBlock | null;
+  funnel_metrics?: Record<string, number | string | null | undefined>;
+  funnel_lifetime?: Record<string, number | string | null | undefined>;
+  funnel_file_last_updated?: string;
 }
 
 export interface KnowledgeInputsResponse {

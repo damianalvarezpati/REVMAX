@@ -158,6 +158,35 @@ export default function DojoPage() {
                 {knowledge.knowledge_refresh.observed_count ?? 0} · candidatos Dojo{' '}
                 {knowledge.knowledge_refresh.dojo_candidates_created ?? 0}
               </p>
+              {(knowledge.knowledge_refresh.funnel_metrics ||
+                knowledge.knowledge_refresh.funnel_lifetime) && (
+                <p className="text-[11px] pt-1 border-t border-border/40">
+                  Funnel: aceptados tot.{' '}
+                  {(knowledge.knowledge_refresh.funnel_metrics as { accepted_total?: number } | undefined)
+                    ?.accepted_total ??
+                    (knowledge.knowledge_refresh.funnel_lifetime as { accepted_total?: number } | undefined)
+                      ?.accepted_total ??
+                    '—'}{' '}
+                  · tasa{' '}
+                  {(knowledge.knowledge_refresh.funnel_metrics as { acceptance_rate?: number } | undefined)
+                    ?.acceptance_rate ??
+                    (knowledge.knowledge_refresh.funnel_lifetime as { acceptance_rate?: number } | undefined)
+                      ?.acceptance_rate ??
+                    '—'}{' '}
+                  · runs c/ delta{' '}
+                  {(knowledge.knowledge_refresh.funnel_metrics as { runs_with_delta_count?: number } | undefined)
+                    ?.runs_with_delta_count ??
+                    (knowledge.knowledge_refresh.funnel_lifetime as { runs_with_delta_count?: number } | undefined)
+                      ?.runs_with_delta_count ??
+                    '—'}{' '}
+                  · Dojo validados{' '}
+                  {(knowledge.knowledge_refresh.funnel_metrics as { dojo_candidates_validated?: number } | undefined)
+                    ?.dojo_candidates_validated ??
+                    (knowledge.knowledge_refresh.funnel_lifetime as { dojo_candidates_validated?: number } | undefined)
+                      ?.dojo_candidates_validated ??
+                    '—'}
+                </p>
+              )}
             </div>
           )}
           {apiConfigured && knowledge?.areas && knowledge.areas.length > 0 && (

@@ -11,6 +11,7 @@ Artefactos:
   data/knowledge/refresh/knowledge_area_adjustments.json
   data/knowledge/refresh/observed_queue.jsonl        (cola para promoción manual)
   data/knowledge/refresh/accepted_knowledge.jsonl    (solo vía accept-observed API)
+  data/knowledge/refresh/refresh_funnel_metrics.json   (acumulado funnel + última corrida)
 """
 
 from __future__ import annotations
@@ -96,44 +97,16 @@ def _sha256_text(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
-def _dataset_observations_for_area(
-    base: Path,
-    area_spec: dict,
-    state: dict,
-    run_id: str,
-) -> Tuple[List[dict], List[str]]:
-    """Detecta datasets del MASTER que encajan con el área y son nuevos para el estado."""
-    from knowledge_inputs import _count_datasets_for_area  # reuse match
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
-    master = _load_json(base / "data/datasets/MASTER_DATASET_INDEX.json")
-    ds_list = (master or {}).get("datasets") or []
-    known = state.setdefault("known_dataset_paths", {})
 
-    observed: List[dict] = []
-    new_paths: List[str] = []
-
-    for ds in ds_list:
-        path = ds.get("path") or ""
-        if not path:
-            continue
-        d_count, _ = _count_datasets_for_area([ds], area_spec)
-        if d_count == 0:
-            continue
-        if path not in known:
-            new_paths.append(path)
-            oid = f"obs_ds_{_sha256_text(path)[:12]}"
-            observed.append(
-                {
-                    "observed_id": oid,
-                    "kind": "dataset_index_path_new",
-                    "area_key": area_spec["area_key"],
-                    "summary": f"Dataset indexado nuevo o no visto por refresh: {ds.get('name') or path}",
-                    "ref_path": path,
-                    "content_hash": _sha256_text(path + str(ds.get("rows") or "")),
-                    "status": "observed_only",
-                }
-            )
-    return observed, new_paths
+def _file_content_sha256(path: Path, cap: int = 2_000_000) -> Optional[str]:
+    try:
+        raw = path.read_bytes()[:cap]
+    except OSError:
+        return None
+    return _sha256_bytes(raw)
 
 
 def _pattern_observation(
@@ -142,34 +115,36 @@ def _pattern_observation(
     pattern_files: List[str],
     state: dict,
 ) -> List[dict]:
+    """Cambio real de contenido (hash), no solo mtime — evita ruido por touch/save sin delta."""
     out: List[dict] = []
     kn = base / "data/knowledge"
-    area_state = state.setdefault("pattern_mtimes", {}).setdefault(area_key, {})
+    ph = state.setdefault("pattern_content_hashes", {})
     for fn in pattern_files:
         p = kn / fn
         if not p.is_file():
             continue
-        try:
-            mtime = p.stat().st_mtime
-        except OSError:
+        rel = str(p.relative_to(base))
+        h = _file_content_sha256(p)
+        if not h:
             continue
-        prev = area_state.get(fn)
+        prev = ph.get(rel)
         if prev is None:
-            area_state[fn] = mtime
+            ph[rel] = h
             continue
-        if mtime > prev + 0.01:
-            out.append(
-                {
-                    "observed_id": f"obs_pat_{_sha256_text(fn + str(mtime))[:12]}",
-                    "kind": "pattern_file_changed",
-                    "area_key": area_key,
-                    "summary": f"Patrón actualizado: {fn}",
-                    "ref_path": str(p.relative_to(base)),
-                    "content_hash": _sha256_text(str(mtime)),
-                    "status": "observed_only",
-                }
-            )
-        area_state[fn] = mtime
+        if h == prev:
+            continue
+        ph[rel] = h
+        out.append(
+            {
+                "observed_id": f"obs_pat_{_sha256_text(fn + h)[:12]}",
+                "kind": "pattern_file_changed",
+                "area_key": area_key,
+                "summary": f"Patrón actualizado (contenido): {fn}",
+                "ref_path": rel,
+                "content_hash": h,
+                "status": "observed_only",
+            }
+        )
     return out
 
 
@@ -266,6 +241,124 @@ def _hypothesis_events_for_area(area_key: str, matched_rule_ids: List[str]) -> L
     return events
 
 
+def _relevant_observations_for_area(
+    observed_all: List[dict],
+    area_key: str,
+    cfg: dict,
+) -> List[dict]:
+    kinds = list(
+        cfg.get("dojo_relevant_observation_kinds")
+        or ["dataset_index_path_new", "pattern_file_changed", "http_allowlist_fetch"]
+    )
+    kind_set = set(kinds)
+    out: List[dict] = []
+    for o in observed_all:
+        k = o.get("kind")
+        if k not in kind_set:
+            continue
+        if k == "dataset_index_path_new":
+            touched = o.get("area_keys_touched") or []
+            if area_key in touched:
+                out.append(o)
+        elif k in ("pattern_file_changed", "http_allowlist_fetch", "http_fetch_error"):
+            if o.get("area_key") == area_key:
+                out.append(o)
+    return out
+
+
+def _count_validated_refresh_dojo_candidates(base: Path) -> int:
+    d = base / "data/dojo/training_candidates"
+    if not d.is_dir():
+        return 0
+    n = 0
+    for path in d.glob("*.json"):
+        data = _load_json(path)
+        if not data or data.get("source") != "knowledge_refresh":
+            continue
+        if (data.get("dojo_validation_status") or "").lower() == "validated":
+            n += 1
+    return n
+
+
+def _update_funnel_after_run(base: Path, run_record: dict) -> dict:
+    """Acumula métricas de funnel y devuelve bloque para latest_refresh_summary."""
+    funnel_path = base / "data/knowledge/refresh/refresh_funnel_metrics.json"
+    prev = _load_json(funnel_path) or {"version": 2, "lifetime": {}}
+    if not isinstance(prev, dict):
+        prev = {"version": 2, "lifetime": {}}
+    lt = prev.setdefault("lifetime", {})
+    observed = len(run_record.get("observed_new_data") or [])
+    dojo_n = len(run_record.get("dojo_cases_generated") or [])
+    lt["runs_total"] = int(lt.get("runs_total") or 0) + 1
+    lt["observed_total"] = int(lt.get("observed_total") or 0) + observed
+    lt["dojo_candidates_generated_total"] = int(lt.get("dojo_candidates_generated_total") or 0) + dojo_n
+
+    deltas = run_record.get("score_deltas_by_area") or {}
+    has_delta = any(
+        abs(float((d or {}).get("delta_area_score") or 0)) > 1e-6 for d in deltas.values() if isinstance(d, dict)
+    )
+    if has_delta:
+        lt["runs_with_delta_count"] = int(lt.get("runs_with_delta_count") or 0) + 1
+
+    area_changes = sum(
+        1
+        for d in deltas.values()
+        if isinstance(d, dict) and abs(float(d.get("delta_area_score") or 0)) > 1e-6
+    )
+    lt["area_score_changes_count"] = int(lt.get("area_score_changes_count") or 0) + area_changes
+
+    meaningful = observed > 0 or dojo_n > 0
+    if meaningful:
+        lt["runs_with_meaningful_output"] = int(lt.get("runs_with_meaningful_output") or 0) + 1
+
+    validated_n = _count_validated_refresh_dojo_candidates(base)
+    lt["dojo_candidates_validated"] = validated_n
+
+    acc = int(lt.get("accepted_total") or 0)
+    obs_tot = max(int(lt.get("observed_total") or 0), 1)
+    lt["acceptance_rate"] = round(acc / obs_tot, 6)
+
+    prev["lifetime"] = lt
+    prev["last_run"] = {
+        "run_id": run_record.get("run_id"),
+        "finished_at": run_record.get("finished_at"),
+        "observed_count": observed,
+        "dojo_candidates_generated": dojo_n,
+        "runs_with_meaningful_output": 1 if meaningful else 0,
+        "area_score_changes_count": area_changes,
+        "has_score_delta": has_delta,
+    }
+    prev["last_updated"] = run_record.get("finished_at")
+    funnel_path.parent.mkdir(parents=True, exist_ok=True)
+    funnel_path.write_text(json.dumps(prev, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    return {
+        "this_run": {
+            "observed_count": observed,
+            "accepted_count": 0,
+            "dojo_candidates_generated": dojo_n,
+            "dojo_candidates_validated": validated_n,
+            "runs_with_meaningful_output": 1 if meaningful else 0,
+            "runs_with_delta": 1 if has_delta else 0,
+            "area_score_changes_count": area_changes,
+            "acceptance_rate": lt.get("acceptance_rate"),
+        },
+        "lifetime": dict(lt),
+    }
+
+
+def _increment_funnel_accepted(base: Path) -> None:
+    funnel_path = base / "data/knowledge/refresh/refresh_funnel_metrics.json"
+    prev = _load_json(funnel_path) or {"version": 2, "lifetime": {}}
+    lt = prev.setdefault("lifetime", {})
+    lt["accepted_total"] = int(lt.get("accepted_total") or 0) + 1
+    obs_tot = max(int(lt.get("observed_total") or 0), 1)
+    lt["acceptance_rate"] = round(int(lt["accepted_total"]) / obs_tot, 6)
+    prev["last_updated"] = _utc_now()
+    funnel_path.parent.mkdir(parents=True, exist_ok=True)
+    funnel_path.write_text(json.dumps(prev, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
 def _write_dojo_candidate(
     base: Path,
     run_id: str,
@@ -281,6 +374,7 @@ def _write_dojo_candidate(
         "run_id": run_id,
         "area_key": area_key,
         "area_name": area_name,
+        "dojo_validation_status": "pending",
         "generated_at": _utc_now(),
         "pending_human_review": True,
         "hotel_name": f"[Refresh] {area_name}",
@@ -415,12 +509,13 @@ def run_knowledge_refresh(
     known = state.setdefault("known_dataset_paths", {})
     sources_consulted.append({"type": "master_dataset_index_scan", "status": "ok", "datasets_total": len(ds_list)})
 
+    all_area_keys = [ak for ak in area_specs.keys()]
     for ds in ds_list:
         path = ds.get("path") or ""
         if not path or path in known:
             continue
         matched_aks = [
-            ak for ak in to_process if ak in area_specs and _count_datasets_for_area([ds], area_specs[ak])[0] > 0
+            ak for ak in all_area_keys if ak in area_specs and _count_datasets_for_area([ds], area_specs[ak])[0] > 0
         ]
         if not matched_aks:
             continue
@@ -466,12 +561,13 @@ def run_knowledge_refresh(
 
         hypothesis_events.extend(_hypothesis_events_for_area(ak, matched_ids))
 
+        rel_obs = _relevant_observations_for_area(observed_all, ak, cfg)
+        min_rel = int(cfg.get("dojo_min_relevant_observations") or 1)
+        if len(rel_obs) < min_rel:
+            continue
+
         n_cand = int(cfg.get("dojo_candidates_per_area") or 1)
-        summaries = [
-            o["summary"]
-            for o in observed_all
-            if o.get("area_key") == ak or ak in (o.get("area_keys_touched") or [])
-        ][:5] or [f"Refresh {ak}: sin observaciones nuevas para esta área en este ciclo"]
+        summaries = [o["summary"] for o in rel_obs][:5]
 
         for j in range(n_cand):
             dojo_paths.append(
@@ -525,28 +621,45 @@ def run_knowledge_refresh(
         "scores_after_by_area": idx_after,
         "score_deltas_by_area": score_deltas,
         "notes": [
-            "accepted_knowledge vacío en ejecución automática — usar POST accept-observed tras revisión.",
-            f"Observaciones registradas: {len(observed_all)}; candidatos Dojo: {len(dojo_paths)}.",
+            "accepted_knowledge vacío en ejecución automática — usar POST accept-observed con campos de trazabilidad.",
+            f"Observaciones registradas: {len(observed_all)}; candidatos Dojo (solo si relevancia mínima por área): {len(dojo_paths)}.",
         ],
     }
+
+    funnel_block = _update_funnel_after_run(base, run_record)
+    run_record["funnel"] = funnel_block
 
     for ob in observed_all:
         _append_jsonl(base / "data/knowledge/refresh/observed_queue.jsonl", {**ob, "run_id": run_id, "ts": finished})
 
     if write_artifacts:
         _append_jsonl(base / "data/knowledge/refresh/knowledge_refresh_runs.jsonl", run_record)
+        lt = funnel_block.get("lifetime") or {}
+        tr = funnel_block.get("this_run") or {}
         summary_public = {
             "run_id": run_id,
             "mode": mode,
             "finished_at": finished,
             "areas_reviewed": to_process,
             "observed_count": len(observed_all),
-            "accepted_count": 0,
+            "accepted_count": int(lt.get("accepted_total") or 0),
             "dojo_candidates_created": len(dojo_paths),
             "score_deltas_by_area": {
                 k: v for k, v in score_deltas.items() if k in to_process
             },
             "hypothesis_events_count": len(hypothesis_events),
+            "funnel": funnel_block,
+            "funnel_metrics": {
+                "observed_count_this_run": tr.get("observed_count"),
+                "observed_total": int(lt.get("observed_total") or 0),
+                "accepted_total": int(lt.get("accepted_total") or 0),
+                "acceptance_rate": lt.get("acceptance_rate"),
+                "runs_with_delta_count": int(lt.get("runs_with_delta_count") or 0),
+                "dojo_candidates_generated_this_run": tr.get("dojo_candidates_generated"),
+                "dojo_candidates_validated": tr.get("dojo_candidates_validated"),
+                "runs_with_meaningful_output_total": int(lt.get("runs_with_meaningful_output") or 0),
+                "area_score_changes_count_total": int(lt.get("area_score_changes_count") or 0),
+            },
         }
         (base / "data/knowledge/refresh/latest_refresh_summary.json").write_text(
             json.dumps(summary_public, indent=2, ensure_ascii=False),
@@ -558,37 +671,68 @@ def run_knowledge_refresh(
     return run_record
 
 
+def load_refresh_funnel_metrics(base: Optional[Path] = None) -> Optional[dict]:
+    b = base or ROOT
+    return _load_json(b / "data/knowledge/refresh/refresh_funnel_metrics.json")
+
+
 def load_latest_refresh_summary(base: Optional[Path] = None) -> Optional[dict]:
     b = base or ROOT
     p = b / "data/knowledge/refresh/latest_refresh_summary.json"
-    return _load_json(p)
+    s = _load_json(p)
+    if not s:
+        return None
+    fm = load_refresh_funnel_metrics(b)
+    if fm and isinstance(fm.get("lifetime"), dict):
+        s = {**s, "funnel_lifetime": fm["lifetime"], "funnel_file_last_updated": fm.get("last_updated")}
+    return s
 
 
 def _accepted_jsonl_path(base: Path) -> Path:
     return base / "data/knowledge/refresh/accepted_knowledge.jsonl"
 
 
-def try_accept_observed(
-    base: Path,
-    *,
-    observed_id: str,
-    run_id: Optional[str],
-    summary: str,
-    area_key: str,
-    content_hash: str,
-    accepted_by: str = "operator",
-) -> Tuple[bool, str]:
+def try_accept_observed(base: Path, payload: dict) -> Tuple[bool, str]:
     """
-    Promueve una observación a accepted_knowledge tras controles (no automático en refresh).
+    Promueve observación → accepted_knowledge con trazabilidad explícita (no automático en refresh).
+
+    Campos obligatorios: observed_id, area_key, source_reference, knowledge_type,
+    reason_for_acceptance, linked_rule_or_hypothesis, accepted_by, content_hash.
+    Opcionales: run_id, accepted_at (ISO; si falta, se asigna ahora).
     """
     cfg = load_refresh_config(base)
     rules = cfg.get("quality_rules_for_acceptance") or {}
+    required = [
+        "observed_id",
+        "area_key",
+        "source_reference",
+        "knowledge_type",
+        "reason_for_acceptance",
+        "linked_rule_or_hypothesis",
+        "accepted_by",
+        "content_hash",
+    ]
+    for key in required:
+        if not str(payload.get(key) or "").strip():
+            return False, f"Falta o vacío: {key}"
+
+    observed_id = str(payload["observed_id"]).strip()
+    area_key = str(payload["area_key"]).strip()
+    source_reference = str(payload["source_reference"]).strip()
+    knowledge_type = str(payload["knowledge_type"]).strip()
+    reason = str(payload["reason_for_acceptance"]).strip()
+    linked = str(payload["linked_rule_or_hypothesis"]).strip()
+    accepted_by = str(payload["accepted_by"]).strip()
+    content_hash = str(payload["content_hash"]).strip()
+
     if rules.get("require_area_key") and not area_key:
         return False, "area_key requerido"
     if rules.get("require_content_hash") and not content_hash:
         return False, "content_hash requerido"
-    if len(summary or "") < int(rules.get("min_summary_length") or 8):
-        return False, "summary demasiado corto"
+
+    min_reason = int(rules.get("min_reason_for_acceptance_length") or rules.get("min_summary_length") or 12)
+    if len(reason) < min_reason:
+        return False, "reason_for_acceptance demasiado corto"
 
     hp = base / "data/knowledge/refresh/accepted_hashes.json"
     hdata = _load_json(hp) or {"version": 1, "hashes": []}
@@ -596,14 +740,22 @@ def try_accept_observed(
     if content_hash in hashes:
         return False, "duplicado (hash ya aceptado)"
 
+    accepted_at = str(payload.get("accepted_at") or "").strip() or _utc_now()
+    run_id = payload.get("run_id")
+    trace_id = str(uuid.uuid4())
+
     line = {
-        "accepted_at": _utc_now(),
+        "acceptance_trace_id": trace_id,
+        "accepted_at": accepted_at,
         "observed_id": observed_id,
         "run_id": run_id,
         "area_key": area_key,
-        "summary": summary.strip(),
-        "content_hash": content_hash,
+        "source_reference": source_reference,
+        "knowledge_type": knowledge_type,
+        "reason_for_acceptance": reason,
+        "linked_rule_or_hypothesis": linked,
         "accepted_by": accepted_by,
+        "content_hash": content_hash,
     }
     aj = _accepted_jsonl_path(base)
     aj.parent.mkdir(parents=True, exist_ok=True)
@@ -612,6 +764,7 @@ def try_accept_observed(
     hdata["hashes"] = sorted(hashes)
     hp.parent.mkdir(parents=True, exist_ok=True)
     hp.write_text(json.dumps(hdata, indent=2, ensure_ascii=False), encoding="utf-8")
+    _increment_funnel_accepted(base)
     return True, "accepted"
 
 

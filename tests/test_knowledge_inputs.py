@@ -26,6 +26,7 @@ def test_knowledge_inputs_required_fields():
     for a in out["areas"]:
         assert "coverage_score" in a
         assert "quality_score" in a
+        assert "accepted_quality_bonus_points" in a
         assert "validation_score" in a
         assert "model_readiness_score" in a
         assert "area_score" in a

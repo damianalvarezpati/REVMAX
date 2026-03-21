@@ -149,6 +149,44 @@ def _accepted_knowledge_counts_by_area(base: Path) -> Dict[str, int]:
     return c
 
 
+def _accepted_quality_bonus_for_area(base: Path, area_key: str) -> float:
+    """
+    Bonus acotado a quality_score según accepted_knowledge: peso alto solo con
+    knowledge_type + linked_rule_or_hypothesis; entradas legacy o sin linkage valen poco.
+    """
+    p = base / "data/knowledge/refresh/accepted_knowledge.jsonl"
+    cfg = _load_json(base / "data/knowledge/refresh/knowledge_refresh_config.json") or {}
+    sq = cfg.get("accepted_quality_scoring") or {}
+    max_pts = float(sq.get("max_quality_bonus_points") or 8.0)
+    w_full = float(sq.get("per_accept_with_link_and_type") or 2.0)
+    w_partial = float(sq.get("per_accept_partial") or 0.75)
+    w_min = float(sq.get("per_accept_minimal") or 0.35)
+    if not p.is_file():
+        return 0.0
+    bonus = 0.0
+    try:
+        for line in p.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            o = json.loads(line)
+            if (o.get("area_key") or "_unknown") != area_key:
+                continue
+            if "knowledge_type" not in o and (o.get("summary") or o.get("reason_for_acceptance")):
+                bonus += w_min
+                continue
+            link = (o.get("linked_rule_or_hypothesis") or "").strip()
+            kt = (o.get("knowledge_type") or "").strip()
+            if link and kt:
+                bonus += w_full
+            elif link or kt:
+                bonus += w_partial
+            else:
+                bonus += w_min
+    except (OSError, json.JSONDecodeError):
+        pass
+    return min(max_pts, bonus)
+
+
 def _refresh_training_candidates_by_area(base: Path) -> Dict[str, int]:
     d = base / "data/dojo/training_candidates"
     out: Dict[str, int] = {}
@@ -291,8 +329,8 @@ def compute_knowledge_inputs(
         if not matched_rules:
             q_rules = 0.0
         row_factor = min(1.0, math.log1p(d_rows) / math.log1p(2_000_000))
-        quality_score = round(min(100.0, 0.65 * q_rules + 35.0 * row_factor), 1)
-        quality_score = round(min(100.0, quality_score + min(15.0, 4.0 * acc_n)), 1)
+        acc_bonus = _accepted_quality_bonus_for_area(base, key)
+        quality_score = round(min(100.0, 0.65 * q_rules + 35.0 * row_factor + acc_bonus), 1)
 
         # Validation: human loop (ledger + allocated QA) vs target
         val_denom = max(soft_v, 1.0)
@@ -358,6 +396,7 @@ def compute_knowledge_inputs(
                 "synthetic_cases_count": synthetic_alloc,
                 "refresh_training_candidates_count": refresh_tc,
                 "accepted_knowledge_count": acc_n,
+                "accepted_quality_bonus_points": round(acc_bonus, 2),
                 "validated_cases_count": validated_cases_count,
                 "rules_supported_count": rules_supported,
                 "rules_strong_count": rules_strong,
@@ -392,7 +431,7 @@ def compute_knowledge_inputs(
         },
         "scoring_notes": {
             "coverage": "100*(1-exp(-0.55*datasets/soft_cap)) + bonus por archivos de patrones presentes.",
-            "quality": "Reglas + log(filas) + bonus por líneas accepted_knowledge.jsonl (solo promoción manual).",
+            "quality": "Reglas + log(filas) + bonus acotado desde accepted_knowledge (peso alto solo con knowledge_type + linked_rule_or_hypothesis; sin linkage, peso mínimo).",
             "validation": "ledger human_validations + reparto proporcional de qa_runs con human_score vs soft_cap por área.",
             "model_readiness": "ratio de engine_rule_ids integradas en PRO vs esperadas por área (sin ids → techo bajo).",
             "area_score": "0.28*coverage + 0.27*quality + 0.22*validation + 0.23*readiness",
