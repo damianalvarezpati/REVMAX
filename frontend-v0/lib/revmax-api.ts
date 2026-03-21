@@ -181,7 +181,13 @@ export interface ValidationInboxTask {
   status?: string;
   required_for_area_progress?: boolean;
   linked_case_id?: string | null;
+  linked_rule_id?: string | null;
+  linked_hypothesis_id?: string | null;
   dismiss_reason?: string;
+  closed_by?: string;
+  closed_at?: string;
+  closure_source?: string;
+  validation_debt_impact?: { before?: number; after?: number };
 }
 
 export interface DojoValidationInboxPayload {
@@ -207,8 +213,15 @@ export interface ValidationInboxFullResponse {
     overdue_reviews_count?: number;
     areas_blocked_count?: number;
     pending_by_type?: Record<string, number>;
+    pending_validation_tasks?: number;
+    pending_hypothesis_reviews?: number;
+    pending_rule_reviews?: number;
+    pending_compset_reviews?: number;
+    pending_decision_reviews?: number;
+    pending_other?: number;
   };
   per_area_metrics: Record<string, Record<string, unknown>>;
+  blocked_areas?: { area_key: string; validation_debt_score?: number; required_pending_count?: number }[];
 }
 
 /** Bloque funnel (run + lifetime) escrito por knowledge_refresh */
@@ -276,10 +289,21 @@ export async function updateValidationInboxTask(
     status: 'done' | 'dismissed' | 'pending';
     assigned_to?: string;
     dismiss_reason?: string;
+    closed_by?: string;
+    closure_source?: string;
   },
 ): Promise<{ ok?: boolean; task_id?: string; status?: string; error?: string }> {
   return request(`/api/dojo/validation-inbox/tasks/${encodeURIComponent(taskId)}`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+/** Abre JSON del caso QA en nueva pestaña (GET /api/dojo/qa-case-preview). */
+export function getDojoQaCasePreviewUrl(casePath: string): string {
+  return getApiUrl(`/api/dojo/qa-case-preview?path=${encodeURIComponent(casePath)}`);
+}
+
+export function getDojoRuleByIdUrl(ruleId: string): string {
+  return getApiUrl(`/api/dojo/rule-by-id?rule_id=${encodeURIComponent(ruleId)}`);
 }

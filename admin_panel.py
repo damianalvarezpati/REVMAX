@@ -644,6 +644,52 @@ def api_dojo_validation_inbox():
     return build_inbox_payload(Path(BASE_DIR))
 
 
+@app.get("/api/dojo/qa-case-preview")
+def api_dojo_qa_case_preview(path: str):
+    """Devuelve JSON de un caso QA por ruta (path relativo al proyecto o absoluto bajo BASE_DIR)."""
+    from pathlib import Path
+
+    base = Path(BASE_DIR).resolve()
+    raw = (path or "").strip()
+    if not raw:
+        return JSONResponse({"error": "Falta path"}, status_code=400)
+    try:
+        p = Path(raw)
+        if not p.is_absolute():
+            p = (base / raw).resolve()
+        else:
+            p = p.resolve()
+        if not str(p).startswith(str(base)):
+            return JSONResponse({"error": "Invalid path"}, status_code=400)
+        if not p.is_file():
+            return JSONResponse({"error": "Not found"}, status_code=404)
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@app.get("/api/dojo/rule-by-id")
+def api_dojo_rule_by_id(rule_id: str):
+    """Devuelve una regla de data/knowledge/candidate_rules.json por id."""
+    from pathlib import Path
+
+    rid = (rule_id or "").strip()
+    if not rid:
+        return JSONResponse({"error": "Falta rule_id"}, status_code=400)
+    p = Path(BASE_DIR) / "data/knowledge/candidate_rules.json"
+    if not p.is_file():
+        return JSONResponse({"error": "candidate_rules.json no encontrado"}, status_code=404)
+    try:
+        doc = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    rules = (doc.get("rules") or []) if isinstance(doc, dict) else []
+    for r in rules:
+        if r.get("id") == rid:
+            return {"ok": True, "rule": r}
+    return JSONResponse({"error": "rule not found"}, status_code=404)
+
+
 @app.post("/api/dojo/validation-inbox/tasks/{task_id}")
 async def api_dojo_validation_inbox_task(task_id: str, request: Request):
     """Actualiza estado de tarea: body { \"status\": \"done\"|\"dismissed\"|\"pending\", \"assigned_to\": optional }"""
@@ -658,7 +704,17 @@ async def api_dojo_validation_inbox_task(task_id: str, request: Request):
     st = (data.get("status") or "").strip()
     at = data.get("assigned_to")
     dr = data.get("dismiss_reason")
-    ok, msg = update_task_status(Path(BASE_DIR), task_id, st, assigned_to=at, dismiss_reason=dr)
+    closed_by = data.get("closed_by")
+    closure_source = data.get("closure_source")
+    ok, msg = update_task_status(
+        Path(BASE_DIR),
+        task_id,
+        st,
+        assigned_to=at,
+        dismiss_reason=dr,
+        closed_by=closed_by if isinstance(closed_by, str) else None,
+        closure_source=closure_source if isinstance(closure_source, str) else None,
+    )
     if not ok:
         return JSONResponse({"ok": False, "error": msg}, status_code=400)
     return {"ok": True, "task_id": task_id, "status": st}

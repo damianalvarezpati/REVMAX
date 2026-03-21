@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from dojo_validation_debt import (
+    build_dojo_candidate_linkage,
     compute_debt_metrics,
     load_inbox,
     mark_validation_tasks_done_for_case_path,
@@ -34,7 +35,29 @@ def test_merge_and_metrics(tmp_path: Path):
     assert len(inbox["tasks"]) == 1
     g, per = compute_debt_metrics(inbox, tmp_path)
     assert g["dojo_inbox_count"] == 1
+    assert g["pending_hypothesis_reviews"] == 1
+    assert g["pending_validation_tasks"] == 0
     assert "events" in per
+
+
+def test_build_dojo_candidate_linkage_ids():
+    rel_obs = [{"observed_id": "obs_x", "ref_path": "data/knowledge/x.json"}]
+    rules_by_id = {
+        "H1": {"id": "H1", "support": "hypothetical", "applies_to": ["event"]},
+        "P1": {"id": "P1", "support": "partial", "applies_to": ["event"]},
+    }
+    out = build_dojo_candidate_linkage(
+        "events",
+        rel_obs,
+        ["H1", "P1"],
+        rules_by_id,
+        set(),
+        engine_rule_ids_expected=["MISSING"],
+    )
+    assert out["linked_hypothesis_id"] == "H1"
+    assert out["required_review_type"] == "hypothesis_review"
+    assert len(out["linked_task_ids"]) >= 3
+    assert out["close_condition"]
 
 
 def test_update_task_status(tmp_path: Path):

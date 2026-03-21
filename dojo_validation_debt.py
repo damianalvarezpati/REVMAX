@@ -395,10 +395,28 @@ def compute_debt_metrics(
         "overdue_reviews_count": overdue,
         "areas_blocked_count": areas_blocked,
         "pending_by_type": {},
+        "pending_validation_tasks": 0,
+        "pending_hypothesis_reviews": 0,
+        "pending_rule_reviews": 0,
+        "pending_compset_reviews": 0,
+        "pending_decision_reviews": 0,
+        "pending_other": 0,
     }
     for t in pending:
         tt = t.get("task_type") or "unknown"
         global_m["pending_by_type"][tt] = global_m["pending_by_type"].get(tt, 0) + 1
+        if tt == "validation_case":
+            global_m["pending_validation_tasks"] += 1
+        elif tt == "hypothesis_review":
+            global_m["pending_hypothesis_reviews"] += 1
+        elif tt == "rule_review":
+            global_m["pending_rule_reviews"] += 1
+        elif tt == "compset_review":
+            global_m["pending_compset_reviews"] += 1
+        elif tt == "decision_review":
+            global_m["pending_decision_reviews"] += 1
+        else:
+            global_m["pending_other"] += 1
 
     return global_m, per_area
 
@@ -481,9 +499,19 @@ def mark_validation_tasks_done_for_case_path(base: Optional[Path], case_path: st
         if not match:
             match = os.path.normpath(str(lid)) == os.path.normpath(str(case_path))
         if match:
+            ak = t.get("area_key") or "_global"
+            g_before, per_before = compute_debt_metrics(inbox, base)
+            debt_before = per_before.get(ak, {}).get("validation_debt_score")
             t["status"] = "done"
-            t["updated_at"] = _utc_now()
+            now = _utc_now()
+            t["updated_at"] = now
+            t["closed_at"] = now
             t["closed_by"] = "qa_verdict"
+            t["closure_source"] = "qa_save_validation"
+            g_after, per_after = compute_debt_metrics(inbox, base)
+            debt_after = per_after.get(ak, {}).get("validation_debt_score")
+            if debt_before is not None:
+                t["validation_debt_impact"] = {"before": debt_before, "after": debt_after}
             n += 1
     if n:
         save_inbox(base, inbox)
@@ -496,6 +524,8 @@ def update_task_status(
     status: str,
     assigned_to: Optional[str] = None,
     dismiss_reason: Optional[str] = None,
+    closed_by: Optional[str] = None,
+    closure_source: Optional[str] = None,
 ) -> Tuple[bool, str]:
     allowed = {"pending", "done", "dismissed"}
     if status not in allowed:
@@ -503,19 +533,107 @@ def update_task_status(
     inbox = load_inbox(base)
     found = False
     for t in inbox.get("tasks") or []:
-        if t.get("task_id") == task_id:
-            t["status"] = status
-            t["updated_at"] = _utc_now()
-            if assigned_to is not None:
-                t["assigned_to"] = assigned_to
-            if dismiss_reason is not None and status == "dismissed":
-                t["dismiss_reason"] = (dismiss_reason or "").strip()
-            found = True
-            break
+        if t.get("task_id") != task_id:
+            continue
+        found = True
+        ak = t.get("area_key") or "_global"
+        debt_before = None
+        if status in ("done", "dismissed"):
+            g_before, per_before = compute_debt_metrics(inbox, base)
+            debt_before = per_before.get(ak, {}).get("validation_debt_score")
+        t["status"] = status
+        now = _utc_now()
+        t["updated_at"] = now
+        if status in ("done", "dismissed"):
+            t["closed_at"] = now
+            t["closed_by"] = (closed_by or "").strip() or "operator"
+            t["closure_source"] = (closure_source or "").strip() or "dojo_inbox_api"
+        if assigned_to is not None:
+            t["assigned_to"] = assigned_to
+        if dismiss_reason is not None and status == "dismissed":
+            t["dismiss_reason"] = (dismiss_reason or "").strip()
+        if status in ("done", "dismissed") and debt_before is not None:
+            g_after, per_after = compute_debt_metrics(inbox, base)
+            debt_after = per_after.get(ak, {}).get("validation_debt_score")
+            t["validation_debt_impact"] = {"before": debt_before, "after": debt_after}
+        break
     if not found:
         return False, "task_id no encontrado"
     save_inbox(base, inbox)
     return True, "ok"
+
+
+def build_dojo_candidate_linkage(
+    area_key: str,
+    rel_obs: List[dict],
+    matched_rule_ids: List[str],
+    rules_by_id: Dict[str, dict],
+    engine_integrated_rule_ids: Optional[set] = None,
+    *,
+    engine_rule_ids_expected: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Vínculos estables entre candidato Dojo, inbox (task_id determinista) y reglas.
+    Los task_id deben coincidir con sync_validation_inbox / _generate_tasks_from_*.
+    decision_review solo para reglas PRO esperadas en el área pero no integradas (como en inbox).
+    """
+    linked_task_ids: List[str] = []
+    seen: set = set()
+
+    def add_tid(tid: str) -> None:
+        if tid and tid not in seen:
+            seen.add(tid)
+            linked_task_ids.append(tid)
+
+    eng = engine_integrated_rule_ids or set()
+
+    for o in rel_obs:
+        oid = (o.get("observed_id") or "").strip()
+        if oid:
+            add_tid(_tid("ref", area_key, oid))
+
+    primary_hypothesis_id: Optional[str] = None
+    primary_rule_id: Optional[str] = None
+
+    for rid in matched_rule_ids:
+        r = rules_by_id.get(rid) or {}
+        sup = (r.get("support") or "").lower()
+        if not primary_rule_id and rid:
+            primary_rule_id = rid
+        if sup == "hypothetical":
+            if not primary_hypothesis_id and rid:
+                primary_hypothesis_id = rid
+            add_tid(_tid("hyp", area_key, rid))
+            if area_key in ("compset", "ota_visibility"):
+                applies = " ".join(str(x).lower() for x in (r.get("applies_to") or []))
+                if "compset" in applies or "ota" in applies or "proxy" in applies:
+                    add_tid(_tid("cmp", area_key, rid))
+        elif sup == "partial":
+            add_tid(_tid("rule", area_key, rid))
+
+    expected = list(engine_rule_ids_expected or [])
+    for rid in expected:
+        if rid not in eng:
+            add_tid(_tid("dec", area_key, rid))
+
+    required_review_type = "human_validation_case"
+    if primary_hypothesis_id:
+        required_review_type = "hypothesis_review"
+    elif linked_task_ids and any((o.get("observed_id") or "").strip() for o in rel_obs):
+        required_review_type = "refresh_observation_ack"
+
+    close_condition = (
+        "Validar el candidato en Dojo (estado dojo_validation_status=validated) y cerrar en inbox "
+        "las tareas listadas en linked_task_ids (Hecho) o justificar descarte."
+    )
+
+    return {
+        "linked_task_ids": linked_task_ids,
+        "linked_hypothesis_id": primary_hypothesis_id,
+        "linked_rule_id": primary_rule_id,
+        "required_review_type": required_review_type,
+        "close_condition": close_condition,
+    }
 
 
 def build_inbox_payload(base: Optional[Path] = None) -> Dict[str, Any]:
@@ -523,8 +641,18 @@ def build_inbox_payload(base: Optional[Path] = None) -> Dict[str, Any]:
     base = base or ROOT
     inbox = load_inbox(base)
     g, per_area = compute_debt_metrics(inbox, base)
+    blocked_areas = [
+        {
+            "area_key": ak,
+            "validation_debt_score": b.get("validation_debt_score"),
+            "required_pending_count": b.get("required_pending_count"),
+        }
+        for ak, b in per_area.items()
+        if b.get("area_blocked_by_validation")
+    ]
     return {
         "inbox": inbox,
         "global_metrics": g,
         "per_area_metrics": per_area,
+        "blocked_areas": blocked_areas,
     }

@@ -204,4 +204,13 @@ Implementado para acotar los bloqueos “no operable desde producto” y “sin 
 - **UI:** bloque **Operativa — bandeja Dojo** en `frontend-v0/app/dojo/page.tsx` con `GET /api/dojo/validation-inbox` y `POST .../tasks/{id}` (Hecho / Descartar + motivo opcional al descartar).
 - **Backend:** `mark_validation_tasks_done_for_case_path` tras `apply_human_review` en `POST /api/qa/save-validation` y en `operator_console.data_loader.apply_validation`.
 
+### Segunda iteración (bandeja real + candidatos + deuda)
+
+- **Métricas explícitas** en `global_metrics`: `pending_validation_tasks`, `pending_hypothesis_reviews`, `pending_rule_reviews`, `pending_compset_reviews`, `pending_decision_reviews`, `dojo_inbox_count`, `overdue_reviews_count`, `areas_blocked_count`; lista `blocked_areas`.
+- **UI:** rejilla de contadores, áreas bloqueadas, acciones **Revisar** (resaltar), **Caso** / **Regla** (abre JSON vía `GET /api/dojo/qa-case-preview`, `GET /api/dojo/rule-by-id`). Mock de casos locales solo si **no** hay `NEXT_PUBLIC_REVMAX_API_URL`.
+- **POST inbox:** acepta `closed_by`, `closure_source`; las tareas cerradas guardan `validation_debt_impact` `{ before, after }` por área.
+- **Candidatos refresh:** `build_dojo_candidate_linkage` + `_write_dojo_candidate` con `source_reference`, `linked_observation_ids`, `linked_rule_id` / `linked_hypothesis_id`, `linked_task_ids`, `reason`, `required_review_type`, `close_condition`.
+
+**Flujo E2E (referencia):** sync inbox → abrir Dojo UI → ver pendientes por tipo → abrir regla/caso → cerrar tarea en UI *o* validar job en Analysis → `save-validation` cierra `validation_case` automáticamente → `validation_debt_impact` refleja reducción de deuda por área.
+
 *Re-auditoría recomendada tras estabilizar en producción.*

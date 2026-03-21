@@ -364,9 +364,48 @@ def _write_dojo_candidate(
     run_id: str,
     area_key: str,
     area_name: str,
-    observed_summaries: List[str],
+    rel_obs: List[dict],
     seq: int,
+    matched_rule_ids: List[str],
+    rules_by_id: Dict[str, dict],
+    engine_integrated_rule_ids: set,
+    engine_rule_ids_expected: List[str],
 ) -> str:
+    from dojo_validation_debt import build_dojo_candidate_linkage
+
+    linkage = build_dojo_candidate_linkage(
+        area_key,
+        rel_obs,
+        matched_rule_ids,
+        rules_by_id,
+        engine_integrated_rule_ids,
+        engine_rule_ids_expected=engine_rule_ids_expected,
+    )
+    ref_paths: List[str] = []
+    for o in rel_obs:
+        rp = o.get("ref_path") or o.get("path")
+        if rp:
+            ref_paths.append(str(rp))
+    source_reference = " | ".join(ref_paths) if ref_paths else f"knowledge_refresh:{run_id}:{area_key}"
+
+    obs_ids = [o.get("observed_id") for o in rel_obs if o.get("observed_id")]
+    reason_parts = [
+        f"Área «{area_name}» ({area_key}) tras Knowledge Refresh",
+        f"observaciones relevantes: {len(rel_obs)}",
+    ]
+    if matched_rule_ids:
+        reason_parts.append(f"reglas en área: {', '.join(str(x) for x in matched_rule_ids[:12])}")
+    reason = ". ".join(reason_parts) + "."
+
+    lt_ids: List[str] = list(linkage.get("linked_task_ids") or [])
+    primary_task = lt_ids[0] if lt_ids else None
+
+    executive_summary = (
+        f"Candidato Dojo desde Knowledge Refresh (run {run_id[:8]}). "
+        f"{len(rel_obs)} observación(es) enlazada(s); {len(matched_rule_ids)} regla(s) en área. "
+        f"Revisión requerida: {linkage.get('required_review_type') or '—'}."
+    )
+
     fn = f"{run_id[:8]}_{area_key}_{seq}.json"
     p = base / "data/dojo/training_candidates" / fn
     case = {
@@ -374,6 +413,15 @@ def _write_dojo_candidate(
         "run_id": run_id,
         "area_key": area_key,
         "area_name": area_name,
+        "source_reference": source_reference,
+        "linked_observation_ids": obs_ids,
+        "linked_rule_id": linkage.get("linked_rule_id"),
+        "linked_hypothesis_id": linkage.get("linked_hypothesis_id"),
+        "linked_task_ids": lt_ids,
+        "linked_task_id": primary_task,
+        "reason": reason,
+        "required_review_type": linkage.get("required_review_type"),
+        "close_condition": linkage.get("close_condition"),
         "dojo_validation_status": "pending",
         "generated_at": _utc_now(),
         "pending_human_review": True,
@@ -382,11 +430,10 @@ def _write_dojo_candidate(
         "timestamp": _utc_now(),
         "consolidated_action": "hold",
         "confidence_pct": None,
-        "executive_summary": (
-            "Candidato generado por Knowledge Refresh. Revisar señales del área y mapeo a pipeline antes de usar como caso gold."
-        ),
+        "executive_summary": executive_summary,
         "refresh_context": {
-            "observed_summaries": observed_summaries[:5],
+            "observed_summaries": [str(o.get("summary") or "") for o in rel_obs[:8]],
+            "observed_ids": obs_ids,
         },
         "evidence_found": {},
         "analysis_quality": {},
@@ -525,6 +572,12 @@ def run_knowledge_refresh(
     sources_consulted.append({"type": "master_dataset_index_scan", "status": "ok", "datasets_total": len(ds_list)})
 
     all_area_keys = [ak for ak in area_specs.keys()]
+
+    rules_doc = _load_json(base / "data/knowledge/candidate_rules.json") or {}
+    rules_list = (rules_doc.get("rules") or []) if isinstance(rules_doc, dict) else []
+    rules_by_id: Dict[str, dict] = {r.get("id"): r for r in rules_list if r.get("id")}
+    engine_ids_set = set(kn_cfg.get("engine_integrated_rule_ids") or [])
+
     for ds in ds_list:
         path = ds.get("path") or ""
         if not path or path in known:
@@ -587,7 +640,7 @@ def run_knowledge_refresh(
         area_row = next((x for x in areas_before if x.get("area_key") == ak), {})
         mult = dojo_candidate_multiplier_for_area(area_row, kb_refresh, len(areas_before))
         n_cand = max(1, min(5, int(round(n_base * mult))))
-        summaries = [o["summary"] for o in rel_obs][:5]
+        e_ids = spec.get("engine_rule_ids") or []
 
         for j in range(n_cand):
             dojo_paths.append(
@@ -596,8 +649,12 @@ def run_knowledge_refresh(
                     run_id,
                     ak,
                     spec.get("area_name") or ak,
-                    summaries,
+                    rel_obs,
                     j,
+                    matched_ids,
+                    rules_by_id,
+                    engine_ids_set,
+                    e_ids,
                 )
             )
 

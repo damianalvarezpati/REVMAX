@@ -6,6 +6,8 @@ import {
   getKnowledgeInputs,
   getValidationInbox,
   updateValidationInboxTask,
+  getDojoQaCasePreviewUrl,
+  getDojoRuleByIdUrl,
   type KnowledgeInputsResponse,
   type ValidationInboxFullResponse,
 } from '@/lib/revmax-api';
@@ -28,6 +30,8 @@ import {
   AlertTriangle,
   ClipboardList,
   Loader2,
+  ExternalLink,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -119,7 +123,12 @@ export default function DojoPage() {
     setInboxErr(null);
     try {
       const dr = status === 'dismissed' ? (dismissNote[taskId] || '').trim() || undefined : undefined;
-      await updateValidationInboxTask(taskId, { status, dismiss_reason: dr });
+      await updateValidationInboxTask(taskId, {
+        status,
+        dismiss_reason: dr,
+        closed_by: 'dojo_ui',
+        closure_source: 'dojo_ui',
+      });
       await loadDojoData();
     } catch (e) {
       setInboxErr(e instanceof Error ? e.message : 'Error al actualizar tarea');
@@ -130,6 +139,13 @@ export default function DojoPage() {
 
   const pendingInboxTasks =
     inboxFull?.inbox?.tasks?.filter((t) => (t.status || 'pending') === 'pending') ?? [];
+  const gm = inboxFull?.global_metrics;
+
+  const focusTask = (taskId: string) => {
+    setFlashTaskId(taskId);
+    window.setTimeout(() => setFlashTaskId(null), 2200);
+    document.getElementById(`dojo-task-${taskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
 
   const currentCase = trainingCases[currentIndex];
   const currentReview = reviews[currentCase.id] || {
@@ -174,11 +190,45 @@ export default function DojoPage() {
         {/* Bandeja operativa — deuda real (API validation-inbox) */}
         {apiConfigured && (
           <div className="rounded-2xl border border-amber-600/50 bg-amber-500/[0.07] p-4 space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <ClipboardList className="h-5 w-5 text-amber-800 dark:text-amber-300" />
               <h2 className="text-sm font-semibold text-foreground">Operativa — bandeja Dojo</h2>
               <span className="text-xs text-muted-foreground">(tareas obligatorias, no sugerencias)</span>
             </div>
+            {gm && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-[10px]">
+                {[
+                  ['Inbox', gm.dojo_inbox_count ?? 0],
+                  ['QA casos', gm.pending_validation_tasks ?? 0],
+                  ['Hipótesis', gm.pending_hypothesis_reviews ?? 0],
+                  ['Reglas', gm.pending_rule_reviews ?? 0],
+                  ['Compset', gm.pending_compset_reviews ?? 0],
+                  ['Decisiones', gm.pending_decision_reviews ?? 0],
+                  ['Atrasados', gm.overdue_reviews_count ?? 0],
+                  ['Áreas bloq.', gm.areas_blocked_count ?? 0],
+                ].map(([k, v]) => (
+                  <div
+                    key={k}
+                    className="rounded-md border border-amber-700/30 bg-background/60 px-2 py-1.5 text-center"
+                  >
+                    <div className="text-muted-foreground font-medium">{k}</div>
+                    <div className="font-mono text-sm text-foreground tabular-nums">{v as number}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {inboxFull?.blocked_areas && inboxFull.blocked_areas.length > 0 && (
+              <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-2 py-2 text-[11px]">
+                <span className="font-semibold text-red-800 dark:text-red-300">Áreas bloqueadas</span>
+                <span className="text-muted-foreground"> — </span>
+                {inboxFull.blocked_areas.map((b) => (
+                  <span key={b.area_key} className="mr-2 font-mono">
+                    {b.area_key}
+                    {b.validation_debt_score != null ? ` (deuda ${Math.round(b.validation_debt_score)})` : ''}
+                  </span>
+                ))}
+              </div>
+            )}
             {inboxErr && <p className="text-xs text-destructive">{inboxErr}</p>}
             {pendingInboxTasks.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -189,8 +239,14 @@ export default function DojoPage() {
               <ul className="space-y-3 max-h-72 overflow-auto text-xs">
                 {pendingInboxTasks.map((t) => (
                   <li
+                    id={`dojo-task-${t.task_id}`}
                     key={t.task_id}
-                    className="rounded-lg border border-border/60 bg-background/80 p-3 space-y-2"
+                    className={cn(
+                      'rounded-lg border bg-background/80 p-3 space-y-2 transition-shadow',
+                      flashTaskId === t.task_id
+                        ? 'border-primary ring-2 ring-primary/40'
+                        : 'border-border/60',
+                    )}
                   >
                     <div className="flex flex-wrap gap-2 items-start justify-between">
                       <div>
@@ -203,7 +259,49 @@ export default function DojoPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex gap-1 shrink-0">
+                      <div className="flex flex-wrap gap-1 shrink-0 justify-end max-w-full">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 text-[11px] gap-1"
+                          onClick={() => focusTask(t.task_id)}
+                          title="Resaltar tarea en la bandeja"
+                        >
+                          <Zap className="h-3 w-3" />
+                          Revisar
+                        </Button>
+                        {t.linked_case_id && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] gap-1"
+                            onClick={() =>
+                              window.open(getDojoQaCasePreviewUrl(t.linked_case_id as string), '_blank')
+                            }
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Caso
+                          </Button>
+                        )}
+                        {(t.linked_hypothesis_id || t.linked_rule_id) && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] gap-1"
+                            onClick={() =>
+                              window.open(
+                                getDojoRuleByIdUrl((t.linked_hypothesis_id || t.linked_rule_id) as string),
+                                '_blank',
+                              )
+                            }
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Regla
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           size="sm"
@@ -383,6 +481,8 @@ export default function DojoPage() {
           )}
         </div>
 
+        {!apiConfigured && (
+          <>
         <div className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
           <span className="font-medium text-foreground">Demo (mock)</span> — casos de práctica locales; no sustituyen la
           bandeja ni qa_runs reales.
@@ -572,9 +672,29 @@ export default function DojoPage() {
             </Button>
           </div>
         </div>
+          </>
+        )}
+
+        {apiConfigured && (
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-4 text-xs text-muted-foreground space-y-2">
+            <p className="font-medium text-foreground">Flujo operativo (sin mock)</p>
+            <p>
+              Validación de análisis: Analysis u operator console →{' '}
+              <code className="rounded bg-muted px-1 text-[10px]">POST /api/qa/save-validation</code>. Las tareas{' '}
+              <span className="font-mono">validation_case</span> vinculadas al caso se marcan Hecho automáticamente (sin
+              tareas huérfanas).
+            </p>
+            <p>
+              Cierre de deuda: cada tarea guarda{' '}
+              <span className="font-mono">validation_debt_impact</span> (deuda por área antes/después) y{' '}
+              <span className="font-mono">closed_by</span> / <span className="font-mono">closure_source</span>.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Summary Panel */}
+      {!apiConfigured ? (
       <div className="w-72 shrink-0">
         <div className="rounded-2xl bg-card p-5 shadow-sm border border-border/50 sticky top-8">
           <div className="flex items-center gap-2 mb-6">
@@ -617,6 +737,24 @@ export default function DojoPage() {
           </div>
         </div>
       </div>
+      ) : (
+      <div className="w-72 shrink-0">
+        <div className="rounded-2xl bg-card p-5 shadow-sm border border-border/50 sticky top-8 space-y-4">
+          <div className="flex items-center gap-2">
+            <Inbox className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Resumen Dojo</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Pendientes en inbox:{' '}
+            <span className="font-mono text-foreground">{gm?.dojo_inbox_count ?? '—'}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Al cerrar una tarea o un veredicto QA, la deuda por área se recalcula; el registro queda en{' '}
+            <code className="text-[10px]">validation_inbox.json</code>.
+          </p>
+        </div>
+      </div>
+      )}
     </div>
   );
 }
