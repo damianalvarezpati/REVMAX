@@ -165,6 +165,32 @@ export interface KnowledgeInputArea {
   suggested_actions: string[];
   accepted_quality_bonus_points?: number;
   knowledge_balance?: KnowledgeBalanceBlock;
+  area_blocked_by_validation?: boolean;
+  validation_debt_score?: number;
+  pending_validation_tasks_count?: number;
+  pending_hypothesis_reviews_count?: number;
+  validation_debt_penalty?: number;
+}
+
+export interface ValidationInboxTask {
+  task_id: string;
+  task_type?: string;
+  area_key?: string;
+  priority?: number;
+  reason?: string;
+  status?: string;
+  required_for_area_progress?: boolean;
+}
+
+export interface DojoValidationInboxPayload {
+  global_metrics?: {
+    dojo_inbox_count?: number;
+    overdue_reviews_count?: number;
+    areas_blocked_count?: number;
+    pending_by_type?: Record<string, number>;
+  };
+  updated_at?: string | null;
+  pending_tasks_preview?: ValidationInboxTask[];
 }
 
 /** Bloque funnel (run + lifetime) escrito por knowledge_refresh */
@@ -214,6 +240,7 @@ export interface KnowledgeInputsResponse {
     balancing_config_path?: string;
   };
   knowledge_refresh?: KnowledgeRefreshSummary | null;
+  dojo_validation_inbox?: DojoValidationInboxPayload;
   error?: string;
 }
 

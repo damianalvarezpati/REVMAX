@@ -634,6 +634,35 @@ def api_dojo_knowledge_balance():
     return {"error": "snapshot_missing", "hint": "GET /api/dojo/knowledge-inputs para generar knowledge_balance_snapshot.json"}
 
 
+@app.get("/api/dojo/validation-inbox")
+def api_dojo_validation_inbox():
+    """Bandeja operativa de deuda de validación (tareas obligatorias, no recomendaciones)."""
+    from pathlib import Path
+
+    from dojo_validation_debt import build_inbox_payload
+
+    return build_inbox_payload(Path(BASE_DIR))
+
+
+@app.post("/api/dojo/validation-inbox/tasks/{task_id}")
+async def api_dojo_validation_inbox_task(task_id: str, request: Request):
+    """Actualiza estado de tarea: body { \"status\": \"done\"|\"dismissed\"|\"pending\", \"assigned_to\": optional }"""
+    from pathlib import Path
+
+    from dojo_validation_debt import update_task_status
+
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    st = (data.get("status") or "").strip()
+    at = data.get("assigned_to")
+    ok, msg = update_task_status(Path(BASE_DIR), task_id, st, assigned_to=at)
+    if not ok:
+        return JSONResponse({"ok": False, "error": msg}, status_code=400)
+    return {"ok": True, "task_id": task_id, "status": st}
+
+
 @app.post("/api/dojo/validation-ledger")
 async def api_dojo_validation_ledger(request: Request):
     """

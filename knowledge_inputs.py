@@ -271,6 +271,18 @@ def compute_knowledge_inputs(
 
     total_rules_weighted = sum(_support_weight(r.get("support")) for r in rules) or 1.0
 
+    from dojo_validation_debt import (
+        apply_validation_debt_to_area_score,
+        compute_debt_metrics,
+        ensure_per_area_metrics,
+        sync_validation_inbox,
+    )
+
+    inbox = sync_validation_inbox(base)
+    global_debt, per_area_debt = compute_debt_metrics(inbox, base)
+    all_area_keys = [s["area_key"] for s in cfg.get("areas") or []]
+    per_area_debt = ensure_per_area_metrics(per_area_debt, all_area_keys)
+
     areas_out: List[Dict[str, Any]] = []
 
     for spec in cfg.get("areas") or []:
@@ -351,12 +363,19 @@ def compute_knowledge_inputs(
             readiness = min(32.0, 10.0 * rules_supported + 4.0 * pattern_hits)
         model_readiness_score = round(readiness, 1)
 
-        area_score = round(
+        area_score_raw = round(
             0.28 * coverage_score
             + 0.27 * quality_score
             + 0.22 * validation_score
             + 0.23 * model_readiness_score,
             1,
+        )
+
+        area_score, validation_debt_penalty, area_blocked = apply_validation_debt_to_area_score(
+            area_score_raw,
+            key,
+            per_area_debt,
+            base,
         )
 
         status_label = _status_from_area_score(area_score)
@@ -385,6 +404,12 @@ def compute_knowledge_inputs(
         if key == "transport_connectivity" and d_count == 0:
             missing_gaps.append("Sin datasets airline/transport indexados.")
             suggested_actions.append("Ingestar rutas, asientos o conectividad aeroportuaria como features proxy.")
+        if area_blocked:
+            missing_gaps.append(
+                "BLOQUEO OPERATIVO: deuda de validación humana — resolver tareas obligatorias en bandeja Dojo."
+            )
+
+        dm = per_area_debt.get(key) or {}
 
         areas_out.append(
             {
@@ -409,6 +434,15 @@ def compute_knowledge_inputs(
                 "validation_score": validation_score,
                 "model_readiness_score": model_readiness_score,
                 "area_score": area_score,
+                "area_score_before_validation_debt": area_score_raw,
+                "validation_debt_penalty": validation_debt_penalty,
+                "area_blocked_by_validation": area_blocked,
+                "pending_validation_tasks_count": int(dm.get("pending_validation_tasks_count") or 0),
+                "pending_hypothesis_reviews_count": int(dm.get("pending_hypothesis_reviews_count") or 0),
+                "pending_rule_reviews_count": int(dm.get("pending_rule_reviews_count") or 0),
+                "pending_compset_reviews_count": int(dm.get("pending_compset_reviews_count") or 0),
+                "pending_decision_reviews_count": int(dm.get("pending_decision_reviews_count") or 0),
+                "validation_debt_score": float(dm.get("validation_debt_score") or 0),
                 "status_label": status_label,
                 "missing_gaps": missing_gaps,
                 "suggested_actions": suggested_actions,
@@ -435,6 +469,15 @@ def compute_knowledge_inputs(
             "synthetic_cases_total_ui_mock": synthetic_n,
         },
         "knowledge_balance_summary": balance_summary,
+        "dojo_validation_inbox": {
+            "global_metrics": global_debt,
+            "updated_at": inbox.get("updated_at"),
+            "pending_tasks_preview": [
+                t
+                for t in (inbox.get("tasks") or [])
+                if (t.get("status") or "pending") == "pending"
+            ][:40],
+        },
         "scoring_notes": {
             "coverage": "100*(1-exp(-0.55*datasets/soft_cap)) + bonus por archivos de patrones presentes.",
             "quality": "Reglas + log(filas) + bonus acotado desde accepted_knowledge (peso alto solo con knowledge_type + linked_rule_or_hypothesis; sin linkage, peso mínimo).",
@@ -442,6 +485,7 @@ def compute_knowledge_inputs(
             "model_readiness": "ratio de engine_rule_ids integradas en PRO vs esperadas por área (sin ids → techo bajo).",
             "area_score": "0.28*coverage + 0.27*quality + 0.22*validation + 0.23*readiness",
             "knowledge_balance": "Targets por status_label; gap → modo growth/monitor/maintenance; esfuerzo vía recommended_effort_share; validación humana priorizada en déficits y clusters.",
+            "validation_debt": "Deuda operativa en data/dojo/validation_inbox.json — penaliza area_score y puede bloquear madurez (techo) con tareas pending obligatorias.",
         },
         "areas": areas_out,
     }

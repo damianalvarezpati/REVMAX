@@ -101,8 +101,8 @@ def _cluster_validation_notes(
         weak_peers = [p for p in cl if p != area_key and gaps_by_key.get(p, 0) >= 15.0]
         if weak_peers:
             out.append(
-                f"Validación cruzada sugerida: {', '.join(weak_peers)} con brecha ≥15 — "
-                f"coordinar revisiones Dojo/QA con {area_key}."
+                f"OBLIGATORIO — validación cruzada con {', '.join(weak_peers)} (brecha ≥15); "
+                f"coordinar en bandeja Dojo con {area_key}."
             )
     return out[:3]
 
@@ -201,12 +201,12 @@ def enrich_areas_with_knowledge_balance(
         human_suggested: List[str] = []
         if human_validation_priority >= 0.42:
             human_suggested.append(
-                f"Subir prioridad de validación humana (Dojo / qa_runs / ledger) para {key} "
+                f"OBLIGATORIO — revisar bandeja Dojo (validation_inbox): validación pendiente para {key} "
                 f"(validation_score={val:.1f})."
             )
         if gap >= 14.0:
             human_suggested.append(
-                "Usar accept-observed con linkage explícito a reglas/hipótesis para anclar calidad."
+                "Pendiente operativo: promoción accept-observed solo con linkage explícito a reglas/hipótesis."
             )
         human_suggested.extend(_cluster_validation_notes(key, gaps_by_key, clusters))
 

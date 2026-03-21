@@ -17,7 +17,9 @@ import {
   ChevronRight,
   BarChart3,
   MessageSquare,
-  Settings2
+  Settings2,
+  Inbox,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -189,6 +191,38 @@ export default function DojoPage() {
               )}
             </div>
           )}
+          {apiConfigured && knowledge?.dojo_validation_inbox?.global_metrics && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200">
+                <Inbox className="h-4 w-4 shrink-0" />
+                Bandeja obligatoria — deuda de validación
+              </div>
+              <p className="text-muted-foreground">
+                Pendientes:{' '}
+                <span className="font-mono text-foreground">
+                  {knowledge.dojo_validation_inbox.global_metrics.dojo_inbox_count ?? 0}
+                </span>{' '}
+                · atrasados:{' '}
+                <span className="font-mono text-foreground">
+                  {knowledge.dojo_validation_inbox.global_metrics.overdue_reviews_count ?? 0}
+                </span>{' '}
+                · áreas bloqueadas:{' '}
+                <span className="font-mono text-foreground">
+                  {knowledge.dojo_validation_inbox.global_metrics.areas_blocked_count ?? 0}
+                </span>
+              </p>
+              {(knowledge.dojo_validation_inbox.pending_tasks_preview?.length ?? 0) > 0 && (
+                <ul className="max-h-32 overflow-auto space-y-1 border-t border-amber-500/20 pt-2 text-[11px]">
+                  {knowledge.dojo_validation_inbox.pending_tasks_preview?.slice(0, 12).map((t) => (
+                    <li key={t.task_id} className="flex gap-2">
+                      <span className="font-mono text-[10px] text-muted-foreground shrink-0">{t.task_type}</span>
+                      <span className="text-foreground">{t.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {apiConfigured && knowledge?.areas && knowledge.areas.length > 0 && (
             <div className="max-h-56 overflow-auto rounded-lg border border-border/50 bg-card text-xs">
               <table className="w-full border-collapse">
@@ -197,6 +231,7 @@ export default function DojoPage() {
                     <th className="p-2 font-medium">Área</th>
                     <th className="p-2 font-medium">Score</th>
                     <th className="p-2 font-medium">Estado</th>
+                    <th className="p-2 font-medium hidden sm:table-cell">Deuda</th>
                     <th className="p-2 font-medium hidden sm:table-cell">DS</th>
                     <th className="p-2 font-medium hidden sm:table-cell">Reglas</th>
                     <th className="p-2 font-medium hidden md:table-cell">Huecos</th>
@@ -205,7 +240,14 @@ export default function DojoPage() {
                 <tbody>
                   {knowledge.areas.map((a) => (
                     <tr key={a.area_key} className="border-t border-border/40">
-                      <td className="p-2 font-medium">{a.area_name}</td>
+                      <td className="p-2 font-medium">
+                        <span className="inline-flex items-center gap-1">
+                          {a.area_blocked_by_validation && (
+                            <AlertTriangle className="h-3 w-3 text-amber-600 shrink-0" title="Bloqueada por validación" />
+                          )}
+                          {a.area_name}
+                        </span>
+                      </td>
                       <td className="p-2 tabular-nums">{a.area_score}</td>
                       <td className="p-2">
                         <span
@@ -216,6 +258,9 @@ export default function DojoPage() {
                         >
                           {a.status_label}
                         </span>
+                      </td>
+                      <td className="p-2 tabular-nums hidden sm:table-cell text-muted-foreground" title={`validation_debt_score: ${a.validation_debt_score ?? 0}`}>
+                        {a.validation_debt_score != null ? Math.round(a.validation_debt_score) : '—'}
                       </td>
                       <td className="p-2 tabular-nums hidden sm:table-cell">{a.datasets_count}</td>
                       <td className="p-2 tabular-nums hidden sm:table-cell">{a.rules_supported_count}</td>

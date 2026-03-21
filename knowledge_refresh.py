@@ -650,6 +650,13 @@ def run_knowledge_refresh(
     funnel_block = _update_funnel_after_run(base, run_record)
     run_record["funnel"] = funnel_block
 
+    try:
+        from dojo_validation_debt import sync_validation_inbox
+
+        sync_validation_inbox(base, refresh_context={"observations": observed_all})
+    except Exception:
+        pass
+
     for ob in observed_all:
         _append_jsonl(base / "data/knowledge/refresh/observed_queue.jsonl", {**ob, "run_id": run_id, "ts": finished})
 

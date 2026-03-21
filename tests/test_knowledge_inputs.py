@@ -51,3 +51,5 @@ def test_scoring_notes_present():
     out = compute_knowledge_inputs(write_snapshot=False)
     assert "scoring_notes" in out
     assert "area_score" in out["scoring_notes"]
+    assert "dojo_validation_inbox" in out
+    assert "global_metrics" in out["dojo_validation_inbox"]
