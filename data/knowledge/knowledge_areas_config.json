@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "description": "Mapeo de áreas Dojo → datasets (MASTER_DATASET_INDEX), patrones extraídos, reglas candidate_rules y enganche en motor PRO.",
+  "synthetic_cases": {
+    "source": "frontend-v0/lib/mock-data.ts trainingCases",
+    "count": 5,
+    "note": "Casos UI mock; no sustituyen validación humana en qa_runs."
+  },
+  "targets": {
+    "datasets_soft_cap": 6,
+    "validations_soft_cap_per_area": 12,
+    "pattern_file_bonus_points": 12
+  },
+  "engine_integrated_rule_ids": ["HB-001", "AB-001", "CT-001", "OTA-001", "RV-001"],
+  "areas": [
+    {
+      "area_key": "demand",
+      "area_name": "Demanda & booking window",
+      "dataset_flags": { "demand_relevant": true },
+      "pattern_files": ["demand_patterns.json"],
+      "rule_applies_to_substrings": ["demand", "demand_pipeline", "booking"],
+      "engine_rule_ids": ["HB-001"]
+    },
+    {
+      "area_key": "reputation",
+      "area_name": "Reputación & reviews",
+      "dataset_flags": { "reputation_relevant": true },
+      "pattern_files": ["reputation_patterns.json"],
+      "rule_applies_to_substrings": ["reputation", "review"],
+      "engine_rule_ids": ["RV-001", "AB-001"]
+    },
+    {
+      "area_key": "pricing_context",
+      "area_name": "Contexto de precios (ADR, listings, elasticidad débil)",
+      "dataset_flags": { "pricing_relevant": true },
+      "pattern_files": ["pricing_context_patterns.json"],
+      "rule_applies_to_substrings": ["pricing", "pricing_context", "forecasting_features"],
+      "engine_rule_ids": ["AB-001", "CT-001"]
+    },
+    {
+      "area_key": "compset",
+      "area_name": "Compset & mercado",
+      "dataset_flags": { "compset_relevant": true },
+      "pattern_files": ["compset_proxy_patterns.json"],
+      "rule_applies_to_substrings": ["compset", "proxy"],
+      "engine_rule_ids": ["OTA-001"]
+    },
+    {
+      "area_key": "ota_visibility",
+      "area_name": "OTA, búsqueda y visibilidad proxy",
+      "dataset_flags": { "domain_in": ["ota"] },
+      "pattern_files": ["compset_proxy_patterns.json"],
+      "rule_applies_to_substrings": ["compset_proxy", "confidence_penalty", "ota"],
+      "engine_rule_ids": ["OTA-001"]
+    },
+    {
+      "area_key": "events",
+      "area_name": "Eventos & shocks externos",
+      "dataset_flags": { "events_relevant": true },
+      "pattern_files": [],
+      "rule_applies_to_substrings": ["event_pressure", "future_enrichment"],
+      "engine_rule_ids": []
+    },
+    {
+      "area_key": "forecasting",
+      "area_name": "Forecasting & señales prospectivas",
+      "dataset_flags": { "forecasting_relevant": true },
+      "pattern_files": [],
+      "rule_applies_to_substrings": ["forecasting_features", "forecasting"],
+      "engine_rule_ids": []
+    },
+    {
+      "area_key": "calendar_seasonality",
+      "area_name": "Calendario, fin de semana, estacionalidad",
+      "dataset_predicate": "calendar_seasonality",
+      "pattern_files": ["pricing_context_patterns.json"],
+      "rule_applies_to_substrings": ["pricing_context", "forecasting_features", "calendar"],
+      "engine_rule_ids": ["CT-001"]
+    },
+    {
+      "area_key": "transport_connectivity",
+      "area_name": "Conectividad / transporte (proxy demanda)",
+      "dataset_flags": { "domain_in": ["airline"] },
+      "pattern_files": [],
+      "rule_applies_to_substrings": ["airline_schedule", "transport"],
+      "engine_rule_ids": []
+    }
+  ]
+}

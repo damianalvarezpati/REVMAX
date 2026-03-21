@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { trainingCases, adjustmentDecisions } from '@/lib/mock-data';
+import { getKnowledgeInputs, type KnowledgeInputsResponse } from '@/lib/revmax-api';
 import { cn } from '@/lib/utils';
 import { 
   Swords, 
@@ -63,6 +64,21 @@ interface CaseReview {
 export default function DojoPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reviews, setReviews] = useState<Record<string, CaseReview>>({});
+  const [knowledge, setKnowledge] = useState<KnowledgeInputsResponse | null>(null);
+  const [knowledgeErr, setKnowledgeErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!apiConfigured) return;
+    getKnowledgeInputs()
+      .then((r) => {
+        setKnowledge(r);
+        setKnowledgeErr(r.error ?? null);
+      })
+      .catch((e: Error) => {
+        setKnowledge(null);
+        setKnowledgeErr(e.message || 'Knowledge Inputs API error');
+      });
+  }, []);
 
   const currentCase = trainingCases[currentIndex];
   const currentReview = reviews[currentCase.id] || {
@@ -102,6 +118,62 @@ export default function DojoPage() {
             <h1 className="text-2xl font-semibold tracking-tight">Dojo</h1>
           </div>
           <p className="text-muted-foreground">Review and validate AI recommendations to improve model accuracy</p>
+        </div>
+
+        {/* Knowledge Inputs — materia prima por área (API admin_panel) */}
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold">Knowledge Inputs</h2>
+            <span className="text-xs text-muted-foreground">(madurez: datasets · reglas · validación · motor PRO)</span>
+          </div>
+          {!apiConfigured && (
+            <p className="text-xs text-muted-foreground">
+              Configura <code className="rounded bg-muted px-1">NEXT_PUBLIC_REVMAX_API_URL</code> para cargar scores en vivo.
+            </p>
+          )}
+          {apiConfigured && knowledgeErr && (
+            <p className="text-xs text-destructive">{knowledgeErr}</p>
+          )}
+          {apiConfigured && knowledge?.areas && knowledge.areas.length > 0 && (
+            <div className="max-h-56 overflow-auto rounded-lg border border-border/50 bg-card text-xs">
+              <table className="w-full border-collapse">
+                <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                  <tr className="text-left text-muted-foreground">
+                    <th className="p-2 font-medium">Área</th>
+                    <th className="p-2 font-medium">Score</th>
+                    <th className="p-2 font-medium">Estado</th>
+                    <th className="p-2 font-medium hidden sm:table-cell">DS</th>
+                    <th className="p-2 font-medium hidden sm:table-cell">Reglas</th>
+                    <th className="p-2 font-medium hidden md:table-cell">Huecos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {knowledge.areas.map((a) => (
+                    <tr key={a.area_key} className="border-t border-border/40">
+                      <td className="p-2 font-medium">{a.area_name}</td>
+                      <td className="p-2 tabular-nums">{a.area_score}</td>
+                      <td className="p-2">
+                        <span
+                          className={cn(
+                            'inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase',
+                            knowledgeStatusClass[a.status_label] || 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          {a.status_label}
+                        </span>
+                      </td>
+                      <td className="p-2 tabular-nums hidden sm:table-cell">{a.datasets_count}</td>
+                      <td className="p-2 tabular-nums hidden sm:table-cell">{a.rules_supported_count}</td>
+                      <td className="p-2 text-muted-foreground hidden md:table-cell max-w-[200px] truncate" title={a.missing_gaps.join(' · ')}>
+                        {a.missing_gaps[0] || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Case Navigation */}

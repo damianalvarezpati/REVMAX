@@ -127,3 +127,35 @@ export async function runAnalysis(params: {
 export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
   return request<JobStatusResponse>(`/api/job-status/${encodeURIComponent(jobId)}`);
 }
+
+/** Dojo — Knowledge Inputs (madurez por área) */
+export interface KnowledgeInputArea {
+  area_key: string;
+  area_name: string;
+  datasets_count: number;
+  real_cases_count: number;
+  synthetic_cases_count: number;
+  validated_cases_count: number;
+  rules_supported_count: number;
+  hypotheses_pending_count: number;
+  coverage_score: number;
+  quality_score: number;
+  validation_score: number;
+  model_readiness_score: number;
+  area_score: number;
+  status_label: string;
+  missing_gaps: string[];
+  suggested_actions: string[];
+}
+
+export interface KnowledgeInputsResponse {
+  generated_at: string;
+  areas: KnowledgeInputArea[];
+  meta?: Record<string, unknown>;
+  scoring_notes?: Record<string, string>;
+  error?: string;
+}
+
+export async function getKnowledgeInputs(): Promise<KnowledgeInputsResponse> {
+  return request<KnowledgeInputsResponse>('/api/dojo/knowledge-inputs');
+}

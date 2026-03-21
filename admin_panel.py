@@ -604,6 +604,50 @@ def _build_qa_decision_summary(cases: list):
         return {"total_cases": 0, "human_score_mean": None, "human_verdict_pct": None, "most_common_issues": [], "recommended_next_adjustment": None}
 
 
+@app.get("/api/dojo/knowledge-inputs")
+def api_dojo_knowledge_inputs():
+    """
+    Panel Dojo — Knowledge Inputs: madurez por área (datasets, reglas, validación, motor PRO).
+    Escribe data/knowledge/knowledge_inputs_snapshot.json en cada llamada.
+    """
+    from pathlib import Path
+    from knowledge_inputs import knowledge_inputs_api_payload
+
+    return knowledge_inputs_api_payload(base_dir=Path(BASE_DIR))
+
+
+@app.post("/api/dojo/validation-ledger")
+async def api_dojo_validation_ledger(request: Request):
+    """
+    Incrementa contadores en data/knowledge/dojo_validation_ledger.json (validación humana por área).
+    Body: { "area_key": "demand", "delta_human_validations": 1, "delta_hypotheses_promoted": 0 }
+    """
+    from pathlib import Path
+
+    data = await request.json()
+    area = (data.get("area_key") or "").strip()
+    dh = int(data.get("delta_human_validations") or 0)
+    dp = int(data.get("delta_hypotheses_promoted") or 0)
+    if not area:
+        return JSONResponse({"error": "Falta area_key"}, status_code=400)
+    path = Path(BASE_DIR) / "data" / "knowledge" / "dojo_validation_ledger.json"
+    if not path.is_file():
+        return JSONResponse({"error": "Ledger no encontrado"}, status_code=404)
+    try:
+        ledger = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    by = ledger.setdefault("by_area", {})
+    if area not in by:
+        return JSONResponse({"error": f"Área desconocida: {area}"}, status_code=400)
+    entry = by[area]
+    entry["human_validations"] = int(entry.get("human_validations") or 0) + dh
+    entry["hypotheses_promoted"] = int(entry.get("hypotheses_promoted") or 0) + dp
+    ledger["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    path.write_text(json.dumps(ledger, indent=2, ensure_ascii=False), encoding="utf-8")
+    return {"ok": True, "area_key": area, "entry": entry}
+
+
 @app.get("/api/qa/cases")
 def api_qa_cases(limit: int = 100):
     """Lista casos de validación en data/qa_runs/."""

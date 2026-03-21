@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "updated_at": null,
+  "notes": "Incrementar human_validations por área cuando el operador valide casos ligados a esa dimensión. El motor de scoring también lee data/qa_runs/ (casos reales con human_score).",
+  "by_area": {
+    "demand": { "human_validations": 0, "hypotheses_promoted": 0, "last_dataset_ingest": null },
+    "reputation": { "human_validations": 0, "hypotheses_promoted": 0, "last_dataset_ingest": null },
+    "pricing_context": { "human_validations": 0, "hypotheses_promoted": 0, "last_dataset_ingest": null },
+    "compset": { "human_validations": 0, "hypotheses_promoted": 0, "last_dataset_ingest": null },
+    "ota_visibility": { "human_validations": 0, "hypotheses_promoted": 0, "last_dataset_ingest": null },
+    "events": { "human_validations": 0, "hypotheses_promoted": 0, "last_dataset_ingest": null },
+    "forecasting": { "human_validations": 0, "hypotheses_promoted": 0, "last_dataset_ingest": null },
+    "calendar_seasonality": { "human_validations": 0, "hypotheses_promoted": 0, "last_dataset_ingest": null },
+    "transport_connectivity": { "human_validations": 0, "hypotheses_promoted": 0, "last_dataset_ingest": null }
+  }
+}
