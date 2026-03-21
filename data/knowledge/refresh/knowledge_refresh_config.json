@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "description": "Refresh dirigido: prioriza áreas débiles, observa datos nuevos sin aceptar automáticamente.",
+  "max_areas_per_run": 4,
+  "priority_status_order": ["weak", "developing", "usable", "strong"],
+  "secondary_sort": "area_score_asc",
+  "dojo_candidates_per_area": 1,
+  "allow_http_fetch": false,
+  "http_allowlist": [],
+  "run_extract_script": false,
+  "extract_script_relative": "scripts/extract_revmax_knowledge.py",
+  "quality_rules_for_acceptance": {
+    "min_summary_length": 12,
+    "require_area_key": true,
+    "require_content_hash": true,
+    "max_duplicate_hash": 1
+  },
+  "notes": "http_allowlist vacío = sin scraping HTTP saliente. Activar solo URLs explícitas. accepted_knowledge solo vía POST /api/dojo/knowledge-refresh/accept-observed."
+}

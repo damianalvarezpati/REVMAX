@@ -648,6 +648,72 @@ async def api_dojo_validation_ledger(request: Request):
     return {"ok": True, "area_key": area, "entry": entry}
 
 
+@app.post("/api/dojo/knowledge-refresh/run")
+async def api_dojo_knowledge_refresh_run(request: Request):
+    """
+    Ejecuta refresh dirigido (prioriza áreas débiles salvo area_keys explícitos).
+    Body opcional: { "mode": "manual"|"scheduled"|"area", "area_keys": ["events","demand"] }
+    """
+    from pathlib import Path
+
+    from knowledge_refresh import run_knowledge_refresh
+
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    mode = (data.get("mode") or "manual").strip()
+    area_keys = data.get("area_keys")
+    if isinstance(area_keys, str):
+        area_keys = [x.strip() for x in area_keys.split(",") if x.strip()]
+    out = run_knowledge_refresh(
+        base_dir=Path(BASE_DIR),
+        mode=mode,
+        area_keys=area_keys if area_keys else None,
+        write_artifacts=True,
+    )
+    if out.get("error"):
+        return JSONResponse(out, status_code=500)
+    return out
+
+
+@app.get("/api/dojo/knowledge-refresh/latest")
+def api_dojo_knowledge_refresh_latest():
+    from pathlib import Path
+
+    from knowledge_refresh import load_latest_refresh_summary
+
+    s = load_latest_refresh_summary(Path(BASE_DIR))
+    return s or {}
+
+
+@app.post("/api/dojo/knowledge-refresh/accept-observed")
+async def api_dojo_knowledge_refresh_accept(request: Request):
+    """
+    Promueve observed → accepted_knowledge (dedup + reglas de calidad). No se llama desde el refresh automático.
+    Body: { observed_id, run_id?, summary, area_key, content_hash, accepted_by? }
+    """
+    from pathlib import Path
+
+    from knowledge_refresh import try_accept_observed
+
+    data = await request.json()
+    if not (data.get("observed_id") or "").strip():
+        return JSONResponse({"ok": False, "error": "Falta observed_id"}, status_code=400)
+    ok, msg = try_accept_observed(
+        Path(BASE_DIR),
+        observed_id=str(data.get("observed_id") or ""),
+        run_id=data.get("run_id"),
+        summary=str(data.get("summary") or ""),
+        area_key=str(data.get("area_key") or ""),
+        content_hash=str(data.get("content_hash") or ""),
+        accepted_by=str(data.get("accepted_by") or "operator"),
+    )
+    if not ok:
+        return JSONResponse({"ok": False, "error": msg}, status_code=400)
+    return {"ok": True, "message": msg}
+
+
 @app.get("/api/qa/cases")
 def api_qa_cases(limit: int = 100):
     """Lista casos de validación en data/qa_runs/."""

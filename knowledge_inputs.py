@@ -132,6 +132,38 @@ def _pattern_metrics(path: Path) -> Tuple[bool, Optional[int]]:
     return True, n if n else None
 
 
+def _accepted_knowledge_counts_by_area(base: Path) -> Dict[str, int]:
+    p = base / "data/knowledge/refresh/accepted_knowledge.jsonl"
+    c: Dict[str, int] = {}
+    if not p.is_file():
+        return c
+    try:
+        for line in p.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            o = json.loads(line)
+            ak = o.get("area_key") or "_unknown"
+            c[ak] = c.get(ak, 0) + 1
+    except (OSError, json.JSONDecodeError):
+        pass
+    return c
+
+
+def _refresh_training_candidates_by_area(base: Path) -> Dict[str, int]:
+    d = base / "data/dojo/training_candidates"
+    out: Dict[str, int] = {}
+    if not d.is_dir():
+        return out
+    for path in d.glob("*.json"):
+        data = _load_json(path)
+        if not data or data.get("source") != "knowledge_refresh":
+            continue
+        ak = data.get("area_key")
+        if ak:
+            out[ak] = out.get(ak, 0) + 1
+    return out
+
+
 def _load_qa_validated(base_dir: Optional[Path] = None) -> Tuple[int, int]:
     """(cases_with_human_score, cases_with_verdict)."""
     base = base_dir or ROOT
@@ -196,6 +228,8 @@ def compute_knowledge_inputs(
     synthetic_n = int((cfg.get("synthetic_cases") or {}).get("count") or 0)
 
     qa_score_n, qa_verdict_n = _load_qa_validated(base)
+    accepted_by_area = _accepted_knowledge_counts_by_area(base)
+    refresh_candidates_by_area = _refresh_training_candidates_by_area(base)
 
     total_rules_weighted = sum(_support_weight(r.get("support")) for r in rules) or 1.0
 
@@ -241,6 +275,8 @@ def compute_knowledge_inputs(
         # Synthetic: all mock cases touch multiple dimensions — split evenly for honesty (low per-area)
         n_areas = max(len(cfg.get("areas") or []), 1)
         synthetic_alloc = int(round(synthetic_n / n_areas))
+        refresh_tc = int(refresh_candidates_by_area.get(key, 0))
+        acc_n = int(accepted_by_area.get(key, 0))
 
         # --- Scores (0..100), explicit formulas ---
         # Coverage: saturates with dataset count; pattern files add bounded bonus
@@ -256,6 +292,7 @@ def compute_knowledge_inputs(
             q_rules = 0.0
         row_factor = min(1.0, math.log1p(d_rows) / math.log1p(2_000_000))
         quality_score = round(min(100.0, 0.65 * q_rules + 35.0 * row_factor), 1)
+        quality_score = round(min(100.0, quality_score + min(15.0, 4.0 * acc_n)), 1)
 
         # Validation: human loop (ledger + allocated QA) vs target
         val_denom = max(soft_v, 1.0)
@@ -319,6 +356,8 @@ def compute_knowledge_inputs(
                 "datasets_rows_approx_sum": d_rows,
                 "real_cases_count": allocated_real,
                 "synthetic_cases_count": synthetic_alloc,
+                "refresh_training_candidates_count": refresh_tc,
+                "accepted_knowledge_count": acc_n,
                 "validated_cases_count": validated_cases_count,
                 "rules_supported_count": rules_supported,
                 "rules_strong_count": rules_strong,
@@ -343,17 +382,17 @@ def compute_knowledge_inputs(
     out = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "meta": {
-            "config_path": str(CONFIG_PATH),
-            "rules_path": str(RULES_PATH),
-            "master_dataset_index": str(MASTER_DS_PATH),
-            "ledger_path": str(LEDGER_PATH),
+            "config_path": str(kn / "knowledge_areas_config.json"),
+            "rules_path": str(kn / "candidate_rules.json"),
+            "master_dataset_index": str(base / "data/datasets/MASTER_DATASET_INDEX.json"),
+            "ledger_path": str(kn / "dojo_validation_ledger.json"),
             "qa_runs_validated_total": qa_score_n,
             "qa_runs_verdict_total": qa_verdict_n,
             "synthetic_cases_total_ui_mock": synthetic_n,
         },
         "scoring_notes": {
             "coverage": "100*(1-exp(-0.55*datasets/soft_cap)) + bonus por archivos de patrones presentes.",
-            "quality": "Promedio pesado por soporte de reglas (strong>partial>hyp=0) + factor log(filas datasets).",
+            "quality": "Reglas + log(filas) + bonus por líneas accepted_knowledge.jsonl (solo promoción manual).",
             "validation": "ledger human_validations + reparto proporcional de qa_runs con human_score vs soft_cap por área.",
             "model_readiness": "ratio de engine_rule_ids integradas en PRO vs esperadas por área (sin ids → techo bajo).",
             "area_score": "0.28*coverage + 0.27*quality + 0.22*validation + 0.23*readiness",
@@ -373,4 +412,14 @@ def compute_knowledge_inputs(
 
 def knowledge_inputs_api_payload(base_dir: Optional[Path] = None) -> Dict[str, Any]:
     """Wrapper estable para HTTP."""
-    return compute_knowledge_inputs(base_dir=base_dir, write_snapshot=True)
+    base = base_dir or ROOT
+    payload = compute_knowledge_inputs(base_dir=base, write_snapshot=True)
+    try:
+        from knowledge_refresh import load_latest_refresh_summary
+
+        kr = load_latest_refresh_summary(base)
+        if kr:
+            payload["knowledge_refresh"] = kr
+    except Exception:
+        payload["knowledge_refresh"] = None
+    return payload

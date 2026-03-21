@@ -44,3 +44,13 @@ data/datasets/desktop_ingest_*/**/*.csv
 data/datasets/desktop_ingest_*/**/*.zip
 data/datasets/desktop_ingest_*/**/*.pdf
 data/datasets/desktop_ingest_*/**/*.docx
+
+# Knowledge refresh / Dojo candidates (generados en runtime; mantener .gitkeep)
+data/dojo/training_candidates/*.json
+data/knowledge/refresh/knowledge_refresh_runs.jsonl
+data/knowledge/refresh/observed_queue.jsonl
+data/knowledge/refresh/accepted_knowledge.jsonl
+data/knowledge/refresh/refresh_state.json
+data/knowledge/refresh/latest_refresh_summary.json
+data/knowledge/refresh/knowledge_area_adjustments.json
+data/knowledge/knowledge_inputs_snapshot.json

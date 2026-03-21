@@ -148,11 +148,28 @@ export interface KnowledgeInputArea {
   suggested_actions: string[];
 }
 
+/** Último knowledge refresh (GET knowledge-inputs lo incluye) */
+export interface KnowledgeRefreshSummary {
+  run_id?: string;
+  mode?: string;
+  finished_at?: string;
+  areas_reviewed?: string[];
+  observed_count?: number;
+  accepted_count?: number;
+  dojo_candidates_created?: number;
+  score_deltas_by_area?: Record<
+    string,
+    { before?: number; after?: number; delta_area_score?: number | null }
+  >;
+  hypothesis_events_count?: number;
+}
+
 export interface KnowledgeInputsResponse {
   generated_at: string;
   areas: KnowledgeInputArea[];
   meta?: Record<string, unknown>;
   scoring_notes?: Record<string, string>;
+  knowledge_refresh?: KnowledgeRefreshSummary | null;
   error?: string;
 }
 

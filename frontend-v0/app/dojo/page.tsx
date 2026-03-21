@@ -54,6 +54,17 @@ const demandConfig = {
   'very-high': { label: 'Very High', className: 'bg-emerald-100 text-emerald-700' },
 };
 
+const knowledgeStatusClass: Record<string, string> = {
+  weak: 'bg-red-100 text-red-800 border-red-200',
+  developing: 'bg-amber-100 text-amber-900 border-amber-200',
+  usable: 'bg-sky-100 text-sky-900 border-sky-200',
+  strong: 'bg-emerald-100 text-emerald-900 border-emerald-200',
+};
+
+const apiConfigured =
+  typeof process.env.NEXT_PUBLIC_REVMAX_API_URL === 'string' &&
+  process.env.NEXT_PUBLIC_REVMAX_API_URL.length > 0;
+
 interface CaseReview {
   agreement: 'agree' | 'partial' | 'disagree' | null;
   score: number;
@@ -134,6 +145,20 @@ export default function DojoPage() {
           )}
           {apiConfigured && knowledgeErr && (
             <p className="text-xs text-destructive">{knowledgeErr}</p>
+          )}
+          {apiConfigured && knowledge?.knowledge_refresh?.finished_at && (
+            <div className="rounded-lg border border-dashed border-border/60 bg-background/50 px-3 py-2 text-xs text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Último Knowledge Refresh</p>
+              <p>
+                {knowledge.knowledge_refresh.finished_at} · modo {knowledge.knowledge_refresh.mode ?? '—'} · run{' '}
+                <code className="text-[10px]">{knowledge.knowledge_refresh.run_id?.slice(0, 8) ?? '—'}</code>
+              </p>
+              <p>
+                Áreas: {(knowledge.knowledge_refresh.areas_reviewed ?? []).join(', ') || '—'} · observados{' '}
+                {knowledge.knowledge_refresh.observed_count ?? 0} · candidatos Dojo{' '}
+                {knowledge.knowledge_refresh.dojo_candidates_created ?? 0}
+              </p>
+            </div>
           )}
           {apiConfigured && knowledge?.areas && knowledge.areas.length > 0 && (
             <div className="max-h-56 overflow-auto rounded-lg border border-border/50 bg-card text-xs">
