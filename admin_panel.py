@@ -657,7 +657,8 @@ async def api_dojo_validation_inbox_task(task_id: str, request: Request):
         data = {}
     st = (data.get("status") or "").strip()
     at = data.get("assigned_to")
-    ok, msg = update_task_status(Path(BASE_DIR), task_id, st, assigned_to=at)
+    dr = data.get("dismiss_reason")
+    ok, msg = update_task_status(Path(BASE_DIR), task_id, st, assigned_to=at, dismiss_reason=dr)
     if not ok:
         return JSONResponse({"ok": False, "error": msg}, status_code=400)
     return {"ok": True, "task_id": task_id, "status": st}
@@ -826,7 +827,9 @@ async def api_qa_save_validation(request: Request):
         "analysis_quality": quality,
     }
     try:
+        from dojo_validation_debt import mark_validation_tasks_done_for_case_path
         from qa_registry import save_validation_case, apply_human_review
+
         path = save_validation_case(case, base_dir=BASE_DIR)
         updated = apply_human_review(
             path,
@@ -835,7 +838,8 @@ async def api_qa_save_validation(request: Request):
             verdict=verdict,
             adjustment_decision=adjustment_decision or None,
         )
-        return {"ok": True, "path": path, "case": updated}
+        n_closed = mark_validation_tasks_done_for_case_path(Path(BASE_DIR), path)
+        return {"ok": True, "path": path, "case": updated, "inbox_tasks_closed": n_closed}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

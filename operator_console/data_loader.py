@@ -225,14 +225,25 @@ def apply_validation(
 ) -> dict:
     """Aplica revisión humana al caso en case_path."""
     try:
+        from pathlib import Path
+
         from qa_registry import apply_human_review
-        return apply_human_review(
+
+        out = apply_human_review(
             case_path,
             score=score,
             feedback=feedback,
             verdict=verdict,
             adjustment_decision=adjustment_decision,
         )
+        try:
+            from dojo_validation_debt import mark_validation_tasks_done_for_case_path
+
+            base = Path(__file__).resolve().parent.parent
+            mark_validation_tasks_done_for_case_path(base, case_path)
+        except Exception:
+            pass
+        return out
     except Exception as e:
         return {"error": str(e)}
 

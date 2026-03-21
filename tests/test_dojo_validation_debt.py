@@ -6,6 +6,7 @@ from pathlib import Path
 from dojo_validation_debt import (
     compute_debt_metrics,
     load_inbox,
+    mark_validation_tasks_done_for_case_path,
     merge_generated_into_inbox,
     sync_validation_inbox,
     update_task_status,
@@ -113,3 +114,33 @@ def test_sync_creates_tasks_from_rules(tmp_path: Path):
     sync_validation_inbox(tmp_path)
     data = load_inbox(tmp_path)
     assert any(t.get("task_type") == "hypothesis_review" for t in data.get("tasks", []))
+
+
+def test_mark_validation_tasks_done_matches_path(tmp_path: Path):
+    case_path = str(tmp_path / "data/qa_runs/case1.json")
+    p = tmp_path / "data/dojo"
+    p.mkdir(parents=True)
+    (tmp_path / "data/qa_runs").mkdir(parents=True)
+    Path(case_path).write_text("{}", encoding="utf-8")
+    inbox = {
+        "version": 1,
+        "tasks": [
+            {
+                "task_id": "qa_x",
+                "task_type": "validation_case",
+                "area_key": "demand",
+                "priority": 5,
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "reason": "r",
+                "linked_case_id": case_path,
+                "required_for_area_progress": True,
+                "status": "pending",
+                "assigned_to": None,
+            }
+        ],
+    }
+    (tmp_path / "data/dojo/validation_inbox.json").write_text(json.dumps(inbox), encoding="utf-8")
+    n = mark_validation_tasks_done_for_case_path(tmp_path, case_path)
+    assert n == 1
+    data = json.loads((tmp_path / "data/dojo/validation_inbox.json").read_text(encoding="utf-8"))
+    assert data["tasks"][0]["status"] == "done"

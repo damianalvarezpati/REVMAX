@@ -1,8 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { trainingCases, adjustmentDecisions } from '@/lib/mock-data';
-import { getKnowledgeInputs, type KnowledgeInputsResponse } from '@/lib/revmax-api';
+import {
+  getKnowledgeInputs,
+  getValidationInbox,
+  updateValidationInboxTask,
+  type KnowledgeInputsResponse,
+  type ValidationInboxFullResponse,
+} from '@/lib/revmax-api';
 import { cn } from '@/lib/utils';
 import { 
   Swords, 
@@ -19,7 +25,9 @@ import {
   MessageSquare,
   Settings2,
   Inbox,
-  AlertTriangle
+  AlertTriangle,
+  ClipboardList,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -79,19 +87,49 @@ export default function DojoPage() {
   const [reviews, setReviews] = useState<Record<string, CaseReview>>({});
   const [knowledge, setKnowledge] = useState<KnowledgeInputsResponse | null>(null);
   const [knowledgeErr, setKnowledgeErr] = useState<string | null>(null);
+  const [inboxFull, setInboxFull] = useState<ValidationInboxFullResponse | null>(null);
+  const [inboxErr, setInboxErr] = useState<string | null>(null);
+  const [inboxActionId, setInboxActionId] = useState<string | null>(null);
+  const [dismissNote, setDismissNote] = useState<Record<string, string>>({});
+
+  const loadDojoData = useCallback(async () => {
+    if (!apiConfigured) return;
+    try {
+      const [k, inv] = await Promise.all([
+        getKnowledgeInputs(),
+        getValidationInbox().catch(() => null),
+      ]);
+      setKnowledge(k);
+      setKnowledgeErr(k.error ?? null);
+      setInboxFull(inv);
+      setInboxErr(null);
+    } catch (e) {
+      setKnowledge(null);
+      setKnowledgeErr(e instanceof Error ? e.message : 'Knowledge Inputs API error');
+    }
+  }, [apiConfigured]);
 
   useEffect(() => {
+    loadDojoData();
+  }, [loadDojoData]);
+
+  const handleInboxTask = async (taskId: string, status: 'done' | 'dismissed') => {
     if (!apiConfigured) return;
-    getKnowledgeInputs()
-      .then((r) => {
-        setKnowledge(r);
-        setKnowledgeErr(r.error ?? null);
-      })
-      .catch((e: Error) => {
-        setKnowledge(null);
-        setKnowledgeErr(e.message || 'Knowledge Inputs API error');
-      });
-  }, []);
+    setInboxActionId(taskId);
+    setInboxErr(null);
+    try {
+      const dr = status === 'dismissed' ? (dismissNote[taskId] || '').trim() || undefined : undefined;
+      await updateValidationInboxTask(taskId, { status, dismiss_reason: dr });
+      await loadDojoData();
+    } catch (e) {
+      setInboxErr(e instanceof Error ? e.message : 'Error al actualizar tarea');
+    } finally {
+      setInboxActionId(null);
+    }
+  };
+
+  const pendingInboxTasks =
+    inboxFull?.inbox?.tasks?.filter((t) => (t.status || 'pending') === 'pending') ?? [];
 
   const currentCase = trainingCases[currentIndex];
   const currentReview = reviews[currentCase.id] || {
@@ -132,6 +170,82 @@ export default function DojoPage() {
           </div>
           <p className="text-muted-foreground">Review and validate AI recommendations to improve model accuracy</p>
         </div>
+
+        {/* Bandeja operativa — deuda real (API validation-inbox) */}
+        {apiConfigured && (
+          <div className="rounded-2xl border border-amber-600/50 bg-amber-500/[0.07] p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-amber-800 dark:text-amber-300" />
+              <h2 className="text-sm font-semibold text-foreground">Operativa — bandeja Dojo</h2>
+              <span className="text-xs text-muted-foreground">(tareas obligatorias, no sugerencias)</span>
+            </div>
+            {inboxErr && <p className="text-xs text-destructive">{inboxErr}</p>}
+            {pendingInboxTasks.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No hay tareas pendientes en el inbox, o aún no se ha sincronizado. Ejecuta Knowledge Inputs / refresh en
+                backend para generar deuda.
+              </p>
+            ) : (
+              <ul className="space-y-3 max-h-72 overflow-auto text-xs">
+                {pendingInboxTasks.map((t) => (
+                  <li
+                    key={t.task_id}
+                    className="rounded-lg border border-border/60 bg-background/80 p-3 space-y-2"
+                  >
+                    <div className="flex flex-wrap gap-2 items-start justify-between">
+                      <div>
+                        <span className="font-mono text-[10px] text-muted-foreground">{t.task_type}</span>
+                        <span className="text-muted-foreground"> · </span>
+                        <span className="font-medium">{t.area_key}</span>
+                        {t.required_for_area_progress && (
+                          <span className="ml-2 text-[10px] uppercase text-amber-700 dark:text-amber-400">
+                            requerido
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="default"
+                          className="h-7 text-[11px]"
+                          disabled={inboxActionId === t.task_id}
+                          onClick={() => handleInboxTask(t.task_id, 'done')}
+                        >
+                          {inboxActionId === t.task_id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Hecho'
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px]"
+                          disabled={inboxActionId === t.task_id}
+                          onClick={() => handleInboxTask(t.task_id, 'dismissed')}
+                        >
+                          Descartar
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground leading-snug">{t.reason}</p>
+                    <input
+                      type="text"
+                      placeholder="Motivo si descartas (trazabilidad)"
+                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px]"
+                      value={dismissNote[t.task_id] ?? ''}
+                      onChange={(e) =>
+                        setDismissNote((prev) => ({ ...prev, [t.task_id]: e.target.value }))
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Knowledge Inputs — materia prima por área (API admin_panel) */}
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3">
@@ -211,16 +325,10 @@ export default function DojoPage() {
                   {knowledge.dojo_validation_inbox.global_metrics.areas_blocked_count ?? 0}
                 </span>
               </p>
-              {(knowledge.dojo_validation_inbox.pending_tasks_preview?.length ?? 0) > 0 && (
-                <ul className="max-h-32 overflow-auto space-y-1 border-t border-amber-500/20 pt-2 text-[11px]">
-                  {knowledge.dojo_validation_inbox.pending_tasks_preview?.slice(0, 12).map((t) => (
-                    <li key={t.task_id} className="flex gap-2">
-                      <span className="font-mono text-[10px] text-muted-foreground shrink-0">{t.task_type}</span>
-                      <span className="text-foreground">{t.reason}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <p className="text-[10px] text-muted-foreground border-t border-amber-500/20 pt-2">
+                Acciones sobre tareas: bloque <span className="font-medium text-foreground">Operativa — bandeja Dojo</span>{' '}
+                arriba.
+              </p>
             </div>
           )}
           {apiConfigured && knowledge?.areas && knowledge.areas.length > 0 && (
@@ -273,6 +381,11 @@ export default function DojoPage() {
               </table>
             </div>
           )}
+        </div>
+
+        <div className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Demo (mock)</span> — casos de práctica locales; no sustituyen la
+          bandeja ni qa_runs reales.
         </div>
 
         {/* Case Navigation */}

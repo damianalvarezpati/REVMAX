@@ -180,6 +180,8 @@ export interface ValidationInboxTask {
   reason?: string;
   status?: string;
   required_for_area_progress?: boolean;
+  linked_case_id?: string | null;
+  dismiss_reason?: string;
 }
 
 export interface DojoValidationInboxPayload {
@@ -191,6 +193,22 @@ export interface DojoValidationInboxPayload {
   };
   updated_at?: string | null;
   pending_tasks_preview?: ValidationInboxTask[];
+}
+
+/** Respuesta completa GET /api/dojo/validation-inbox */
+export interface ValidationInboxFullResponse {
+  inbox: {
+    version?: number;
+    updated_at?: string | null;
+    tasks?: ValidationInboxTask[];
+  };
+  global_metrics: {
+    dojo_inbox_count?: number;
+    overdue_reviews_count?: number;
+    areas_blocked_count?: number;
+    pending_by_type?: Record<string, number>;
+  };
+  per_area_metrics: Record<string, Record<string, unknown>>;
 }
 
 /** Bloque funnel (run + lifetime) escrito por knowledge_refresh */
@@ -246,4 +264,22 @@ export interface KnowledgeInputsResponse {
 
 export async function getKnowledgeInputs(): Promise<KnowledgeInputsResponse> {
   return request<KnowledgeInputsResponse>('/api/dojo/knowledge-inputs');
+}
+
+export async function getValidationInbox(): Promise<ValidationInboxFullResponse> {
+  return request<ValidationInboxFullResponse>('/api/dojo/validation-inbox');
+}
+
+export async function updateValidationInboxTask(
+  taskId: string,
+  body: {
+    status: 'done' | 'dismissed' | 'pending';
+    assigned_to?: string;
+    dismiss_reason?: string;
+  },
+): Promise<{ ok?: boolean; task_id?: string; status?: string; error?: string }> {
+  return request(`/api/dojo/validation-inbox/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }

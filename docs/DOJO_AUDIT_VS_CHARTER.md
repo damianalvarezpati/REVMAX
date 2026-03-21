@@ -194,3 +194,14 @@ El **cierre operativo end-to-end** falla el estándar del charter en el punto m�
 ---
 
 *Este documento es el resultado de la auditoría; no sustituye tests automatizados ni revisión de producción.*
+
+---
+
+## Apéndice — Cierre MVP (post–auditoría inicial)
+
+Implementado para acotar los bloqueos “no operable desde producto” y “sin hook QA ↔ inbox”:
+
+- **UI:** bloque **Operativa — bandeja Dojo** en `frontend-v0/app/dojo/page.tsx` con `GET /api/dojo/validation-inbox` y `POST .../tasks/{id}` (Hecho / Descartar + motivo opcional al descartar).
+- **Backend:** `mark_validation_tasks_done_for_case_path` tras `apply_human_review` en `POST /api/qa/save-validation` y en `operator_console.data_loader.apply_validation`.
+
+*Re-auditoría recomendada tras estabilizar en producción.*

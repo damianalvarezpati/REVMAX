@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -446,11 +447,55 @@ def ensure_per_area_metrics(per_area: Dict[str, dict], area_keys: List[str]) -> 
     return per_area
 
 
+def mark_validation_tasks_done_for_case_path(base: Optional[Path], case_path: str) -> int:
+    """
+    Marca done las tareas validation_case cuyo linked_case_id apunta al caso guardado.
+    Llamar tras apply_human_review / save-validation.
+    """
+    if not case_path:
+        return 0
+    inbox = load_inbox(base)
+    n = 0
+    try:
+        target = Path(case_path).resolve()
+    except OSError:
+        target = None
+    for t in inbox.get("tasks") or []:
+        if (t.get("status") or "pending") != "pending":
+            continue
+        if t.get("task_type") != "validation_case":
+            continue
+        lid = t.get("linked_case_id") or ""
+        if not lid:
+            continue
+        try:
+            tp = Path(lid).resolve()
+        except OSError:
+            tp = None
+        match = False
+        if target is not None and tp is not None:
+            try:
+                match = os.path.samefile(target, tp)
+            except OSError:
+                match = str(target) == str(tp)
+        if not match:
+            match = os.path.normpath(str(lid)) == os.path.normpath(str(case_path))
+        if match:
+            t["status"] = "done"
+            t["updated_at"] = _utc_now()
+            t["closed_by"] = "qa_verdict"
+            n += 1
+    if n:
+        save_inbox(base, inbox)
+    return n
+
+
 def update_task_status(
     base: Optional[Path],
     task_id: str,
     status: str,
     assigned_to: Optional[str] = None,
+    dismiss_reason: Optional[str] = None,
 ) -> Tuple[bool, str]:
     allowed = {"pending", "done", "dismissed"}
     if status not in allowed:
@@ -463,6 +508,8 @@ def update_task_status(
             t["updated_at"] = _utc_now()
             if assigned_to is not None:
                 t["assigned_to"] = assigned_to
+            if dismiss_reason is not None and status == "dismissed":
+                t["dismiss_reason"] = (dismiss_reason or "").strip()
             found = True
             break
     if not found:
