@@ -121,6 +121,7 @@ En una frase: **el Dojo es el sensei del conocimiento en RevMax** — no una pan
 | Documento | Contenido enlazado |
 |-----------|-------------------|
 | [DOJO_DEFINITION_OF_DONE.md](./DOJO_DEFINITION_OF_DONE.md) | Criterios de “hecho” para trabajo Dojo/validación. |
+| [DOJO_AUDIT_VS_CHARTER.md](./DOJO_AUDIT_VS_CHARTER.md) | Auditoría del estado real del Dojo frente a charter y DoD. |
 | [KNOWLEDGE_INPUTS_DOJO.md](./KNOWLEDGE_INPUTS_DOJO.md) | Modelo de datos y scoring por área. |
 | [KNOWLEDGE_REFRESH.md](./KNOWLEDGE_REFRESH.md) | Refresh nocturno, observaciones, aceptación manual. |
 | [KNOWLEDGE_BALANCING.md](./KNOWLEDGE_BALANCING.md) | Equilibrio activo de esfuerzo entre áreas. |
