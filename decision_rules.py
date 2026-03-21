@@ -52,6 +52,26 @@ def _to_int(x: Any) -> Optional[int]:
         return None
 
 
+def _coerce_bool(x: Any) -> Optional[bool]:
+    """Normalize optional boolean flags from pipeline / evidence."""
+    if x is None or _is_missing(x):
+        return None
+    if isinstance(x, bool):
+        return x
+    if isinstance(x, (int, float)):
+        if x == 1:
+            return True
+        if x == 0:
+            return False
+        return None
+    t = str(x).strip().lower()
+    if t in ("true", "yes", "si", "sí", "1"):
+        return True
+    if t in ("false", "no", "0"):
+        return False
+    return None
+
+
 def _parse_price_position(pos: Any) -> Tuple[Optional[int], Optional[int]]:
     """
     Espera algo como:
@@ -178,6 +198,38 @@ def build_signals_from_pipeline(full_analysis: Dict[str, Any]) -> Dict[str, Any]
     # demand_signal fallback: si no existe, derivar desde score
     demand_signal_from_evidence = None  # evidence_found no trae demand_signal en este pipeline
 
+    # --- Optional knowledge-backed signals (evidence_found > agent_outputs) ---
+    lead_time_raw = (
+        evidence.get("lead_time_days")
+        or demand.get("lead_time_days")
+        or discovery.get("lead_time_days")
+        or full_analysis.get("lead_time_days")
+    )
+    weekend_raw = (
+        evidence.get("weekend_context")
+        or evidence.get("weekend_stay")
+        or demand.get("weekend_context")
+        or demand.get("stay_includes_weekend")
+        or full_analysis.get("weekend_context")
+    )
+    reviewer_avg_raw = (
+        evidence.get("reviewer_avg_score_0_10")
+        or evidence.get("reviewer_score")
+        or (reputation.get("reviewer_avg") if reputation else None)
+        or (reputation.get("recent_reviews_avg_0_10") if reputation else None)
+    )
+    hotel_avg_raw = (
+        evidence.get("hotel_avg_review_0_10")
+        or evidence.get("hotel_avg_review_score")
+        or ((reputation.get("hotel_avg_score_0_10") or reputation.get("platform_avg_0_10")) if reputation else None)
+    )
+    ota_km_raw = (
+        evidence.get("ota_search_distance_km")
+        or evidence.get("search_distance_km")
+        or (compset.get("ota_search_distance_km") if compset else None)
+        or full_analysis.get("ota_search_distance_km")
+    )
+
     return {
         "own_price": _to_float(own_price_raw) if not _is_missing(own_price_raw) else _to_float(own_price_fallback),
         "compset_avg": _to_float(compset_avg_raw) if not _is_missing(compset_avg_raw) else _to_float(compset_avg_fallback),
@@ -190,6 +242,11 @@ def build_signals_from_pipeline(full_analysis: Dict[str, Any]) -> Dict[str, Any]
         "parity_status": _normalize_parity_status(parity_status_raw) or _normalize_parity_status(distribution_parity_fallback),
         "events_present": events_present,
         "events_count": events_count,
+        "lead_time_days": _to_float(lead_time_raw) if not _is_missing(lead_time_raw) else None,
+        "weekend_context": _coerce_bool(weekend_raw),
+        "reviewer_avg_score_0_10": _to_float(reviewer_avg_raw) if not _is_missing(reviewer_avg_raw) else None,
+        "hotel_avg_review_0_10": _to_float(hotel_avg_raw) if not _is_missing(hotel_avg_raw) else None,
+        "ota_search_distance_km": _to_float(ota_km_raw) if not _is_missing(ota_km_raw) else None,
     }
 
 
@@ -231,7 +288,7 @@ def normalize_signals(signals: Dict[str, Any]) -> Dict[str, Any]:
     if demand_score is not None:
         demand_bucket = _demand_bucket_from_score(demand_score)
 
-    return {
+    out = {
         "own_price": own_price,
         "compset_avg": compset_avg,
         "price_posture": price_posture,
@@ -248,6 +305,17 @@ def normalize_signals(signals: Dict[str, Any]) -> Dict[str, Any]:
         "events_present": events_present,
         "events_count": events_count,
     }
+    # Passthrough for PRO knowledge layer (optional)
+    for k in (
+        "lead_time_days",
+        "weekend_context",
+        "reviewer_avg_score_0_10",
+        "hotel_avg_review_0_10",
+        "ota_search_distance_km",
+    ):
+        if signals.get(k) is not None:
+            out[k] = signals[k]
+    return out
 
 
 def decide(normalized: Dict[str, Any]) -> Dict[str, Any]:

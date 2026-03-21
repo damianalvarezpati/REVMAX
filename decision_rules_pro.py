@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from decision_rules import build_signals_from_pipeline
 from decision_rules_v2 import normalize_signals as normalize_signals_v2
+from revmax_knowledge_pro import compute_knowledge_adjustments, weekend_range_adjustment_pct
 
 
 def _event_pressure(events_count: Optional[int]) -> float:
@@ -321,6 +322,7 @@ def decide_pro(normalized: Dict[str, Any]) -> Dict[str, Any]:
             "guardrails": ["FIX_PARITY / corrección de paridad"],
             "constraints_applied": constraints,
             "data_quality": dq,
+            "knowledge_applied": [],
             "suggested_action": {
                 "primary": "Hold por paridad violada. Prioriza corrección de best-rate.",
                 "review_in_hours": 24,
@@ -342,6 +344,7 @@ def decide_pro(normalized: Dict[str, Any]) -> Dict[str, Any]:
             "guardrails": ["no decidir sin datos críticos comparables"],
             "constraints_applied": constraints,
             "data_quality": dq,
+            "knowledge_applied": [],
             "suggested_action": {
                 "primary": "Hold temporal. Faltan datos críticos para decidir con trazabilidad.",
                 "review_in_hours": 48,
@@ -362,6 +365,7 @@ def decide_pro(normalized: Dict[str, Any]) -> Dict[str, Any]:
             "guardrails": ["primero arreglar distribución/visibilidad"],
             "constraints_applied": constraints,
             "data_quality": dq,
+            "knowledge_applied": [],
             "suggested_action": {
                 "primary": "Hold: subir precio con visibilidad baja tiende a fallar.",
                 "review_in_hours": 72,
@@ -369,9 +373,12 @@ def decide_pro(normalized: Dict[str, Any]) -> Dict[str, Any]:
             },
         }
 
-    # compute scores
+    # compute scores + knowledge-backed adjustments (strong/partial only; never hypothetical)
     raise_score = _compute_raise_score(normalized)
     lower_score = _compute_lower_score(normalized)
+    kn = compute_knowledge_adjustments(normalized)
+    raise_score = _clamp_0_100(raise_score + int(kn["raise_delta"]))
+    lower_score = _clamp_0_100(lower_score + int(kn["lower_delta"]))
     gap = raise_score - lower_score
 
     # decision
@@ -398,12 +405,19 @@ def decide_pro(normalized: Dict[str, Any]) -> Dict[str, Any]:
         # hold: si el gap es pequeño, reduce más
         conf = 44 + (max(0, 12 - abs(gap)) * 1.5) + quality_bonus - penalty_for_weak_decision
 
+    conf += float(kn.get("confidence_delta") or 0.0)
     confidence = _clamp_0_100(conf)
 
     # suggested action
     guardrails = _build_guardrails(normalized, decision)
+    guardrails.extend(kn.get("guardrail_additions") or [])
     if decision == "raise":
         rng = _suggested_range_for_raise(normalized)
+        wk = weekend_range_adjustment_pct(decision, normalized.get("weekend_context"))
+        if wk:
+            rng = dict(rng)
+            rng["range_pct_min"] = int(rng["range_pct_min"]) + wk
+            rng["range_pct_max"] = int(rng["range_pct_max"]) + wk
         primary = f"RAISE recomendado. Ajuste sugerido: +{rng['range_pct_min']}% a +{rng['range_pct_max']}%."
         review_in_hours = 24 if confidence >= 75 else 48
     elif decision == "lower":
@@ -426,6 +440,7 @@ def decide_pro(normalized: Dict[str, Any]) -> Dict[str, Any]:
     )
     reasons.append(f"raise_score={raise_score} lower_score={lower_score} gap={gap}")
     reasons.append(f"decision={decision}")
+    reasons.extend(kn.get("reason_lines") or [])
 
     suggested_action = {
         "primary": primary,
@@ -466,7 +481,13 @@ def decide_pro(normalized: Dict[str, Any]) -> Dict[str, Any]:
             "event_pressure": normalized.get("event_pressure"),
             "can_command_premium": normalized.get("can_command_premium"),
             "distribution_health": normalized.get("distribution_health"),
+            "lead_time_days": normalized.get("lead_time_days"),
+            "weekend_context": normalized.get("weekend_context"),
+            "reviewer_avg_score_0_10": normalized.get("reviewer_avg_score_0_10"),
+            "hotel_avg_review_0_10": normalized.get("hotel_avg_review_0_10"),
+            "ota_search_distance_km": normalized.get("ota_search_distance_km"),
         },
+        "knowledge_applied": kn.get("knowledge_applied") or [],
     }
 
 
