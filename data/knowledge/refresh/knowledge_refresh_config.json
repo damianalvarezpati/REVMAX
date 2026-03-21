@@ -28,5 +28,11 @@
     "per_accept_partial_link": 0.75,
     "per_accept_minimal": 0.35
   },
-  "notes": "Dojo solo si hay observación relevante por área. Patrones por hash de contenido. Accept exige trazabilidad explícita. Métricas en refresh_funnel_metrics.json + latest_refresh_summary.funnel."
+  "knowledge_balancing": {
+    "enabled": true,
+    "use_dynamic_area_selection": true,
+    "dojo_effort_multiplier_max": 2.5,
+    "max_http_slots_balanced": 1
+  },
+  "notes": "Selección de áreas vía knowledge_balancing_engine (gap/prioridad), no uniforme. Dojo solo si relevancia; multiplicador según gap. Métricas funnel en refresh_funnel_metrics.json."
 }

@@ -418,6 +418,10 @@ def compute_knowledge_inputs(
             }
         )
 
+    from knowledge_balancing_engine import enrich_areas_with_knowledge_balance, write_balance_snapshot
+
+    areas_out, balance_summary = enrich_areas_with_knowledge_balance(areas_out, base)
+
     out = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "meta": {
@@ -425,22 +429,26 @@ def compute_knowledge_inputs(
             "rules_path": str(kn / "candidate_rules.json"),
             "master_dataset_index": str(base / "data/datasets/MASTER_DATASET_INDEX.json"),
             "ledger_path": str(kn / "dojo_validation_ledger.json"),
+            "balancing_config_path": str(base / "data/knowledge/knowledge_balancing_config.json"),
             "qa_runs_validated_total": qa_score_n,
             "qa_runs_verdict_total": qa_verdict_n,
             "synthetic_cases_total_ui_mock": synthetic_n,
         },
+        "knowledge_balance_summary": balance_summary,
         "scoring_notes": {
             "coverage": "100*(1-exp(-0.55*datasets/soft_cap)) + bonus por archivos de patrones presentes.",
             "quality": "Reglas + log(filas) + bonus acotado desde accepted_knowledge (peso alto solo con knowledge_type + linked_rule_or_hypothesis; sin linkage, peso mínimo).",
             "validation": "ledger human_validations + reparto proporcional de qa_runs con human_score vs soft_cap por área.",
             "model_readiness": "ratio de engine_rule_ids integradas en PRO vs esperadas por área (sin ids → techo bajo).",
             "area_score": "0.28*coverage + 0.27*quality + 0.22*validation + 0.23*readiness",
+            "knowledge_balance": "Targets por status_label; gap → modo growth/monitor/maintenance; esfuerzo vía recommended_effort_share; validación humana priorizada en déficits y clusters.",
         },
         "areas": areas_out,
     }
 
     if write_snapshot:
         try:
+            write_balance_snapshot(base, areas_out, balance_summary)
             snap = kn / "knowledge_inputs_snapshot.json"
             snap.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
         except OSError:

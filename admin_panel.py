@@ -616,6 +616,24 @@ def api_dojo_knowledge_inputs():
     return knowledge_inputs_api_payload(base_dir=Path(BASE_DIR))
 
 
+@app.get("/api/dojo/knowledge-balance")
+def api_dojo_knowledge_balance():
+    """
+    Último snapshot de equilibrio de conocimiento (knowledge_balancing_engine).
+    Se genera al calcular knowledge-inputs; si no existe, indicar refresh.
+    """
+    import json
+    from pathlib import Path
+
+    p = Path(BASE_DIR) / "data/knowledge/knowledge_balance_snapshot.json"
+    if p.is_file():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    return {"error": "snapshot_missing", "hint": "GET /api/dojo/knowledge-inputs para generar knowledge_balance_snapshot.json"}
+
+
 @app.post("/api/dojo/validation-ledger")
 async def api_dojo_validation_ledger(request: Request):
     """

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "description": "Equilibrio activo del mapa de conocimiento: targets, modos y clusters de refuerzo (validación humana cruzada).",
+  "global_target_area_score": 78.0,
+  "target_by_status_label": {
+    "weak": 76.0,
+    "developing": 78.0,
+    "usable": 80.0,
+    "strong": 86.0
+  },
+  "gap_weights": {
+    "area_score_exponent": 1.35,
+    "validation_deficit_weight": 0.45,
+    "coverage_deficit_weight": 0.25,
+    "readiness_deficit_weight": 0.2,
+    "epsilon_uniform": 0.04
+  },
+  "mode_thresholds": {
+    "growth_gap_min": 18.0,
+    "maintenance_gap_max": 8.0
+  },
+  "reinforcement_clusters": [
+    ["pricing_context", "compset", "ota_visibility"],
+    ["demand", "forecasting", "calendar_seasonality"],
+    ["reputation", "ota_visibility"]
+  ],
+  "cluster_validation_boost": 0.12,
+  "effort_share_temperature": 1.15,
+  "notes": "recommended_effort_share suma ~1. human_validation_priority 0..1. Sin auto-ML: reglas explícitas y trazables."
+}

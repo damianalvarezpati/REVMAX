@@ -128,6 +128,23 @@ export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
   return request<JobStatusResponse>(`/api/job-status/${encodeURIComponent(jobId)}`);
 }
 
+/** Equilibrio activo de conocimiento (knowledge_balancing_engine) */
+export interface KnowledgeBalanceBlock {
+  current_area_score?: number;
+  target_area_score?: number;
+  knowledge_gap_score?: number;
+  growth_priority?: number;
+  mode?: 'growth' | 'monitor' | 'maintenance';
+  growth_mode?: boolean;
+  maintenance_mode?: boolean;
+  recommended_effort_share?: number;
+  human_validation_priority?: number;
+  recommended_actions?: string[];
+  why_this_area_needs_attention?: string;
+  suggested_data_actions?: string[];
+  suggested_human_validation_actions?: string[];
+}
+
 /** Dojo — Knowledge Inputs (madurez por área) */
 export interface KnowledgeInputArea {
   area_key: string;
@@ -146,6 +163,8 @@ export interface KnowledgeInputArea {
   status_label: string;
   missing_gaps: string[];
   suggested_actions: string[];
+  accepted_quality_bonus_points?: number;
+  knowledge_balance?: KnowledgeBalanceBlock;
 }
 
 /** Bloque funnel (run + lifetime) escrito por knowledge_refresh */
@@ -188,6 +207,12 @@ export interface KnowledgeInputsResponse {
   areas: KnowledgeInputArea[];
   meta?: Record<string, unknown>;
   scoring_notes?: Record<string, string>;
+  knowledge_balance_summary?: {
+    areas_in_growth?: string[];
+    areas_in_maintenance?: string[];
+    total_effort_share_check?: number;
+    balancing_config_path?: string;
+  };
   knowledge_refresh?: KnowledgeRefreshSummary | null;
   error?: string;
 }

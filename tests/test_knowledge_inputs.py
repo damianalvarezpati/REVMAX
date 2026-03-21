@@ -27,6 +27,8 @@ def test_knowledge_inputs_required_fields():
         assert "coverage_score" in a
         assert "quality_score" in a
         assert "accepted_quality_bonus_points" in a
+        assert "knowledge_balance" in a
+        assert "recommended_effort_share" in a["knowledge_balance"]
         assert "validation_score" in a
         assert "model_readiness_score" in a
         assert "area_score" in a

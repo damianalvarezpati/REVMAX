@@ -474,16 +474,31 @@ def run_knowledge_refresh(
     kn_cfg = _load_json(base / "data/knowledge/knowledge_areas_config.json") or {}
     area_specs = {s["area_key"]: s for s in kn_cfg.get("areas") or []}
 
+    kb_refresh = cfg.get("knowledge_balancing") or {}
+    balance_selection: Dict[str, Any] = {}
+
     if area_keys:
         to_process = [k for k in area_keys if k in area_specs]
         mode = "area"
+        balance_selection = {"policy": "explicit_area_keys", "selected": to_process}
     else:
-        ordered = prioritize_areas(
-            list(areas_before),
-            cfg.get("priority_status_order") or ["weak", "developing", "usable", "strong"],
-        )
         cap = int(cfg.get("max_areas_per_run") or 4)
-        to_process = [a["area_key"] for a in ordered[:cap]]
+        use_dyn = kb_refresh.get("use_dynamic_area_selection", True) and kb_refresh.get("enabled", True)
+        if use_dyn:
+            from knowledge_balancing_engine import select_areas_for_refresh
+
+            to_process, balance_selection = select_areas_for_refresh(
+                list(areas_before),
+                cap,
+                prefer_balance=True,
+            )
+        else:
+            ordered = prioritize_areas(
+                list(areas_before),
+                cfg.get("priority_status_order") or ["weak", "developing", "usable", "strong"],
+            )
+            to_process = [a["area_key"] for a in ordered[:cap]]
+            balance_selection = {"policy": "legacy_status_priority", "selected": to_process}
 
     sources_consulted: List[dict] = []
     observed_all: List[dict] = []
@@ -566,7 +581,12 @@ def run_knowledge_refresh(
         if len(rel_obs) < min_rel:
             continue
 
-        n_cand = int(cfg.get("dojo_candidates_per_area") or 1)
+        from knowledge_balancing_engine import dojo_candidate_multiplier_for_area
+
+        n_base = int(cfg.get("dojo_candidates_per_area") or 1)
+        area_row = next((x for x in areas_before if x.get("area_key") == ak), {})
+        mult = dojo_candidate_multiplier_for_area(area_row, kb_refresh, len(areas_before))
+        n_cand = max(1, min(5, int(round(n_base * mult))))
         summaries = [o["summary"] for o in rel_obs][:5]
 
         for j in range(n_cand):
@@ -624,6 +644,7 @@ def run_knowledge_refresh(
             "accepted_knowledge vacío en ejecución automática — usar POST accept-observed con campos de trazabilidad.",
             f"Observaciones registradas: {len(observed_all)}; candidatos Dojo (solo si relevancia mínima por área): {len(dojo_paths)}.",
         ],
+        "knowledge_balancing_selection": balance_selection,
     }
 
     funnel_block = _update_funnel_after_run(base, run_record)
@@ -648,6 +669,7 @@ def run_knowledge_refresh(
                 k: v for k, v in score_deltas.items() if k in to_process
             },
             "hypothesis_events_count": len(hypothesis_events),
+            "knowledge_balancing_selection": balance_selection,
             "funnel": funnel_block,
             "funnel_metrics": {
                 "observed_count_this_run": tr.get("observed_count"),
