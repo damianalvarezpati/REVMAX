@@ -5,6 +5,7 @@
 - **Puerto:** 3000 → **http://localhost:3000**
 - **Backend:** 8001 (FastAPI). Las peticiones `/api/*` se reenvían al backend vía rewrites (ver `next.config.mjs`).
 - **Analysis:** Conectada al backend real (POST /api/run-analysis, GET /api/job-status/{job_id}).
+- **Calidad / definición de terminado:** [SHOKUN](../docs/shokun/README.md) (repo).
 
 ## Arranque rápido (recomendado)
 

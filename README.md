@@ -2,6 +2,17 @@
 
 ---
 
+## Filosofía de desarrollo: SHOKUN (obligatorio)
+
+Todo desarrollo nuevo (features, refactors, cambios sustanciales) debe alinearse con **SHOKUN**: completitud real, integración al sistema, simplicidad, robustez y cierre sin deuda obvia. No es opcional para dar por terminado un trabajo.
+
+- **Índice y principios:** [docs/shokun/README.md](docs/shokun/README.md)
+- **Definition of Done:** [docs/shokun/shokun_dod.md](docs/shokun/shokun_dod.md)
+- **Validator (score /20):** [docs/shokun/shokun_validator.md](docs/shokun/shokun_validator.md)
+- **Contribución:** [CONTRIBUTING.md](CONTRIBUTING.md)
+
+---
+
 ## UI principal: frontend-v0 (doble clic)
 
 **FRONTEND PRINCIPAL OFICIAL:** `frontend-v0/` (Next.js, export v0).  
@@ -199,6 +210,7 @@ Los campos más útiles:
 
 ## Documentación (RevMax Intelligence / Dojo)
 
+- **SHOKUN (filosofía, DoD, validator):** [docs/shokun/README.md](docs/shokun/README.md)
 - **[docs/DOJO_ROLE_AND_PRINCIPLES.md](docs/DOJO_ROLE_AND_PRINCIPLES.md)** — Rol del Dojo como sensei del conocimiento (normativo para diseño).
 - [docs/DOJO_DEFINITION_OF_DONE.md](docs/DOJO_DEFINITION_OF_DONE.md) — Definition of Done operativo.
 - [docs/DOJO_AUDIT_VS_CHARTER.md](docs/DOJO_AUDIT_VS_CHARTER.md) — Auditoría del Dojo vs charter (estado real).

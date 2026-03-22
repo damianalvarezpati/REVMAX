@@ -13,6 +13,8 @@
 
 **A partir de ahora:** edita y desarrolla en **frontend-v0**. El resto son fallbacks.
 
+Cambios de UI sustanciales siguen la filosofía **SHOKUN** ([docs/shokun/README.md](docs/shokun/README.md)).
+
 ---
 
 ## FRONTENDS SECUNDARIOS (legacy / fallback)
