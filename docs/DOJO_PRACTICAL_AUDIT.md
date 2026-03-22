@@ -105,6 +105,8 @@
 
 Implementado: **dismissed** deja **residual** en `effective_validation_debt` (config `dismissed_residual_*`); **done** elimina el peso pendiente sin residual. Métricas: `debt_resolved_count`, `debt_dismissed_count`, `honest_validation_closure_score` por área. Trazabilidad: `closure_quality`, `close_reason`, `needs_revisit` si dismiss sin motivo. Ver `validation_debt_config.json` v2.
 
+**§3 de este doc** (dismiss = mismo efecto que done) quedó **obsoleto** tras ese cambio. Ver **[DOJO_AUDIT_CONSOLIDATED_FINAL.md](./DOJO_AUDIT_CONSOLIDATED_FINAL.md)** para el estado consolidado.
+
 ---
 
 *Auditoría basada en comportamiento del sistema y revisión de código de rutas críticas; validación en producción con usuarios reales sigue siendo recomendable.*

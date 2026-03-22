@@ -213,7 +213,8 @@ Los campos más útiles:
 - **SHOKUN (filosofía, DoD, validator):** [docs/shokun/README.md](docs/shokun/README.md)
 - **[docs/DOJO_ROLE_AND_PRINCIPLES.md](docs/DOJO_ROLE_AND_PRINCIPLES.md)** — Rol del Dojo como sensei del conocimiento (normativo para diseño).
 - [docs/DOJO_DEFINITION_OF_DONE.md](docs/DOJO_DEFINITION_OF_DONE.md) — Definition of Done operativo.
-- [docs/DOJO_AUDIT_VS_CHARTER.md](docs/DOJO_AUDIT_VS_CHARTER.md) — Auditoría del Dojo vs charter (estado real).
+- [docs/DOJO_AUDIT_VS_CHARTER.md](docs/DOJO_AUDIT_VS_CHARTER.md) — Auditoría del Dojo vs charter (histórico + apéndices).
+- [docs/DOJO_AUDIT_CONSOLIDATED_FINAL.md](docs/DOJO_AUDIT_CONSOLIDATED_FINAL.md) — **Auditoría consolidada final** (veredictos por submódulo, patches P1–P3).
 - [docs/KNOWLEDGE_INPUTS_DOJO.md](docs/KNOWLEDGE_INPUTS_DOJO.md) · [docs/KNOWLEDGE_REFRESH.md](docs/KNOWLEDGE_REFRESH.md) · [docs/KNOWLEDGE_BALANCING.md](docs/KNOWLEDGE_BALANCING.md) · [docs/DOJO_VALIDATION_DEBT.md](docs/DOJO_VALIDATION_DEBT.md)
 
 ---
