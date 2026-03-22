@@ -8,10 +8,20 @@
 
 ---
 
-## SHOKUN (referencia: [docs/shokun/README.md](docs/shokun/README.md))
+## SHOKUN Check
 
-- [ ] La pieza cumple el [Definition of Done](docs/shokun/shokun_dod.md) (revisión consciente).
-- [ ] Revisión con [validator](docs/shokun/shokun_validator.md) o plantilla [shokun_review_template.md](docs/shokun/shokun_review_template.md) si el cambio es grande.
-- [ ] Tests relevantes pasan.
+Referencia: [docs/shokun/README.md](docs/shokun/README.md) · [Definition of Done](docs/shokun/shokun_dod.md) · [Validator /20](docs/shokun/shokun_validator.md)
 
-**Score SHOKUN (opcional):** \_\_ / 20
+- [ ] Completitud funcional real
+- [ ] Integración real en el sistema
+- [ ] Robustez y manejo de errores
+- [ ] Simplicidad arquitectónica
+- [ ] Minimalismo estructural
+- [ ] Claridad del diseño
+- [ ] Observabilidad suficiente
+- [ ] Validación realizada
+- [ ] Estabilidad comprobada
+- [ ] Documentación mínima operativa
+- [ ] Cierre real sin deuda inmediata
+
+**SHOKUN score estimado:** \_\_ / 20

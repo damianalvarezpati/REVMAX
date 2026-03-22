@@ -13,24 +13,23 @@ Copiar y rellenar (feature, módulo o refactor). Enlazar desde el PR o el issue 
 
 ---
 
-## Score SHOKUN
+## SHOKUN Check
 
-**Total: \_\_ / 20** · Estado: \_\_\_\_ (sólido / aceptable / incompleto / no cumple)
+(Mismo bloque que en [../../.github/pull_request_template.md](../../.github/pull_request_template.md). Puntuación fina 0–2 por criterio: [shokun_validator.md](shokun_validator.md).)
 
-Criterios 0–2 según [shokun_validator.md](shokun_validator.md):
+- [ ] Completitud funcional real
+- [ ] Integración real en el sistema
+- [ ] Robustez y manejo de errores
+- [ ] Simplicidad arquitectónica
+- [ ] Minimalismo estructural
+- [ ] Claridad del diseño
+- [ ] Observabilidad suficiente
+- [ ] Validación realizada
+- [ ] Estabilidad comprobada
+- [ ] Documentación mínima operativa
+- [ ] Cierre real sin deuda inmediata
 
-| # | Criterio | Puntos |
-|---|----------|--------|
-| 1 | Completitud funcional | |
-| 2 | Integración real | |
-| 3 | Robustez | |
-| 4 | Simplicidad arquitectónica | |
-| 5 | Minimalismo | |
-| 6 | Claridad | |
-| 7 | Observabilidad | |
-| 8 | Validación | |
-| 9 | Estabilidad | |
-| 10 | Documentación mínima operativa | |
+**SHOKUN score estimado:** \_\_ / 20 · Estado: \_\_\_\_ (sólido / aceptable / incompleto / no cumple)
 
 ---
 

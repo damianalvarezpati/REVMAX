@@ -25,7 +25,8 @@
 |-----------|-----|
 | [**shokun_dod.md**](shokun_dod.md) | Definition of Done: una tarea no está terminada si no cumple **todos** los criterios. |
 | [**shokun_validator.md**](shokun_validator.md) | Checklist puntuable (0–2 × 10 → **/20**) para evaluar features, módulos o refactors. |
-| [**shokun_review_template.md**](shokun_review_template.md) | Plantilla reutilizable para una revisión escrita. |
+| [**shokun_review_template.md**](shokun_review_template.md) | Plantilla reutilizable (incluye el mismo **SHOKUN Check** que el PR). |
+| [Plantilla de PR](../../.github/pull_request_template.md) | Checklist SHOKUN al abrir pull requests en GitHub. |
 
 ## Día a día
 
