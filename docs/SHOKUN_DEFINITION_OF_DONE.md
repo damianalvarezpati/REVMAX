@@ -112,6 +112,12 @@ Si una pieza no cumple todos los puntos anteriores, no está DONE según SHOKUN.
 
 ---
 
+## Cómo puntuar una pieza
+
+Usar la escala 0–2 por bloque en [`SHOKUN_VALIDATOR.md`](./SHOKUN_VALIDATOR.md) (máx. 20 puntos).
+
+---
+
 ## Nota RevMax (no sustituye el checklist)
 
 Para **diagnóstico** de piezas concretas (p. ej. Dojo deuda de validación): ver `docs/DOJO_PRACTICAL_AUDIT.md`, `docs/DOJO_AUDIT_VS_CHARTER.md`, `data/dojo/validation_debt_config.json` y tests en `tests/test_dojo_validation_debt.py`. Un gap conocido frente a “robustez absoluta”: **Hecho** sin evidencia de revisión sigue siendo posible por diseño actual (integridad dismiss vs done ya abordada en código).
