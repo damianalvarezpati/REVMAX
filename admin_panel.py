@@ -706,6 +706,7 @@ async def api_dojo_validation_inbox_task(task_id: str, request: Request):
     dr = data.get("dismiss_reason")
     closed_by = data.get("closed_by")
     closure_source = data.get("closure_source")
+    close_reason = data.get("close_reason")
     ok, msg = update_task_status(
         Path(BASE_DIR),
         task_id,
@@ -714,6 +715,7 @@ async def api_dojo_validation_inbox_task(task_id: str, request: Request):
         dismiss_reason=dr,
         closed_by=closed_by if isinstance(closed_by, str) else None,
         closure_source=closure_source if isinstance(closure_source, str) else None,
+        close_reason=close_reason if isinstance(close_reason, str) else None,
     )
     if not ok:
         return JSONResponse({"ok": False, "error": msg}, status_code=400)

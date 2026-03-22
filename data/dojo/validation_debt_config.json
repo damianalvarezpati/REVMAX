@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "Deuda operativa de validación: umbrales de bloqueo y penalización de madurez.",
   "overdue_days": 7,
   "critical_priority_floor": 7,
@@ -7,6 +7,9 @@
   "block_validation_debt_score": 88,
   "area_score_penalty_max": 18.0,
   "debt_to_penalty_scale": 0.14,
+  "dismissed_residual_with_reason": 0.22,
+  "dismissed_residual_without_reason": 0.42,
+  "honest_closure_dismiss_weight": 0.55,
   "task_weights": {
     "validation_case": 1.2,
     "hypothesis_review": 1.4,

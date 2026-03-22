@@ -79,6 +79,12 @@ const apiConfigured =
   typeof process.env.NEXT_PUBLIC_REVMAX_API_URL === 'string' &&
   process.env.NEXT_PUBLIC_REVMAX_API_URL.length > 0;
 
+/** Preview de caso solo si parece ruta de fichero (evita observed_id sin JSON). */
+function isLikelyCaseFilesystemPath(id: string): boolean {
+  if (!id || id.length < 2) return false;
+  return id.includes('/') || id.includes('\\') || /\.[a-zA-Z0-9]+$/.test(id);
+}
+
 interface CaseReview {
   agreement: 'agree' | 'partial' | 'disagree' | null;
   score: number;
@@ -271,14 +277,14 @@ export default function DojoPage() {
                           <Zap className="h-3 w-3" />
                           Revisar
                         </Button>
-                        {t.linked_case_id && (
+                        {t.linked_case_id && isLikelyCaseFilesystemPath(String(t.linked_case_id)) && (
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
                             className="h-7 text-[11px] gap-1"
                             onClick={() =>
-                              window.open(getDojoQaCasePreviewUrl(t.linked_case_id as string), '_blank')
+                              window.open(getDojoQaCasePreviewUrl(String(t.linked_case_id)), '_blank')
                             }
                           >
                             <ExternalLink className="h-3 w-3" />

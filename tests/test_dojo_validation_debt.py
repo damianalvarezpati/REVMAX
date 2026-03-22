@@ -167,3 +167,120 @@ def test_mark_validation_tasks_done_matches_path(tmp_path: Path):
     assert n == 1
     data = json.loads((tmp_path / "data/dojo/validation_inbox.json").read_text(encoding="utf-8"))
     assert data["tasks"][0]["status"] == "done"
+    assert data["tasks"][0].get("closure_quality") == "resolved"
+
+
+def _write_min_debt_cfg(p: Path) -> None:
+    (p / "data/dojo").mkdir(parents=True, exist_ok=True)
+    (p / "data/dojo/validation_debt_config.json").write_text(
+        json.dumps(
+            {
+                "block_if_required_pending": 99,
+                "block_validation_debt_score": 99,
+                "dismissed_residual_with_reason": 0.2,
+                "dismissed_residual_without_reason": 0.5,
+                "honest_closure_dismiss_weight": 0.5,
+                "task_weights": {"hypothesis_review": 1.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_done_clears_pending_debt_not_dismissed(tmp_path: Path):
+    _write_min_debt_cfg(tmp_path)
+    tid = "t_hyp"
+    inbox = {
+        "version": 1,
+        "tasks": [
+            {
+                "task_id": tid,
+                "task_type": "hypothesis_review",
+                "area_key": "events",
+                "priority": 10,
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "reason": "r",
+                "linked_hypothesis_id": "X",
+                "linked_case_id": None,
+                "required_for_area_progress": True,
+                "status": "pending",
+                "assigned_to": None,
+            }
+        ],
+    }
+    (tmp_path / "data/dojo/validation_inbox.json").write_text(json.dumps(inbox), encoding="utf-8")
+    g0, per0 = compute_debt_metrics(inbox, tmp_path)
+    assert per0["events"]["pending_debt_score"] > 0
+    assert per0["events"]["dismissal_residual_debt_score"] == 0
+
+    update_task_status(tmp_path, tid, "done", closed_by="t", closure_source="test")
+    inbox2 = load_inbox(tmp_path)
+    g1, per1 = compute_debt_metrics(inbox2, tmp_path)
+    assert per1["events"]["pending_debt_score"] == 0
+    assert per1["events"]["effective_validation_debt"] == 0
+    assert per1["events"]["honest_validation_closure_score"] == 100.0
+
+
+def test_dismissed_retains_residual_debt_less_than_pending(tmp_path: Path):
+    _write_min_debt_cfg(tmp_path)
+    tid = "t_hyp2"
+    inbox = {
+        "version": 1,
+        "tasks": [
+            {
+                "task_id": tid,
+                "task_type": "hypothesis_review",
+                "area_key": "events",
+                "priority": 10,
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "reason": "r",
+                "linked_hypothesis_id": "X",
+                "linked_case_id": None,
+                "required_for_area_progress": True,
+                "status": "pending",
+                "assigned_to": None,
+            }
+        ],
+    }
+    (tmp_path / "data/dojo/validation_inbox.json").write_text(json.dumps(inbox), encoding="utf-8")
+    g0, per0 = compute_debt_metrics(inbox, tmp_path)
+    pending_eff = per0["events"]["effective_validation_debt"]
+
+    update_task_status(tmp_path, tid, "dismissed", dismiss_reason="explained")
+    inbox_d = load_inbox(tmp_path)
+    g1, per1 = compute_debt_metrics(inbox_d, tmp_path)
+    assert per1["events"]["pending_debt_score"] == 0
+    assert per1["events"]["dismissal_residual_debt_score"] > 0
+    assert per1["events"]["effective_validation_debt"] < pending_eff
+    assert per1["events"]["effective_validation_debt"] > 0
+    assert per1["events"]["honest_validation_closure_score"] == 0.0
+    t = inbox_d["tasks"][0]
+    assert t.get("closure_quality") == "dismissed_with_reason"
+    assert g1["debt_dismissed_count"] == 1
+    assert g1["debt_resolved_count"] == 0
+
+
+def test_mass_dismiss_does_not_yield_honest_maturity(tmp_path: Path):
+    _write_min_debt_cfg(tmp_path)
+    tasks = []
+    for i in range(4):
+        tasks.append(
+            {
+                "task_id": f"d{i}",
+                "task_type": "hypothesis_review",
+                "area_key": "events",
+                "priority": 8,
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "reason": "r",
+                "required_for_area_progress": False,
+                "status": "dismissed",
+                "dismiss_reason": "",
+                "close_reason": None,
+            }
+        )
+    inbox = {"version": 1, "tasks": tasks}
+    (tmp_path / "data/dojo/validation_inbox.json").write_text(json.dumps(inbox), encoding="utf-8")
+    g, per = compute_debt_metrics(inbox, tmp_path)
+    assert per["events"]["honest_validation_closure_score"] == 0.0
+    # Deuda efectiva sigue alta: dismiss no vacía el score como un done honesto.
+    assert per["events"]["effective_validation_debt"] > 5

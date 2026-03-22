@@ -315,13 +315,54 @@ def _pending_tasks(tasks: List[dict]) -> List[dict]:
     return [t for t in tasks if (t.get("status") or "pending") == "pending"]
 
 
+def _task_weight_raw(t: dict, weights: Dict[str, float]) -> float:
+    tt = t.get("task_type") or ""
+    w = float(weights.get(tt, 1.0))
+    pr = int(t.get("priority") or 5)
+    return w * (pr / 10.0)
+
+
+def _empty_area_metrics() -> dict:
+    return {
+        "pending_validation_tasks_count": 0,
+        "pending_hypothesis_reviews_count": 0,
+        "pending_rule_reviews_count": 0,
+        "pending_compset_reviews_count": 0,
+        "pending_decision_reviews_count": 0,
+        "pending_other_count": 0,
+        "required_pending_count": 0,
+        "pending_debt_raw": 0.0,
+        "dismissal_residual_raw": 0.0,
+        "resolved_weight_sum": 0.0,
+        "dismissed_full_weight_sum": 0.0,
+        "done_tasks_count": 0,
+        "dismissed_tasks_count": 0,
+        "validation_debt_score": 0.0,
+        "pending_debt_score": 0.0,
+        "dismissal_residual_debt_score": 0.0,
+        "effective_validation_debt": 0.0,
+        "honest_validation_closure_score": None,
+        "area_blocked_by_validation": False,
+    }
+
+
 def compute_debt_metrics(
     inbox: dict,
     base: Optional[Path] = None,
 ) -> Tuple[dict, Dict[str, dict]]:
-    """Métricas globales y por area_key."""
+    """
+    Métricas globales y por area_key.
+
+    - validation_debt_score / effective_validation_debt: deuda efectiva = pendiente + residual por
+      tareas *dismissed* (no limpia como un done honesto).
+    - done: no añade deuda; alimenta honest_validation_closure_score.
+    - dismissed: añade fracción del peso según dismissed_residual_* (con/sin motivo).
+    """
     cfg = load_debt_config(base)
     weights = cfg.get("task_weights") or {}
+    rf_reason = float(cfg.get("dismissed_residual_with_reason") or 0.22)
+    rf_no_reason = float(cfg.get("dismissed_residual_without_reason") or 0.42)
+    honest_k = float(cfg.get("honest_closure_dismiss_weight") or 0.55)
     overdue_days = int(cfg.get("overdue_days") or 7)
     tasks = inbox.get("tasks") or []
     pending = _pending_tasks(tasks)
@@ -330,50 +371,72 @@ def compute_debt_metrics(
     per_area: Dict[str, dict] = {}
 
     def bucket(a: str) -> dict:
-        per_area.setdefault(
-            a,
-            {
-                "pending_validation_tasks_count": 0,
-                "pending_hypothesis_reviews_count": 0,
-                "pending_rule_reviews_count": 0,
-                "pending_compset_reviews_count": 0,
-                "pending_decision_reviews_count": 0,
-                "pending_other_count": 0,
-                "required_pending_count": 0,
-                "validation_debt_score": 0.0,
-                "area_blocked_by_validation": False,
-            },
-        )
+        if a not in per_area:
+            per_area[a] = _empty_area_metrics()
         return per_area[a]
 
-    for t in pending:
+    debt_resolved_count = 0
+    debt_dismissed_count = 0
+
+    for t in tasks:
         ak = t.get("area_key") or "_global"
         b = bucket(ak)
+        st = (t.get("status") or "pending").strip()
         tt = t.get("task_type") or ""
-        if tt == "validation_case":
-            b["pending_validation_tasks_count"] += 1
-        elif tt == "hypothesis_review":
-            b["pending_hypothesis_reviews_count"] += 1
-        elif tt == "rule_review":
-            b["pending_rule_reviews_count"] += 1
-        elif tt == "compset_review":
-            b["pending_compset_reviews_count"] += 1
-        elif tt == "decision_review":
-            b["pending_decision_reviews_count"] += 1
-        else:
-            b["pending_other_count"] += 1
-        if t.get("required_for_area_progress"):
-            b["required_pending_count"] += 1
-        w = float(weights.get(tt, 1.0))
-        pr = int(t.get("priority") or 5)
-        b["validation_debt_score"] += w * (pr / 10.0)
+        raw_w = _task_weight_raw(t, weights)
+
+        if st == "pending":
+            if tt == "validation_case":
+                b["pending_validation_tasks_count"] += 1
+            elif tt == "hypothesis_review":
+                b["pending_hypothesis_reviews_count"] += 1
+            elif tt == "rule_review":
+                b["pending_rule_reviews_count"] += 1
+            elif tt == "compset_review":
+                b["pending_compset_reviews_count"] += 1
+            elif tt == "decision_review":
+                b["pending_decision_reviews_count"] += 1
+            else:
+                b["pending_other_count"] += 1
+            if t.get("required_for_area_progress"):
+                b["required_pending_count"] += 1
+            b["pending_debt_raw"] += raw_w
+        elif st == "dismissed":
+            b["dismissed_tasks_count"] += 1
+            debt_dismissed_count += 1
+            b["dismissed_full_weight_sum"] += raw_w
+            reason = (t.get("close_reason") or t.get("dismiss_reason") or "").strip()
+            rf = rf_reason if reason else rf_no_reason
+            b["dismissal_residual_raw"] += rf * raw_w
+        elif st == "done":
+            b["done_tasks_count"] += 1
+            debt_resolved_count += 1
+            b["resolved_weight_sum"] += raw_w
 
     block_req = int(cfg.get("block_if_required_pending") or 3)
     block_debt = float(cfg.get("block_validation_debt_score") or 72)
 
     for ak, b in per_area.items():
-        raw = b["validation_debt_score"]
-        b["validation_debt_score"] = round(min(100.0, raw * 4.0), 1)
+        p_raw = float(b["pending_debt_raw"])
+        d_raw = float(b["dismissal_residual_raw"])
+        eff_raw = p_raw + d_raw
+        b["pending_debt_score"] = round(min(100.0, p_raw * 4.0), 1)
+        b["dismissal_residual_debt_score"] = round(min(100.0, d_raw * 4.0), 1)
+        b["effective_validation_debt"] = round(min(100.0, eff_raw * 4.0), 1)
+        b["validation_debt_score"] = b["effective_validation_debt"]
+
+        rw = float(b["resolved_weight_sum"])
+        dw = float(b["dismissed_full_weight_sum"])
+        if rw <= 0 and dw <= 0:
+            b["honest_validation_closure_score"] = None
+        elif rw <= 0 < dw:
+            b["honest_validation_closure_score"] = 0.0
+        else:
+            b["honest_validation_closure_score"] = round(
+                min(100.0, 100.0 * rw / (rw + honest_k * dw + 1e-9)),
+                1,
+            )
+
         b["area_blocked_by_validation"] = b["required_pending_count"] >= block_req or b["validation_debt_score"] >= block_debt
 
     overdue = 0
@@ -401,6 +464,8 @@ def compute_debt_metrics(
         "pending_compset_reviews": 0,
         "pending_decision_reviews": 0,
         "pending_other": 0,
+        "debt_resolved_count": debt_resolved_count,
+        "debt_dismissed_count": debt_dismissed_count,
     }
     for t in pending:
         tt = t.get("task_type") or "unknown"
@@ -445,17 +510,7 @@ def apply_validation_debt_to_area_score(
 
 
 def ensure_per_area_metrics(per_area: Dict[str, dict], area_keys: List[str]) -> Dict[str, dict]:
-    empty = {
-        "pending_validation_tasks_count": 0,
-        "pending_hypothesis_reviews_count": 0,
-        "pending_rule_reviews_count": 0,
-        "pending_compset_reviews_count": 0,
-        "pending_decision_reviews_count": 0,
-        "pending_other_count": 0,
-        "required_pending_count": 0,
-        "validation_debt_score": 0.0,
-        "area_blocked_by_validation": False,
-    }
+    empty = _empty_area_metrics()
     for k in area_keys:
         if k not in per_area:
             per_area[k] = dict(empty)
@@ -501,17 +556,30 @@ def mark_validation_tasks_done_for_case_path(base: Optional[Path], case_path: st
         if match:
             ak = t.get("area_key") or "_global"
             g_before, per_before = compute_debt_metrics(inbox, base)
-            debt_before = per_before.get(ak, {}).get("validation_debt_score")
+            pb0 = per_before.get(ak) or {}
+            effective_before = float(pb0.get("effective_validation_debt") or pb0.get("validation_debt_score") or 0)
+            pending_before = float(pb0.get("pending_debt_score") or 0)
+            dismiss_before = float(pb0.get("dismissal_residual_debt_score") or 0)
             t["status"] = "done"
             now = _utc_now()
             t["updated_at"] = now
             t["closed_at"] = now
             t["closed_by"] = "qa_verdict"
             t["closure_source"] = "qa_save_validation"
+            t["closure_quality"] = "resolved"
+            t["needs_revisit"] = False
             g_after, per_after = compute_debt_metrics(inbox, base)
-            debt_after = per_after.get(ak, {}).get("validation_debt_score")
-            if debt_before is not None:
-                t["validation_debt_impact"] = {"before": debt_before, "after": debt_after}
+            pa0 = per_after.get(ak) or {}
+            effective_after = float(pa0.get("effective_validation_debt") or pa0.get("validation_debt_score") or 0)
+            t["validation_debt_impact"] = {
+                "before": effective_before,
+                "after": effective_after,
+                "pending_before": pending_before,
+                "pending_after": float(pa0.get("pending_debt_score") or 0),
+                "dismissal_residual_before": dismiss_before,
+                "dismissal_residual_after": float(pa0.get("dismissal_residual_debt_score") or 0),
+                "closure_quality": "resolved",
+            }
             n += 1
     if n:
         save_inbox(base, inbox)
@@ -526,6 +594,7 @@ def update_task_status(
     dismiss_reason: Optional[str] = None,
     closed_by: Optional[str] = None,
     closure_source: Optional[str] = None,
+    close_reason: Optional[str] = None,
 ) -> Tuple[bool, str]:
     allowed = {"pending", "done", "dismissed"}
     if status not in allowed:
@@ -537,10 +606,13 @@ def update_task_status(
             continue
         found = True
         ak = t.get("area_key") or "_global"
-        debt_before = None
+        effective_before = pending_before = dismiss_before = None
         if status in ("done", "dismissed"):
             g_before, per_before = compute_debt_metrics(inbox, base)
-            debt_before = per_before.get(ak, {}).get("validation_debt_score")
+            pb0 = per_before.get(ak) or {}
+            effective_before = float(pb0.get("effective_validation_debt") or pb0.get("validation_debt_score") or 0)
+            pending_before = float(pb0.get("pending_debt_score") or 0)
+            dismiss_before = float(pb0.get("dismissal_residual_debt_score") or 0)
         t["status"] = status
         now = _utc_now()
         t["updated_at"] = now
@@ -550,12 +622,30 @@ def update_task_status(
             t["closure_source"] = (closure_source or "").strip() or "dojo_inbox_api"
         if assigned_to is not None:
             t["assigned_to"] = assigned_to
-        if dismiss_reason is not None and status == "dismissed":
-            t["dismiss_reason"] = (dismiss_reason or "").strip()
-        if status in ("done", "dismissed") and debt_before is not None:
+        if status == "done":
+            cr = (close_reason or "").strip()
+            t["close_reason"] = cr or None
+            t["closure_quality"] = "resolved"
+            t["needs_revisit"] = False
+        elif status == "dismissed":
+            cr = (dismiss_reason or close_reason or "").strip()
+            t["dismiss_reason"] = cr or None
+            t["close_reason"] = cr or None
+            t["closure_quality"] = "dismissed_with_reason" if cr else "dismissed_unspecified"
+            t["needs_revisit"] = not bool(cr)
+        if status in ("done", "dismissed") and effective_before is not None:
             g_after, per_after = compute_debt_metrics(inbox, base)
-            debt_after = per_after.get(ak, {}).get("validation_debt_score")
-            t["validation_debt_impact"] = {"before": debt_before, "after": debt_after}
+            pa0 = per_after.get(ak) or {}
+            effective_after = float(pa0.get("effective_validation_debt") or pa0.get("validation_debt_score") or 0)
+            t["validation_debt_impact"] = {
+                "before": effective_before,
+                "after": effective_after,
+                "pending_before": pending_before,
+                "pending_after": float(pa0.get("pending_debt_score") or 0),
+                "dismissal_residual_before": dismiss_before,
+                "dismissal_residual_after": float(pa0.get("dismissal_residual_debt_score") or 0),
+                "closure_quality": t.get("closure_quality"),
+            }
         break
     if not found:
         return False, "task_id no encontrado"

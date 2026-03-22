@@ -640,6 +640,8 @@ def run_knowledge_refresh(
         area_row = next((x for x in areas_before if x.get("area_key") == ak), {})
         mult = dojo_candidate_multiplier_for_area(area_row, kb_refresh, len(areas_before))
         n_cand = max(1, min(5, int(round(n_base * mult))))
+        # Cap: un candidato por (area_key, run_id) para no llenar la cola con duplicados del mismo refresh.
+        n_cand = min(n_cand, 1)
         e_ids = spec.get("engine_rule_ids") or []
 
         for j in range(n_cand):

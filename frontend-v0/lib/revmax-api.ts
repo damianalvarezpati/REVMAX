@@ -219,6 +219,8 @@ export interface ValidationInboxFullResponse {
     pending_compset_reviews?: number;
     pending_decision_reviews?: number;
     pending_other?: number;
+    debt_resolved_count?: number;
+    debt_dismissed_count?: number;
   };
   per_area_metrics: Record<string, Record<string, unknown>>;
   blocked_areas?: { area_key: string; validation_debt_score?: number; required_pending_count?: number }[];
@@ -289,6 +291,7 @@ export async function updateValidationInboxTask(
     status: 'done' | 'dismissed' | 'pending';
     assigned_to?: string;
     dismiss_reason?: string;
+    close_reason?: string;
     closed_by?: string;
     closure_source?: string;
   },
